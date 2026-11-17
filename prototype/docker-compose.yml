@@ -1,0 +1,17 @@
+services:
+  db:
+    image: postgres:16
+    container_name: star-quest-db
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: starquest
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      # 처음 실행할 때만 db/init 안의 SQL이 이름 순서대로 실행됨
+      - ./db/init:/docker-entrypoint-initdb.d
+
+volumes:
+  db-data:
