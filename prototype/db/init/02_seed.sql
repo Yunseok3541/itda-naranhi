@@ -28,6 +28,10 @@ INSERT INTO stars (constellation_id, position, title, description, verify_type) 
   (3, 5, '청년센터 홈페이지에서 프로그램 둘러보기', '어떤 프로그램이 있는지 구경만 해요.', 'self'),
   (3, 6, '편의점 다녀오기', '가까운 편의점에 들러요.', 'photo');
 
+-- 청년센터 단계별 퀘스트 표시 (나머지는 기본값 daily)
+UPDATE stars SET category = 'center'
+WHERE (constellation_id, position) IN ((1, 5), (3, 5));
+
 -- 데모 사용자 (Lv.1, 1단계 시작, 지역은 예시: 서울 마포구 11440)
 INSERT INTO users (nickname, level, current_stage, region_code, birth_year, share_in_sky)
 VALUES ('데모', 1, 1, '11440', 2000, true);

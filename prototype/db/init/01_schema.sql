@@ -50,6 +50,9 @@ CREATE TABLE stars (
   description       TEXT,
   verify_type       VARCHAR(10) NOT NULL DEFAULT 'self'
                     CHECK (verify_type IN ('self', 'photo', 'gps', 'receipt')),
+  -- 퀘스트 종류: 일상 / 청년센터 단계별 퀘스트 / 봉사 (청년센터 퀘스트 완료율 지표용)
+  category          VARCHAR(10) NOT NULL DEFAULT 'daily'
+                    CHECK (category IN ('daily', 'center', 'volunteer')),
   UNIQUE (constellation_id, position)
 );
 
@@ -144,6 +147,15 @@ CREATE TABLE youth_centers (
   lng          DOUBLE PRECISION
 );
 
+-- 추천 정책 노출·원문 클릭 기록 ("추천 정책 원문 확인 비율" 지표용)
+CREATE TABLE policy_events (
+  id          SERIAL PRIMARY KEY,
+  user_id     INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  policy_id   INT NOT NULL REFERENCES policies(id) ON DELETE CASCADE,
+  event       VARCHAR(10) NOT NULL CHECK (event IN ('shown', 'clicked')),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 ------------------------------------------------------------
 -- 5. 인덱스
 ------------------------------------------------------------
@@ -153,6 +165,7 @@ CREATE INDEX idx_attempts_star_time  ON star_attempts (star_id, created_at);
 CREATE INDEX idx_checkins_user_time  ON checkins (user_id, created_at DESC);
 CREATE INDEX idx_policies_stage      ON policies (stage, region_code);
 CREATE INDEX idx_centers_region      ON youth_centers (region_code);
+CREATE INDEX idx_policy_events       ON policy_events (policy_id, event);
 
 ------------------------------------------------------------
 -- 6. 뷰 (화면과 발표 지표에서 바로 쓰는 조회)
@@ -186,3 +199,21 @@ SELECT count(*)                                   AS split_attempts,
        round(100.0 * count(*) FILTER (WHERE status = 'bright') / NULLIF(count(*), 0), 1) AS success_rate
 FROM star_attempts
 WHERE parent_attempt_id IS NOT NULL;
+
+-- 발표 지표: 추천 정책 원문 확인 비율 (추천을 본 사용자 중 원문을 연 사용자 비율)
+CREATE VIEW v_policy_click_rate AS
+SELECT count(DISTINCT (user_id, policy_id)) FILTER (WHERE event = 'shown')   AS shown_pairs,
+       count(DISTINCT (user_id, policy_id)) FILTER (WHERE event = 'clicked') AS clicked_pairs,
+       round(100.0 * count(DISTINCT (user_id, policy_id)) FILTER (WHERE event = 'clicked')
+             / NULLIF(count(DISTINCT (user_id, policy_id)) FILTER (WHERE event = 'shown'), 0), 1) AS click_rate
+FROM policy_events;
+
+-- 발표 지표: 청년센터 퀘스트 완료율 (실제 지원으로의 연결)
+CREATE VIEW v_center_quest_rate AS
+SELECT count(DISTINCT (a.user_id, a.star_id))                                   AS tried_pairs,
+       count(DISTINCT (a.user_id, a.star_id)) FILTER (WHERE a.status = 'bright') AS bright_pairs,
+       round(100.0 * count(DISTINCT (a.user_id, a.star_id)) FILTER (WHERE a.status = 'bright')
+             / NULLIF(count(DISTINCT (a.user_id, a.star_id)), 0), 1)             AS completion_rate
+FROM star_attempts a
+JOIN stars s ON s.id = a.star_id
+WHERE s.category = 'center';
