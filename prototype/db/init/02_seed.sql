@@ -26,12 +26,15 @@ INSERT INTO stars (constellation_id, position, title, description, verify_type) 
   (3, 3, '우편함 확인하기', '우편함까지 다녀와요.', 'self'),
   (3, 4, '집 앞 계단 오르내리기', '계단을 한 층만 오르내려요.', 'self'),
   (3, 5, '청년센터 홈페이지에서 프로그램 둘러보기', '어떤 프로그램이 있는지 구경만 해요.', 'self'),
-  (3, 6, '편의점 다녀오기', '가까운 편의점에 들러요.', 'photo');
+  (3, 6, '편의점 다녀오기', '가까운 편의점에 들러요. 도착하면 별이 켜져요.', 'gps');
+
+-- GPS 별의 목표 장소 종류 (카카오 로컬로 가장 가까운 장소를 찾아 제안)
+UPDATE stars SET place_type = 'convenience' WHERE constellation_id = 3 AND position = 6;
 
 -- 청년센터 단계별 퀘스트 표시 (나머지는 기본값 daily)
 UPDATE stars SET category = 'center'
 WHERE (constellation_id, position) IN ((1, 5), (3, 5));
 
--- 데모 사용자 (Lv.1, 1단계 시작, 지역은 예시: 서울 마포구 11440)
-INSERT INTO users (nickname, level, current_stage, region_code, birth_year, share_in_sky)
-VALUES ('데모', 1, 1, '11440', 2000, true);
+-- 데모 사용자 (시작 질문: 집 안 활동만 괜찮음, 사람 만나는 게 부담, 혼자 → 1단계 시작. 지역 예시: 서울 마포구 11440)
+INSERT INTO users (nickname, start_answers, current_stage, region_code, birth_year, share_in_sky)
+VALUES ('데모', '{"range":"home","burden":["people"],"with":"alone"}', 1, '11440', 2000, true);

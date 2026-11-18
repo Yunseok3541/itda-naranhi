@@ -6,8 +6,8 @@
 CREATE TABLE users (
   id             INT          NOT NULL AUTO_INCREMENT COMMENT '사용자 ID',
   nickname       VARCHAR(30)  NOT NULL COMMENT '닉네임',
-  level          SMALLINT     NULL     COMMENT '검사 레벨(1~4, 비공개)',
-  current_stage  SMALLINT     NOT NULL DEFAULT 1 COMMENT '열린 가장 높은 단계(1~6)',
+  start_answers  JSON         NULL     COMMENT '시작 질문 답(활동 범위·부담 상황·혼자/함께)',
+  current_stage  SMALLINT     NOT NULL DEFAULT 1 COMMENT '추천 기준 단계(1~6)',
   region_code    CHAR(5)      NULL     COMMENT '법정 시군구 코드',
   birth_year     SMALLINT     NULL     COMMENT '출생연도',
   share_in_sky   BOOLEAN      NOT NULL DEFAULT FALSE COMMENT '같은 하늘의 별 집계 동의',
@@ -21,12 +21,10 @@ CREATE TABLE survey_results (
   answers     JSON      NOT NULL COMMENT '문항별 응답',
   ucla_score  SMALLINT  NOT NULL COMMENT 'UCLA 외로움 점수',
   spin_score  SMALLINT  NOT NULL COMMENT 'Mini-SPIN 점수',
-  level       SMALLINT  NOT NULL COMMENT '산출 레벨(1~4)',
-  weather     VARCHAR(20) NOT NULL COMMENT '첫 마음 날씨',
-  created_at  DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '검사 시각',
+  created_at  DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '점검 시각',
   PRIMARY KEY (id),
   FOREIGN KEY (user_id) REFERENCES users (id)
-) COMMENT '심리 검사 결과';
+) COMMENT '선택형 마음 점검';
 
 CREATE TABLE constellations (
   id          INT          NOT NULL AUTO_INCREMENT COMMENT '별자리 ID',
@@ -43,7 +41,8 @@ CREATE TABLE stars (
   position          SMALLINT     NOT NULL COMMENT '별자리 안 순서',
   title             VARCHAR(100) NOT NULL COMMENT '퀘스트 이름',
   description       TEXT         NULL     COMMENT '퀘스트 설명',
-  verify_type       VARCHAR(10)  NOT NULL DEFAULT 'self' COMMENT '인증 방식(self/photo/gps/receipt)',
+  verify_type       VARCHAR(10)  NOT NULL DEFAULT 'self' COMMENT '기본 확인 방식(self/photo/gps)',
+  place_type        VARCHAR(20)  NULL     COMMENT 'GPS 목표 장소 종류',
   category          VARCHAR(10)  NOT NULL DEFAULT 'daily' COMMENT '퀘스트 종류(daily/center/volunteer)',
   PRIMARY KEY (id),
   UNIQUE (constellation_id, position),
@@ -67,9 +66,14 @@ CREATE TABLE star_attempts (
   parent_attempt_id  INT          NULL     COMMENT '실패했던 시도 ID(AI 쪼갠 별)',
   custom_title       VARCHAR(100) NULL     COMMENT 'AI가 쪼갠 퀘스트 이름',
   status             VARCHAR(10)  NOT NULL COMMENT '상태(dim 희미한 별/bright 밝은 별)',
-  photo_path         TEXT         NULL     COMMENT '인증 사진 경로',
+  verify_method      VARCHAR(10)  NOT NULL DEFAULT 'self' COMMENT '실제 확인 방식(self/photo/gps)',
+  place_id           VARCHAR(30)  NULL     COMMENT '도착 확인 장소 ID(카카오)',
+  place_name         VARCHAR(100) NULL     COMMENT '도착 확인 장소명',
+  photo_path         TEXT         NULL     COMMENT '사진 경로(선택)',
   reflection         VARCHAR(300) NULL     COMMENT '회고 한 줄',
   cheer              TEXT         NULL     COMMENT 'AI 맞춤 응원',
+  stop_reason        VARCHAR(20)  NULL     COMMENT '손 뻗어 보기 이유',
+  next_action        VARCHAR(10)  NULL     COMMENT '다음 행동(smaller/retry/swap/stop)',
   created_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '시도 시각',
   PRIMARY KEY (id),
   FOREIGN KEY (user_id) REFERENCES users (id),
@@ -81,7 +85,9 @@ CREATE TABLE checkins (
   id          INT          NOT NULL AUTO_INCREMENT COMMENT '체크인 ID',
   user_id     INT          NOT NULL COMMENT '사용자 ID',
   text        VARCHAR(300) NOT NULL COMMENT '한 줄 일기',
-  weather     VARCHAR(20)  NOT NULL COMMENT '마음 날씨',
+  weather     VARCHAR(20)  NOT NULL COMMENT 'AI가 고른 마음 날씨',
+  user_weather VARCHAR(20) NULL COMMENT '사용자가 고친 마음 날씨',
+  today_choice VARCHAR(10) NULL COMMENT '오늘의 선택(rest/home/near/out)',
   risk        VARCHAR(10)  NOT NULL COMMENT '위험도(normal/caution/danger)',
   created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '체크인 시각',
   PRIMARY KEY (id),
@@ -131,6 +137,18 @@ CREATE TABLE policy_events (
   FOREIGN KEY (user_id) REFERENCES users (id),
   FOREIGN KEY (policy_id) REFERENCES policies (id)
 ) COMMENT '정책 노출·클릭 기록';
+
+CREATE TABLE inquiry_drafts (
+  id          INT          NOT NULL AUTO_INCREMENT COMMENT '초안 ID',
+  user_id     INT          NOT NULL COMMENT '사용자 ID',
+  center_id   INT          NULL     COMMENT '청년센터 ID',
+  question    VARCHAR(300) NULL     COMMENT '궁금한 점',
+  draft       TEXT         NOT NULL COMMENT '문의 문장 초안',
+  sent_at     DATETIME     NULL     COMMENT '문의했다고 기록한 시각',
+  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '작성 시각',
+  PRIMARY KEY (id),
+  FOREIGN KEY (user_id) REFERENCES users (id)
+) COMMENT '문의 문장 초안';
 
 CREATE TABLE youth_centers (
   id           INT          NOT NULL AUTO_INCREMENT COMMENT '청년센터 ID',

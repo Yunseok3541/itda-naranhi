@@ -1,6 +1,6 @@
 # 별자리 사회화 퀘스트 (프로토타입)
 
-> 서비스 이름 미정. 기획은 상위 폴더의 `아이디어_v3.md`, 결정 과정은 `고민기록.md` 참고
+> 서비스 이름 미정. 기획은 상위 폴더의 `아이디어_v4.md`, 결정 과정은 `고민기록.md` 참고
 
 ## 스택 (비용 0원)
 
@@ -43,6 +43,8 @@ docker compose up -d
 docker compose down -v && docker compose up -d
 ```
 
+> ⚠ `down -v`는 DB 볼륨을 지워서 **기존 데이터가 모두 삭제**됩니다. 데이터를 남겨야 하면 바뀐 컬럼·뷰만 `ALTER TABLE ... ADD COLUMN`, `CREATE VIEW`로 직접 추가하세요.
+
 ### 4. 앱 실행
 
 ```bash
@@ -68,8 +70,10 @@ psql -U app -d starquest -f db/init/01_schema.sql -f db/init/02_seed.sql
 db/init/              테이블 생성(01), 예시 데이터(02)
 src/lib/db.ts         DB 연결
 src/lib/gemini.ts     Gemini 호출 공통 함수 (JSON 스키마 + 실패 시 기본값)
-src/lib/safety.ts     위험 표현 규칙, 안내 문구
+src/lib/safety.ts     위험 표현 규칙(직접·간접 2단계), AI 실패 시 판단(assessRisk), 안내 문구
+src/lib/weather.ts    마음 날씨 종류
 src/app/api/checkin   AI ② 체크인 → 마음 날씨 + AI ③ 위험 감지 (다른 AI 기능의 참고 예시)
+src/app/api/checkin/weather  마음 날씨 직접 고치기 (AI 한계 대응)
 src/app/api/health    세팅 확인용
 ```
 
@@ -81,7 +85,8 @@ src/app/api/health    세팅 확인용
 | ② | 체크인 → 마음 날씨 | `api/checkin` | 완료 (예시) |
 | ③ | 위험 신호 감지 | `lib/safety.ts` + 각 API | 체크인에 적용됨, 회고에도 적용 필요 |
 | ④ | 회고 맞춤 응원 | `api/reflection` | TODO |
-| ⑤ | 단계별 정책 추천 | `scripts/classify-policies.ts`(미리 분류) + `api/policies` | TODO |
+| ⑤ | 정책 참여 부담 분류 | `scripts/classify-policies.ts`(미리 분류) + `api/policies` | TODO |
+| ⑥ | 문의 문장 초안 | `api/inquiry` | TODO |
 
 새 AI 기능은 `api/checkin/route.ts`와 같은 순서로 만듭니다.
 **입력 검증 → (규칙 검사) → `generateJson`(스키마 + 기본값) → DB 저장 → 응답**
