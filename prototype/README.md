@@ -1,13 +1,14 @@
-# 별자리 사회화 퀘스트 (프로토타입)
+# prototype (Next.js 시험 구현, 참고용)
 
-> 서비스 이름 미정. 기획은 `docs/기획/아이디어_v4.md`, 결정 과정은 `docs/고민기록.md` 참고
+> 팀 스택을 정하기 전에 혼자 먼저 만들어 본 시험 구현. 실제 개발은 루트의 `frontend/`, `backend/`에서 진행하며, 이 폴더의 API 계약·위험 판단 로직·프롬프트를 옮겨 쓴다.
+> 기획은 `docs/기획/아이디어_v4.md`, 결정 과정은 `docs/고민기록.md` 참고
 
 ## 스택 (비용 0원)
 
 | 영역 | 선택 |
 | ---- | ---- |
 | 앱 | Next.js 16 + TypeScript + Tailwind CSS (모바일 웹) |
-| 애니메이션 | motion (별 점등, 별자리 완성 연출) |
+| 애니메이션 | motion (별 따기, 별자리 완성 연출) |
 | AI | Gemini 무료 API (`@google/genai`) |
 | DB | 로컬 PostgreSQL 16 (Docker Compose) |
 | 지도 | 카카오맵 JS SDK |
@@ -30,13 +31,14 @@ cp .env.example .env.local
 `.env.local`에 `GEMINI_API_KEY`를 넣습니다 ([AI Studio](https://aistudio.google.com/apikey)에서 무료 발급).
 키가 없어도 앱은 기본값으로 동작합니다.
 
-### 3. DB 실행
+### 3. DB 실행 (저장소 루트에서)
 
 ```bash
+cd ..                  # 저장소 루트 (docker-compose.yml 위치)
 docker compose up -d
 ```
 
-처음 실행할 때 `db/init/`의 SQL(테이블 생성 → 예시 데이터)이 자동으로 들어갑니다.
+처음 실행할 때 루트 `db/init/`의 SQL(테이블 생성 → 예시 데이터)이 자동으로 들어갑니다.
 스키마를 바꾼 뒤 처음부터 다시 만들려면:
 
 ```bash
@@ -61,13 +63,13 @@ brew install postgresql@16
 brew services start postgresql@16
 createuser -s app && psql -d postgres -c "ALTER USER app PASSWORD 'app';"
 createdb -O app starquest
-psql -U app -d starquest -f db/init/01_schema.sql -f db/init/02_seed.sql
+psql -U app -d starquest -f ../db/init/01_schema.sql -f ../db/init/02_seed.sql
 ```
 
 ## 폴더 구조
 
 ```
-db/init/              테이블 생성(01), 예시 데이터(02)
+(DB 스키마·시드는 저장소 루트 db/init/ 으로 이동)
 src/lib/db.ts         DB 연결
 src/lib/gemini.ts     Gemini 호출 공통 함수 (JSON 스키마 + 실패 시 기본값)
 src/lib/safety.ts     위험 표현 규칙(직접·간접 2단계), AI 실패 시 판단(assessRisk), 안내 문구
@@ -81,7 +83,7 @@ src/app/api/health    세팅 확인용
 
 | # | 기능 | 위치 | 상태 |
 | - | ---- | ---- | ---- |
-| ① | 오늘의 별 추천 + 실패한 별 쪼개기 | `api/recommend` | TODO |
+| ① | 오늘의 별 추천 + 시도한 별 다음 행동 | `api/recommend` | TODO |
 | ② | 체크인 → 마음 날씨 | `api/checkin` | 완료 (예시) |
 | ③ | 위험 신호 감지 | `lib/safety.ts` + 각 API | 체크인에 적용됨, 회고에도 적용 필요 |
 | ④ | 회고 맞춤 응원 | `api/reflection` | TODO |

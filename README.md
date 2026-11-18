@@ -10,29 +10,63 @@
 ## 폴더 구조
 
 ```
-docs/
-  기획/            아이디어_v1 ~ v4 (v4가 최신 기획)
-  고민기록.md      결정 과정과 이유, 예상 질문 (#1~)
-  기술스택.md      기술 스택, DB 설계
-  작업메모.md      이어서 작업할 때 먼저 볼 것 (할 일, 결정 요약)
-  참고자료/        심사 기준 등
-prototype/         Next.js 프로토타입 (실행 방법은 prototype/README.md)
+itda-naranhi/
+├── frontend/                  # 프론트엔드 (스택 미정)
+│   └── README.md              #   화면 목록, 구현 시 주의할 점
+│
+├── backend/                   # 백엔드 (스택 미정)
+│   └── README.md              #   API 요청·응답 형식, 지켜야 할 원칙
+│
+├── db/                        # PostgreSQL (프론트·백엔드 공용)
+│   ├── init/
+│   │   ├── 01_schema.sql      #   테이블·뷰 생성
+│   │   └── 02_seed.sql        #   예시 데이터 (별자리, 별, 데모 사용자)
+│   └── erdcloud.sql           #   ERDCloud 확인용 DDL
+├── docker-compose.yml         # DB 실행 (docker compose up -d)
+│
+├── prototype/                 # Next.js 시험 구현 (참고용)
+│   ├── src/app/api/           #   체크인·날씨 수정·상태 확인 API
+│   ├── src/lib/               #   AI 호출, 위험 판단 규칙, DB 연결
+│   └── README.md              #   실행 방법
+│
+└── docs/                      # 기획·결정 문서
+    ├── 기획/
+    │   ├── 아이디어_v1.md      #   1차 회의록
+    │   ├── 아이디어_v2.md      #   단계·별 밝기·공공 API
+    │   ├── 아이디어_v3.md      #   심사 기준 반영, AI 기능
+    │   └── 아이디어_v4.md      #   ★ 최신 기획 (피드백 반영)
+    ├── 고민기록.md             #   결정 과정과 이유, 예상 질문
+    ├── 기술스택.md             #   기술 스택, DB 설계
+    ├── 작업메모.md             #   ★ 이어서 작업할 때 먼저 볼 것
+    └── 참고자료/               #   심사 기준
 ```
+
+### 처음 왔다면 이 순서로 읽어 보세요
+
+1. [docs/기획/아이디어_v4.md](docs/기획/아이디어_v4.md): 무엇을 만드는지 (최신 기획)
+2. [docs/작업메모.md](docs/작업메모.md): 지금 어디까지 했고 무엇이 남았는지
+3. [docs/고민기록.md](docs/고민기록.md): 왜 이렇게 정했는지
+4. 개발을 맡았다면 [frontend/README.md](frontend/README.md) 또는 [backend/README.md](backend/README.md)
 
 ## 빠른 시작
 
 ```bash
 git clone https://github.com/Yunseok3541/itda-naranhi.git
-cd itda-naranhi/prototype
+cd itda-naranhi
+docker compose up -d           # DB 실행 (Docker Desktop 필요)
+
+# 지금 동작하는 시험 구현 (prototype)
+cd prototype
 npm install
 cp .env.example .env.local     # GEMINI_API_KEY 등 입력
-docker compose up -d           # Docker Desktop 필요
 npm run dev                    # http://localhost:3000/api/health
 ```
 
 ## 기술 스택
 
-Next.js 16 + TypeScript + Tailwind CSS (모바일 웹) · Gemini API · PostgreSQL 16 (Docker) · 카카오맵 · 공공데이터(온통청년, 복지서비스, 1365)
+**프론트엔드·백엔드 스택은 팀에서 결정 예정.** 정해진 것: PostgreSQL 16 (Docker) · 카카오맵 · 공공데이터(온통청년, 복지서비스, 1365) · AI는 서버에서만 호출
+
+시험 구현(prototype): Next.js 16 + TypeScript + Tailwind CSS · Gemini API
 
 자세한 내용은 [docs/기술스택.md](docs/기술스택.md)를 참고하세요.
 
