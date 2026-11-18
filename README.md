@@ -50,18 +50,19 @@ itda-naranhi/
 
 ```bash
 git clone https://github.com/Yunseok3541/itda-naranhi.git
-cd itda-naranhi
-docker compose up -d           # 로컬 DB (Docker Desktop 필요, 없으면 web/README.md의 Neon 방법)
-
-cd web
+cd itda-naranhi/web
 npm install
-cp .env.example .env.local     # GEMINI_API_KEY 등 입력
+cp .env.example .env.local     # DATABASE_URL(팀 DM으로 공유), GEMINI_API_KEY 입력
 npm run dev                    # http://localhost:3000/api/health
 ```
 
+> **DB는 팀 공용 Neon PostgreSQL을 사용합니다.** Docker는 필요 없습니다.
+> 연결 주소는 팀 DM으로 공유하며, README·코드에 절대 쓰지 않습니다.
+> 오프라인 개발용 로컬 DB가 필요하면 저장소 루트에서 `docker compose up -d` (선택)
+
 ## 기술 스택
 
-Next.js 16 + TypeScript + Tailwind CSS (화면과 API를 한 프로젝트에서) · Gemini API · PostgreSQL (Neon) · 카카오맵 · 공공데이터(온통청년, 복지서비스, 1365) · **Vercel 배포**
+Next.js 16 + TypeScript + Tailwind CSS (화면과 API를 한 프로젝트에서) · Gemini API · PostgreSQL (Neon 공용 DB, 로컬 Docker는 선택) · 카카오맵 · 공공데이터(온통청년, 복지서비스, 1365) · **Vercel 배포**
 
 자세한 내용은 [docs/기술스택.md](docs/기술스택.md), 배포 방법은 [web/README.md](web/README.md)를 참고하세요.
 

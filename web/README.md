@@ -11,18 +11,25 @@
 | 앱 | Next.js 16 + TypeScript + Tailwind CSS (모바일 웹) |
 | 애니메이션 | motion (별 따기, 별자리 완성 연출) |
 | AI | Gemini 무료 API (`@google/genai`), API에서만 호출 |
-| DB | PostgreSQL (배포: Neon / 로컬: Docker 또는 Neon 개발용 DB) |
+| DB | PostgreSQL (팀 공용 Neon / 로컬 Docker는 선택) |
 | 지도 | 카카오맵 JS SDK |
 | 배포 | Vercel |
+
+## 실행 환경
+
+- **DB: 팀 공용 Neon PostgreSQL** (연결 주소는 팀 DM, `DATABASE_URL`에 pooler 주소 사용)
+  - 스키마: `db/init/01_schema.sql`, 예시 데이터: `02_seed.sql` (Neon에 적용 완료, 데모 사용자 `users.id = 1`)
+  - **스키마를 바꾸면 Neon SQL Editor에서도 반영**해야 함. 공용 DB라 바꾸기 전에 팀에 먼저 알리기
+  - `02_seed.sql`은 다시 실행하지 않기 (데이터가 중복됨)
+- 로컬 DB(선택): 루트에서 `docker compose up -d` (`postgres://app:app@localhost:5432/starquest`)
+- 환경 변수 예시: `web/.env.example` 참고
 
 ## 로컬에서 실행하기
 
 ### 1. 준비물 (한 번만)
 
 - Node.js 20 이상
-- DB 둘 중 하나
-  - **Docker Desktop** → 저장소 루트에서 `docker compose up -d` (처음 실행 시 루트 `db/init/`의 SQL이 자동으로 들어감)
-  - **Docker 없이:** Neon에 개발용 DB를 하나 만들고 SQL Editor에서 `db/init/01_schema.sql`, `02_seed.sql`을 차례로 실행
+- 팀 DM으로 받은 Neon `DATABASE_URL` (Docker는 필요 없음)
 
 ### 2. 환경 변수
 
@@ -30,7 +37,7 @@
 cp .env.example .env.local
 ```
 
-`.env.local`에 `DATABASE_URL`(Docker면 기본값 그대로, Neon이면 연결 주소)과 `GEMINI_API_KEY`를 넣습니다 ([AI Studio](https://aistudio.google.com/apikey)에서 무료 발급).
+`.env.local`에 `DATABASE_URL`(팀 공용 Neon 주소, 로컬 Docker면 기본값 그대로)과 `GEMINI_API_KEY`를 넣습니다 ([AI Studio](https://aistudio.google.com/apikey)에서 무료 발급).
 Gemini 키가 없어도 AI 기능은 기본값으로 동작합니다.
 
 ### 3. 실행
@@ -42,7 +49,7 @@ npm run dev
 
 - http://localhost:3000/api/health 에서 DB 연결과 Gemini 키 상태 확인
 
-### DB를 처음부터 다시 만들기 (Docker)
+### 로컬 Docker DB를 처음부터 다시 만들기 (선택)
 
 ```bash
 # 저장소 루트에서
