@@ -1,5 +1,5 @@
 -- MVP 범위: 1단계 별자리 2개 + 2단계 별자리 1개
--- 별자리 이름·퀘스트는 예시 (아이디어_v2.md 기준, 확정 시 교체)
+-- 별자리 이름·퀘스트는 예시 (docs/기획/아이디어_v2.md 기준, 확정 시 교체)
 
 INSERT INTO constellations (id, stage, name, theme, star_count) VALUES
   (1, 1, '카시오페이아자리', '하루를 여는 작은 습관', 5),
