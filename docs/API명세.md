@@ -1,9 +1,9 @@
-# backend
+# API 명세
 
-> **스택 미정.** 팀이 정하면 이 폴더에 백엔드 프로젝트를 만든다.
-> 지금 동작하는 API는 `prototype/`(Next.js 시험 구현)에 있으며, 아래 계약과 원칙을 그대로 옮기면 된다.
+> API는 Next.js 앱(`web/src/app/api/`)의 Route Handler로 구현한다 (고민기록 #27).
+> 화면은 같은 앱에서 `fetch('/api/...')`로 호출한다. 화면 쪽 내용은 [화면설계.md](화면설계.md)
 
-## 맡는 일
+## API가 맡는 일
 
 - 프론트엔드에 REST API 제공
 - DB 읽기·쓰기 (스키마: 루트 `db/init/01_schema.sql`, PostgreSQL 16)
@@ -16,14 +16,14 @@
 2. **사용자 문장(체크인·회고 등)은 모두 위험 판단을 거친다**
    - 규칙(직접 표현 → danger, 간접 표현 → caution)과 AI 판단 중 더 위험한 쪽
    - AI가 실패하면 규칙 + 부정 감정 표현으로 판단해 최소 caution
-   - 참고 구현: `prototype/src/lib/safety.ts` (`assessRisk`)
+   - 구현: `web/src/lib/safety.ts` (`assessRisk`)
 3. **DB 저장이 실패해도 위험 안내(help)는 반드시 응답**
 4. AI에는 이름 등 식별 정보를 보내지 않음, GPS 좌표·이동 경로는 저장하지 않음
 5. 오늘의 별 추천은 하루 한 번 생성해 저장 (무료 등급 호출 제한)
 
 ## API 목록
 
-### 구현됨 (prototype 기준)
+### 구현됨
 
 **`POST /api/checkin`** — AI ② 마음 날씨 + AI ③ 위기 표현 안내
 
@@ -69,5 +69,5 @@
 
 ## 실행 환경
 
-- DB: 루트에서 `docker compose up -d` (PostgreSQL 16, `postgres://app:app@localhost:5432/starquest`)
-- 환경 변수 예시: `prototype/.env.example` 참고 (스택이 정해지면 이 폴더로 옮김)
+- DB: 배포는 Neon, 로컬은 루트에서 `docker compose up -d` (`postgres://app:app@localhost:5432/starquest`) 또는 Neon 개발용 DB
+- 환경 변수 예시: `web/.env.example`
