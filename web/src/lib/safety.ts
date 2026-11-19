@@ -83,6 +83,14 @@ export function helpFor(risk: Risk) {
   return risk === "normal" ? null : HELP_MESSAGE;
 }
 
+/**
+ * AI 없이 규칙만으로 본 안내 (입력 오류·세션 없음·저장 실패처럼 AI를 부르지 않는 응답에도 help를 담기 위함).
+ * 문자열이 아니거나 비어 있으면 null
+ */
+export function ruleHelp(text: unknown) {
+  return typeof text === "string" && text.trim() ? helpFor(assessRisk(text, null)) : null;
+}
+
 // AI가 만든 문장(응원, 추천 이유, 문의 초안)에 들어가면 안 되는 표현
 // 지시·압박, 과장된 칭찬, 진단·치료처럼 들리는 말 (기획 6장 "톤·길이 제한, 금지 표현 필터")
 const AI_BANNED_PATTERNS = [

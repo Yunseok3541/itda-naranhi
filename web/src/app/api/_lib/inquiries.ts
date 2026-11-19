@@ -2,7 +2,7 @@
 // 센터 정보 + 사용자 질문만으로 초안을 만든다. 입력에 없는 숫자(전화번호·시간 등)가 들어가면 버리고 기본 틀
 import { db as pool } from "@/lib/db";
 import { generateJson } from "@/lib/gemini";
-import { assessRisk, helpFor, isSafeAiText, type Risk } from "@/lib/safety";
+import { assessRisk, helpFor, isSafeAiText, ruleHelp, type Risk } from "@/lib/safety";
 import { findCenter } from "./centers";
 import { type ApiResult, type Db, fail, KST_DATE, ok, toId } from "./http";
 
@@ -12,6 +12,7 @@ const SYSTEM = `너는 청년이 청년센터에 보낼 문의 메시지 초안�
 - 사용자가 적은 궁금한 점을 정중한 해요체 문의 문장 2~4문장으로 정리한다. "안녕하세요."로 시작한다.
 - 센터 이름과 프로그램 정보, 사용자가 적은 내용만 쓴다. 운영시간·전화번호·날짜·가격·예약 규칙 같은 사실을 지어내지 않는다.
 - 사용자가 쓰지 않은 개인 사정(건강, 상태, 이름, 나이)을 덧붙이지 않는다.
+- 프로그램 설명 문장을 따옴표로 그대로 옮겨 적지 않는다. 필요하면 프로그램 이름만 쓴다.
 - risk: 질문에 자해·자살·삶을 끝내고 싶다는 뜻이 보이면 danger, 애매하게 위험해 보이면 caution, 그 외 normal.
 지정된 JSON만 출력한다.`;
 
@@ -37,21 +38,20 @@ type DraftRow = { draftId: number; centerId: number; question: string | null; dr
 const DRAFT_COLUMNS = `id AS "draftId", center_id AS "centerId", question, draft,
   ${KST_DATE("sent_at")} AS "sentAt", ${KST_DATE("created_at")} AS date`;
 
-export function ruleHelpFromText(text: unknown) {
-  return typeof text === "string" && text.trim() ? helpFor(assessRisk(text, null)) : null;
-}
+/** 규칙만으로 본 안내 (AI를 부르지 않는 응답에도 help를 담기 위함) */
+export const ruleHelpFromText = ruleHelp;
 
 export async function createDraft(userId: number, body: unknown, db: Db = pool): Promise<ApiResult> {
   const b = (body ?? {}) as { centerId?: unknown; question?: unknown };
-  const ruleHelp = ruleHelpFromText(b.question);
+  const inputHelp = ruleHelpFromText(b.question);
   const centerId = toId(b.centerId);
-  if (centerId === null) return fail(400, "INVALID", "centerId가 필요해요.", { help: ruleHelp });
+  if (centerId === null) return fail(400, "INVALID", "centerId가 필요해요.", { help: inputHelp });
   const question = typeof b.question === "string" ? b.question.trim() : "";
   if (!question || question.length > 300) {
-    return fail(400, "INVALID", "궁금한 점을 300자 이하로 적어 주세요.", { help: ruleHelp });
+    return fail(400, "INVALID", "궁금한 점을 300자 이하로 적어 주세요.", { help: inputHelp });
   }
   const center = findCenter(centerId);
-  if (!center) return fail(404, "NOT_FOUND", "센터를 찾을 수 없어요.", { help: ruleHelp });
+  if (!center) return fail(404, "NOT_FOUND", "센터를 찾을 수 없어요.", { help: inputHelp });
 
   const centerInfo = { 센터: center.name, 프로그램: center.programs.map((p) => `${p.title}: ${p.summary}`) };
   const fallback = fallbackDraft(center.name, question);
@@ -106,14 +106,14 @@ export async function listDrafts(userId: number, rawCenterId: string | null, db:
 
 export async function updateDraft(userId: number, rawId: string, body: unknown, db: Db = pool): Promise<ApiResult> {
   const b = (body ?? {}) as { draft?: unknown; sent?: unknown };
-  const ruleHelp = ruleHelpFromText(b.draft);
+  const inputHelp = ruleHelpFromText(b.draft);
   const id = toId(rawId);
-  if (id === null) return fail(400, "INVALID", "draftId가 올바르지 않아요.", { help: ruleHelp });
+  if (id === null) return fail(400, "INVALID", "draftId가 올바르지 않아요.", { help: inputHelp });
   const draft = b.draft === undefined ? null : typeof b.draft === "string" ? b.draft.trim() : "";
   if (draft !== null && (!draft || draft.length > 1000)) {
-    return fail(400, "INVALID", "초안은 1000자 이하로 적어 주세요.", { help: ruleHelp });
+    return fail(400, "INVALID", "초안은 1000자 이하로 적어 주세요.", { help: inputHelp });
   }
-  if (b.sent !== undefined && b.sent !== true) return fail(400, "INVALID", "sent는 true만 보낼 수 있어요.", { help: ruleHelp });
+  if (b.sent !== undefined && b.sent !== true) return fail(400, "INVALID", "sent는 true만 보낼 수 있어요.", { help: inputHelp });
   if (draft === null && b.sent !== true) return fail(400, "INVALID", "draft나 sent 중 하나가 필요해요.");
 
   try {
@@ -125,10 +125,10 @@ export async function updateDraft(userId: number, rawId: string, body: unknown, 
        RETURNING ${DRAFT_COLUMNS}`,
       [id, userId, draft, b.sent === true],
     );
-    if (!rows[0]) return fail(404, "NOT_FOUND", "초안을 찾을 수 없어요.", { help: ruleHelp });
-    return ok({ ...rows[0], help: ruleHelp });
+    if (!rows[0]) return fail(404, "NOT_FOUND", "초안을 찾을 수 없어요.", { help: inputHelp });
+    return ok({ ...rows[0], help: inputHelp });
   } catch (error) {
     console.error("[inquiries] 수정 실패", error);
-    return fail(500, "SAVE_FAILED", "지금은 저장하지 못했어요. 적어 둔 글은 그대로 있어요.", { help: ruleHelp });
+    return fail(500, "SAVE_FAILED", "지금은 저장하지 못했어요. 적어 둔 글은 그대로 있어요.", { help: inputHelp });
   }
 }
