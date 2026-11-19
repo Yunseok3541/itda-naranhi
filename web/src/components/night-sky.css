@@ -376,3 +376,6 @@ html.sky-fading .panorama-canvas, html.sky-fading .sky-anchors { opacity: 0; }
   border-radius: 999px; border: 1px solid var(--star-gold-soft); background: rgba(246, 207, 125, .12);
   color: #ffe3a3; font-size: .875rem; font-weight: 650;
 }
+
+/* 다른 화면에는 하단 이동 버튼이 없으니 그만큼 비워 둔 아래 여백을 줄임 */
+.shell.night-ui { padding-bottom: calc(32px + env(safe-area-inset-bottom)); }
