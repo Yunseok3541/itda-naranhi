@@ -2,6 +2,7 @@
 // 다른 AI 기능(별 추천, 회고 응원)도 이 파일과 같은 구조로 만들면 됨:
 //   입력 검증 → (규칙) → generateJson(스키마 + 기본값) → DB 저장(실패해도 흐름 유지) → 응답
 import { db } from "@/lib/db";
+import { demoSessionRequired, lookupDemoSession } from "@/lib/demo-session";
 import { generateJson } from "@/lib/gemini";
 import { HELP_MESSAGE, assessRisk, type Risk } from "@/lib/safety";
 import { WEATHERS, isWeather, type Weather } from "@/lib/weather";
@@ -37,16 +38,27 @@ const SYSTEM = `너는 사회적 고립을 겪는 청년을 위한 앱의 체크
 진단하거나 조언하지 말고, 지정된 JSON만 출력한다.`;
 
 export async function POST(request: Request) {
+  // 사용자는 요청 본문이 아니라 데모 세션 쿠키로 정한다.
+  // 예전 클라이언트가 userId를 보내도 무시한다 (다른 사람 이름으로 저장할 수 없음)
   const body = (await request.json().catch(() => null)) as
-    | { userId?: unknown; text?: unknown; todayChoice?: unknown }
+    | { text?: unknown; todayChoice?: unknown }
     | null;
-  const userId = Number(body?.userId);
   const text = typeof body?.text === "string" ? body.text.trim() : "";
   const todayChoice = TODAY_CHOICES.includes(body?.todayChoice as TodayChoice)
     ? (body?.todayChoice as TodayChoice)
     : null;  // 선택하지 않아도 체크인은 가능
-  if (!Number.isInteger(userId) || userId <= 0 || !text || text.length > 300) {
-    return Response.json({ error: "userId와 300자 이하 text가 필요해요." }, { status: 400 });
+
+  const session = await lookupDemoSession();
+  if (session.status === "none") {
+    // 세션이 없어도 위기 표현이면 도움받을 곳은 알려 준다 (규칙만 사용, AI 호출·저장 없음)
+    const ruleOnly = text ? assessRisk(text, null) : "normal";
+    return demoSessionRequired(ruleOnly === "normal" ? undefined : { risk: ruleOnly, help: HELP_MESSAGE });
+  }
+  // session.status === "error"(DB 장애)이면 저장만 건너뛰고 날씨·위험 안내는 그대로 응답한다
+  const userId = session.status === "ok" ? session.userId : null;
+
+  if (!text || text.length > 300) {
+    return Response.json({ error: "300자 이하 text가 필요해요." }, { status: 400 });
   }
 
   const { data, usedFallback } = await generateJson<CheckinResult>({
@@ -60,16 +72,18 @@ export async function POST(request: Request) {
   // 규칙과 AI 중 더 위험한 쪽. AI가 실패했으면 기본값(normal)을 믿지 않고 규칙 + 부정 표현으로 판단
   const risk = assessRisk(text, usedFallback ? null : data.risk);
 
-  // DB 저장이 실패해도(DB 꺼짐, 없는 사용자 등) 날씨와 위험 안내는 반드시 응답한다
+  // DB 저장이 실패해도(DB 꺼짐, 세션 확인 실패 등) 날씨와 위험 안내는 반드시 응답한다
   let checkinId: number | null = null;
-  try {
-    const result = await db.query<{ id: number }>(
-      "INSERT INTO checkins (user_id, text, weather, today_choice, risk) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-      [userId, text, data.weather, todayChoice, risk],
-    );
-    checkinId = result.rows[0]?.id ?? null;
-  } catch (error) {
-    console.error("[checkin] 저장 실패, 응답은 계속 진행", error);
+  if (userId !== null) {
+    try {
+      const result = await db.query<{ id: number }>(
+        "INSERT INTO checkins (user_id, text, weather, today_choice, risk) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+        [userId, text, data.weather, todayChoice, risk],
+      );
+      checkinId = result.rows[0]?.id ?? null;
+    } catch (error) {
+      console.error("[checkin] 저장 실패, 응답은 계속 진행", (error as { code?: string }).code ?? "unknown");
+    }
   }
 
   return Response.json({
