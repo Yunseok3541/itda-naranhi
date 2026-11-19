@@ -10,10 +10,16 @@
 CREATE TABLE users (
   id             SERIAL PRIMARY KEY,
   nickname       VARCHAR(30) NOT NULL,
-  start_answers  JSONB,                 -- 시작 질문 답 {"range":"home","burden":["people"],"with":"alone"}
+  -- 시작 질문 답 (모두 선택, null = 답하지 않음. 기획: docs/기획/프로필.md)
+  -- {"range":"home","burden":["people"],"with":"alone","support":"unsure","living":"family","needs":["health"]}
+  -- 유형 이름(고립형·은둔형 등)은 저장하지 않음. 답 그대로 두고 추천할 때만 읽음
+  start_answers  JSONB,
   current_stage  SMALLINT NOT NULL DEFAULT 1 CHECK (current_stage BETWEEN 1 AND 6),  -- 추천 기준 단계 (한 단계 위까지는 사용자가 직접 열 수 있음)
   region_code    CHAR(5),                                          -- 법정 시군구 코드 (정책 필터, 같은 하늘의 별)
-  birth_year     SMALLINT,                                         -- 정책 나이 조건 필터
+  birth_year     SMALLINT,                                         -- 정책 나이 조건 필터 (선택)
+  -- 정책 신청 정보 (선택, 자격 규칙에만 쓰고 AI에 보내지 않음. 전부 지우면 NULL)
+  -- {"job":"unemployed","school":"high_grad","married":"single","income":"under_2000","special":[]}
+  policy_info    JSONB,
   share_in_sky   BOOLEAN NOT NULL DEFAULT false,                   -- 같은 하늘의 별 집계 포함 동의
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -171,26 +177,65 @@ CREATE TABLE daily_recommendations (
 -- 4. 공공 데이터 (미리 수집·분류해 저장)
 ------------------------------------------------------------
 
--- 청년정책 + 복지서비스 (AI ⑤ 분류 결과 포함)
+-- 청년정책 + 복지서비스 (AI ⑤ 분류 결과 포함, 기획: docs/기획/정책추천.md)
+-- 수집: web/scripts/sync-policies.mts (시연 지역만). 바뀐 정책은 source_updated_at으로 판별해 그 정책만 다시 분류
 CREATE TABLE policies (
   id             SERIAL PRIMARY KEY,
   source         VARCHAR(20) NOT NULL CHECK (source IN ('youth_policy', 'welfare')),
   source_id      VARCHAR(100) NOT NULL,
   title          TEXT NOT NULL,
   url            TEXT,
-  region_code    CHAR(5),               -- NULL이면 전국
+  -- 대상 지역: NULL = 전국(중앙부처), 'NN000' = 시도 전체(예: 11000 서울), 그 밖 = 시군구
+  region_code    CHAR(5),
   age_min        SMALLINT,
   age_max        SMALLINT,
   apply_start    DATE,
   apply_end      DATE,                  -- 지난 정책은 노출하지 않음
+  apply_always   BOOLEAN NOT NULL DEFAULT false,  -- 상시 모집 (apply_end 없음)
+  category       VARCHAR(30),           -- 원문 분야 (예: 주거, 일자리, 금융·복지·문화)
+  apply_method   TEXT,                  -- 원문 신청 방법
   raw            JSONB NOT NULL,        -- 원본 응답 (재분류용)
-  -- 아래는 AI 분류 결과
-  summary        TEXT,                  -- 쉬운 말 요약 (원문 링크와 함께 표시)
-  burden         VARCHAR(10) CHECK (burden IN ('online', 'phone', 'visit', 'group')),
+  source_updated_at TIMESTAMPTZ,        -- 원문 수정 시각. 바뀌면 다시 분류
+  fetched_at     TIMESTAMPTZ,           -- 마지막으로 수집에서 본 시각
+  -- 아래는 AI 분류 결과 (분류 전이면 추천하지 않음)
+  actionable     BOOLEAN,               -- 개인이 직접 신청·이용할 수 있는 정책인지 (실태조사·시스템 구축 같은 정부 사업은 false → 보여 주지 않음)
+  summary        TEXT,                  -- 쉬운 말 요약 (원문 링크와 함께 표시, 원문에 없는 숫자는 쓰지 않음)
+  burden         VARCHAR(10) CHECK (burden IN ('online', 'phone', 'visit', 'group')),  -- 가장 부담 큰 신청·참여 방식
+  -- 참여 난이도 = 별 단계와 같은 눈금 (users.current_stage와 비교)
+  --   1 집에서 온라인으로 끝 / 2 온라인 + 문자·메일 연락 / 3 혼자 한 번 방문
+  --   4 기관 이용·여러 번 방문 / 5 전화·상담·면접 등 짧은 대화 / 6 집단 프로그램·정기 참여
   stage          SMALLINT CHECK (stage BETWEEN 1 AND 6),
-  relevance      SMALLINT CHECK (relevance BETWEEN 0 AND 3),
+  difficulty_note VARCHAR(200),         -- 난이도 이유 한 줄
+  relevance      SMALLINT CHECK (relevance BETWEEN 0 AND 3),  -- 고립·은둔 청년에게 도움이 되는 정도
+  tags           TEXT[],                -- 분야 태그 (생활비, 주거, 일자리, 배움, 마음건강, 문화·여가, 사람과 함께, 건강, 금융)
   classified_at  TIMESTAMPTZ,
   UNIQUE (source, source_id)
+);
+
+-- 정책 추천 결과 (하루 한 번 생성해 저장, 오늘의 별 추천과 같은 방식)
+-- 새로고침할 때마다 AI를 부르지 않음 → 사용자당 하루 최대 1번 호출
+CREATE TABLE policy_recommendations (
+  user_id     INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  rec_date    DATE NOT NULL DEFAULT ((now() AT TIME ZONE 'Asia/Seoul')::date),
+  policy_ids  INT[] NOT NULL,
+  items       JSONB NOT NULL,           -- [{"policyId","reason"}]
+  used_fallback BOOLEAN NOT NULL DEFAULT false,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, rec_date)
+);
+
+-- 정책 수집 기록 (화면·발표의 "정책 정보 기준 시각", 새로 들어온·바뀐 정책 수)
+CREATE TABLE policy_syncs (
+  id          SERIAL PRIMARY KEY,
+  source      VARCHAR(20) NOT NULL,
+  region_code CHAR(5),
+  fetched     INT NOT NULL DEFAULT 0,   -- API에서 받은 수
+  kept        INT NOT NULL DEFAULT 0,   -- 시연 범위로 남긴 수
+  inserted    INT NOT NULL DEFAULT 0,
+  updated     INT NOT NULL DEFAULT 0,
+  classified  INT NOT NULL DEFAULT 0,
+  started_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  finished_at TIMESTAMPTZ
 );
 
 -- 문의 문장 초안 (AI ⑥). 초안만 저장해도 됨. 실제로 문의했는지는 사용자가 직접 기록(sent_at)
@@ -254,6 +299,7 @@ CREATE INDEX idx_attempts_user_time  ON star_attempts (user_id, created_at DESC)
 CREATE INDEX idx_attempts_star_time  ON star_attempts (star_id, created_at);
 CREATE INDEX idx_checkins_user_time  ON checkins (user_id, created_at DESC);
 CREATE INDEX idx_policies_stage      ON policies (stage, region_code);
+CREATE INDEX idx_policies_open       ON policies (apply_end) WHERE classified_at IS NOT NULL;
 CREATE INDEX idx_centers_region      ON youth_centers (region_code);
 CREATE INDEX idx_policy_events       ON policy_events (policy_id, event);
 CREATE INDEX idx_center_events       ON center_events (center_id, event);

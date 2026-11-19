@@ -7,10 +7,11 @@
 CREATE TABLE users (
   id             INT          NOT NULL AUTO_INCREMENT COMMENT '사용자 ID',
   nickname       VARCHAR(30)  NOT NULL COMMENT '닉네임',
-  start_answers  JSON         NULL     COMMENT '시작 질문 답(활동 범위·부담 상황·혼자/함께)',
+  start_answers  JSON         NULL     COMMENT '시작 질문 답(활동 범위·부담 상황·혼자/함께·기댈 사람·생활 형태·필요한 것, 모두 선택)',
   current_stage  SMALLINT     NOT NULL DEFAULT 1 COMMENT '추천 기준 단계(1~6)',
   region_code    CHAR(5)      NULL     COMMENT '법정 시군구 코드',
-  birth_year     SMALLINT     NULL     COMMENT '출생연도',
+  birth_year     SMALLINT     NULL     COMMENT '출생연도(선택)',
+  policy_info    JSON         NULL     COMMENT '정책 신청 정보(취업·학력·결혼·연소득·해당 상황, 선택, AI 미전송)',
   share_in_sky   BOOLEAN      NOT NULL DEFAULT FALSE COMMENT '같은 하늘의 별 집계 동의',
   created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '가입 시각',
   PRIMARY KEY (id)
@@ -143,20 +144,53 @@ CREATE TABLE policies (
   source_id      VARCHAR(100) NOT NULL COMMENT '출처 원본 ID',
   title          TEXT         NOT NULL COMMENT '정책명',
   url            TEXT         NULL     COMMENT '원문 링크',
-  region_code    CHAR(5)      NULL     COMMENT '시군구 코드(없으면 전국)',
+  region_code    CHAR(5)      NULL     COMMENT '대상 지역(없으면 전국, NN000은 시도 전체)',
   age_min        SMALLINT     NULL     COMMENT '최소 나이',
   age_max        SMALLINT     NULL     COMMENT '최대 나이',
   apply_start    DATE         NULL     COMMENT '신청 시작일',
   apply_end      DATE         NULL     COMMENT '신청 마감일',
+  apply_always   BOOLEAN      NOT NULL DEFAULT FALSE COMMENT '상시 모집',
+  category       VARCHAR(30)  NULL     COMMENT '원문 분야',
+  apply_method   TEXT         NULL     COMMENT '원문 신청 방법',
   raw            JSON         NOT NULL COMMENT '원본 응답',
+  source_updated_at DATETIME  NULL     COMMENT '원문 수정 시각',
+  fetched_at     DATETIME     NULL     COMMENT '마지막 수집 시각',
+  actionable     BOOLEAN      NULL     COMMENT 'AI 개인이 신청·이용 가능한지',
   summary        TEXT         NULL     COMMENT 'AI 쉬운 말 요약',
   burden         VARCHAR(10)  NULL     COMMENT 'AI 참여 부담(online/phone/visit/group)',
-  stage          SMALLINT     NULL     COMMENT 'AI 분류 단계(1~6)',
+  stage          SMALLINT     NULL     COMMENT 'AI 참여 난이도(1~6, 별 단계와 같은 눈금)',
+  difficulty_note VARCHAR(200) NULL    COMMENT '난이도 이유',
   relevance      SMALLINT     NULL     COMMENT 'AI 관련도(0~3)',
+  tags           JSON         NULL     COMMENT 'AI 분야 태그',
   classified_at  DATETIME     NULL     COMMENT 'AI 분류 시각',
   PRIMARY KEY (id),
   UNIQUE (source, source_id)
 ) COMMENT '청년정책·복지서비스';
+
+CREATE TABLE policy_recommendations (
+  user_id       INT      NOT NULL COMMENT '사용자 ID',
+  rec_date      DATE     NOT NULL COMMENT '추천 날짜(한국 시간)',
+  policy_ids    JSON     NOT NULL COMMENT '추천 정책 ID 목록',
+  items         JSON     NOT NULL COMMENT '정책마다 추천 이유',
+  used_fallback BOOLEAN  NOT NULL DEFAULT FALSE COMMENT 'AI 대신 규칙 순서 사용',
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 시각',
+  PRIMARY KEY (user_id, rec_date),
+  FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) COMMENT '정책 추천(하루 한 번)';
+
+CREATE TABLE policy_syncs (
+  id          INT      NOT NULL AUTO_INCREMENT COMMENT '수집 ID',
+  source      VARCHAR(20) NOT NULL COMMENT '출처',
+  region_code CHAR(5)  NULL     COMMENT '수집 지역',
+  fetched     INT      NOT NULL DEFAULT 0 COMMENT '받은 수',
+  kept        INT      NOT NULL DEFAULT 0 COMMENT '시연 범위로 남긴 수',
+  inserted    INT      NOT NULL DEFAULT 0 COMMENT '새 정책 수',
+  updated     INT      NOT NULL DEFAULT 0 COMMENT '바뀐 정책 수',
+  classified  INT      NOT NULL DEFAULT 0 COMMENT 'AI 분류 수',
+  started_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '시작 시각',
+  finished_at DATETIME NULL     COMMENT '끝난 시각',
+  PRIMARY KEY (id)
+) COMMENT '정책 수집 기록';
 
 CREATE TABLE policy_events (
   id          INT         NOT NULL AUTO_INCREMENT COMMENT '이벤트 ID',
