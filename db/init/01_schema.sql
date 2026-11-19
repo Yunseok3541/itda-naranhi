@@ -45,7 +45,7 @@ CREATE TABLE survey_results (
 
 CREATE TABLE constellations (
   id          SERIAL PRIMARY KEY,
-  stage       SMALLINT NOT NULL CHECK (stage BETWEEN 1 AND 6),     -- 단계 = 숨겨진 난이도
+  stage       SMALLINT NOT NULL CHECK (stage BETWEEN 1 AND 6),     -- 단계 = 숨겨진 난이도 (포인트 = stage × 10, v_star_points)
   name        VARCHAR(50) NOT NULL,
   theme       VARCHAR(100),
   star_count  SMALLINT NOT NULL
@@ -217,6 +217,25 @@ SELECT user_id,
        count(*) AS attempts
 FROM star_attempts
 GROUP BY user_id, star_id;
+
+-- 포인트 규칙: 별 하나의 점수 = 그 별자리 난이도(stage) × 10 (고민기록 #28). 규칙은 이 뷰 한 곳에만 둔다
+CREATE VIEW v_star_points AS
+SELECT s.id AS star_id,
+       c.stage * 10 AS points
+FROM stars s
+JOIN constellations c ON c.id = s.constellation_id;
+
+-- 사용자별 총 포인트: 밝힌(bright) 별마다 한 번만 더함 (적립 기록 테이블 없음)
+-- v_user_star_status가 (사용자, 별)당 한 줄이라 같은 별을 다시 완료하거나 AI가 쪼갠 별로 밝혀도 중복 적립되지 않음
+-- 희미한 별(dim)은 0점이고 감점도 없다. 포인트가 없는 사용자는 행이 없음 (0으로 처리)
+CREATE VIEW v_user_points AS
+SELECT v.user_id,
+       sum(p.points)::int AS total_points,
+       count(*)::int      AS bright_stars
+FROM v_user_star_status v
+JOIN v_star_points p ON p.star_id = v.star_id
+WHERE v.status = 'bright'
+GROUP BY v.user_id;
 
 -- 같은 하늘의 별: 오늘 별마다 시도한 사람 수 (동의한 사용자만, 구 단위, 5명 미만은 숨김)
 CREATE VIEW v_sky_today AS
