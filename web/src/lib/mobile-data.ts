@@ -10,10 +10,21 @@ const titles = ['창문 열고 하늘 보기', '물 한 잔 마시기', '이불 
 type Store = { stars: Star[]; checkins: Record<number, { text: string; todayChoice: string; weather: string }> };
 function read(): Store { const raw = localStorage.getItem(key); if (raw) return JSON.parse(raw); return { stars: titles.map((title, i) => ({ starId: i + 1, title, status: 'untried', memories: [] })), checkins: {} }; }
 function write(s: Store) { localStorage.setItem(key, JSON.stringify(s)); }
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number, readonly code?: string, readonly help: Help = null) {
+    super(message);
+    this.name = 'ApiError';
+  }
+
+  get needsSession() {
+    return this.code === 'DEMO_SESSION_REQUIRED' || this.code === 'NO_SESSION' || this.status === 401;
+  }
+}
+
 async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
-  const response = await fetch('/api/' + path, { method, credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) });
+  const response = await fetch('/api/' + path, { method, credentials: 'same-origin', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) });
   const data = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(data?.error || `요청에 실패했어요 (${response.status}). 다시 시도해 주세요.`);
+  if (!response.ok) throw new ApiError(data?.error || `요청에 실패했어요 (${response.status}). 다시 시도해 주세요.`, response.status, data?.code, data?.help ?? null);
   if (!data) throw new Error('서버 응답을 읽지 못했어요.');
   return data as T;
 }
