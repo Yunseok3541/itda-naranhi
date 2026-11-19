@@ -47,11 +47,18 @@ body:has(.panorama-shell:not(.panorama-background)) { background: #0d0820; }
   height: 5%;
   background: linear-gradient(#0f0c1a, #090713);
 }
+/* 캐릭터: components/sky-person.tsx (SVG). 위치·크기 변수는 말풍선·누르는 자리(night-sky.css)와 함께 씀 */
 .panorama-person {
-  bottom: 4%;
+  /* 메인에서는 하단 버튼 위 언덕에 서도록 night-sky.css의 변수로 맞춤 (없으면 기본값) */
+  bottom: var(--person-bottom, 3.5%);
   left: 50%;
-  width: max(100%, 54dvh);
-  height: 36dvh;
+  height: var(--person-height, 20dvh);
   transform: translateX(-50%);
-  background: url('/sky-preview/foreground.webp') no-repeat center bottom / auto 100%;
+}
+.sky-person { display: block; height: 100%; width: auto; overflow: visible; filter: drop-shadow(0 0 10px rgba(186, 142, 229, .35)); }
+@media (prefers-reduced-motion: no-preference) {
+  .sky-person { animation: person-breathe 3.2s ease-in-out infinite; transform-origin: 50% 100%; }
+  @keyframes person-breathe { 50% { transform: scaleY(1.018) translateY(-1px); } }
+  .sky-person-spark { animation: person-spark 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  @keyframes person-spark { 50% { opacity: .35; transform: scale(.7); } }
 }

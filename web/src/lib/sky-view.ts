@@ -114,17 +114,35 @@ export function projector(v: SkyView, width: number, height: number) {
 }
 
 /**
- * 점들이 화면에 알맞게 들어오는 시점: 가운데로 이동하고,
- * 별자리 반지름이 화면 폭의 38%, 높이의 23%(위 제목·아래 메뉴를 피해서) 중 작은 값이 되도록 확대
+ * 점들이 화면에 알맞게 들어오는 시점
+ * - band(화면 안 빈 공간의 위·아래 y, 캔버스 기준 px)를 주면 그 가운데에, 없으면 화면 가운데에 놓음
+ * - 별자리 반지름이 화면 폭의 38%와 빈 공간 높이의 절반(이름표 자리 빼고) 중 작은 값이 되도록 확대
  */
-export function fitView(points: Vec3[], width: number, height: number): SkyView {
+export function fitView(points: Vec3[], width: number, height: number, band?: { top: number; bottom: number }): SkyView {
   const sum: Vec3 = [0, 0, 0];
   for (const p of points) { sum[0] += p[0]; sum[1] += p[1]; sum[2] += p[2]; }
   const center = toLonLat(sum);
   const c = unit(center.lon / RAD, center.lat / RAD);
   const radius = Math.max(1.5 * RAD, ...points.map(p => angleBetween(c, p)));
-  const target = Math.min(width * 0.38, height * 0.23); // px
-  const scale = target / (2 * Math.tan(radius / 2));
-  const fov = 4 * Math.atan(Math.max(width, height) / 2 / (2 * scale));
-  return clampView({ lon: center.lon, lat: center.lat, fov });
+  const free = band && band.bottom - band.top > 120 ? band : { top: height * 0.27, bottom: height * 0.73 };
+  const target = Math.max(60, Math.min(width * 0.38, (free.bottom - free.top) / 2 - 26)); // px (아래 이름표 자리 26px)
+  const fov = clampView({ lon: 0, lat: 0, fov: 4 * Math.atan(Math.max(width, height) / 2 / (2 * (target / (2 * Math.tan(radius / 2)))) ) }).fov;
+  // 별자리 가운데가 빈 공간 가운데에 오도록 시점을 옮김 (가운데 근처에서는 1px ≈ 1/scale 라디안)
+  const scale = scaleFor(fov, width, height);
+  const dy = (free.top + free.bottom) / 2 - height / 2;
+  let view = clampView({ lon: center.lon, lat: center.lat + dy / scale, fov });
+  // 모양이 한쪽으로 긴 별자리(돌고래 꼬리 등)는 평균 위치와 화면 상자 가운데가 달라서, 실제로 그려 본 상자로 한 번 더 보정
+  const project = projector(view, width, height);
+  const pts = points.map(project).filter((p): p is NonNullable<typeof p> => !!p);
+  if (pts.length) {
+    const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+    const boxX = (Math.min(...xs) + Math.max(...xs)) / 2;
+    const boxY = (Math.min(...ys) + Math.max(...ys) + 26) / 2; // 맨 아래 별 밑 이름표 자리 포함
+    view = clampView({
+      lon: view.lon + (width / 2 - boxX) / (scale * Math.max(Math.cos(view.lat), 0.2)),
+      lat: view.lat + ((free.top + free.bottom) / 2 - boxY) / scale,
+      fov,
+    });
+  }
+  return view;
 }

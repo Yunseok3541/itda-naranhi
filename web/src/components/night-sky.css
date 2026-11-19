@@ -15,6 +15,9 @@
   --star-gold-soft: rgba(246, 207, 125, .45);
   --glass: rgba(255, 255, 255, .07);
   --glass-line: rgba(255, 255, 255, .14);
+  /* 캐릭터 자리: 하단 버튼(약 78px) 바로 위 언덕. 캐릭터·누르는 자리·말풍선·별자리 여백이 함께 씀 */
+  --person-bottom: calc(78px + env(safe-area-inset-bottom));
+  --person-height: 17dvh;
 }
 html.sky-night-page body {
   background:
@@ -176,7 +179,7 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .sky-locked > .error, .sky-locked > .card { flex: none; max-height: 28dvh; overflow-y: auto; }
 .sky-locked .night {
   flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
-  padding-bottom: clamp(0px, calc(21dvh - 92px), 110px);
+  padding-bottom: calc(var(--person-height) - 4px); /* 별자리가 캐릭터와 겹치지 않게 */
 }
 .sky-locked .night-toolbar, .sky-locked .night-title, .sky-locked .pager { flex: none; }
 .sky-locked .night-title { margin-top: 0; }
@@ -273,12 +276,12 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
    배경 인물은 화면 아래 약 21%(손끝)부터 하단 버튼 위까지. 그 자리에 투명 단추를 겹침 */
 .char-hotspot {
   position: fixed; z-index: 1; left: 50%; transform: translateX(-50%);
-  top: 77dvh; bottom: calc(88px + env(safe-area-inset-bottom)); width: 92px; min-height: 0; height: auto;
+  bottom: var(--person-bottom); height: var(--person-height); width: 92px; min-height: 0;
   padding: 0; border-radius: 40px; background: transparent; pointer-events: auto; cursor: pointer;
 }
 .char-hotspot:focus-visible { outline: 2px dashed var(--star-gold-soft); outline-offset: 2px; }
 .char-bubble {
-  position: fixed; z-index: 3; left: 50%; transform: translateX(-42%); bottom: calc(24dvh + 6px);
+  position: fixed; z-index: 3; left: 50%; transform: translateX(-42%); bottom: calc(var(--person-bottom) + var(--person-height) + 6px);
   width: max-content; max-width: min(250px, calc(100% - 48px)); padding: 10px 14px 9px;
   border-radius: 16px; border: 1px solid rgba(190, 160, 255, .55); background: rgba(20, 14, 46, .82);
   color: var(--starlight); box-shadow: 0 8px 24px rgba(0, 0, 0, .35); pointer-events: auto;
@@ -293,4 +296,10 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 @media (prefers-reduced-motion: no-preference) {
   .char-bubble { animation: bubble-in .22s ease-out; }
   @keyframes bubble-in { from { opacity: 0; transform: translate(-42%, 6px); } }
+}
+
+/* 세로가 짧은 화면: 안내 한 줄을 숨겨 별자리 자리를 넓힘 (하늘 끌기 안내는 캐릭터·목록으로도 알 수 있음) */
+@media (max-height: 700px) {
+  .sky-locked .night-hint { display: none; }
+  .sky-locked .night-title h1 { margin-bottom: 0; }
 }

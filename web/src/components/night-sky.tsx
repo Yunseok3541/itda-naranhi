@@ -16,7 +16,7 @@ const labels = { untried: '아직 만나기 전', dim: '손을 뻗은 별', brig
 /** 캐릭터 말풍선 질문 (날마다 하나씩 돌아가며). 오늘의 별 체크인으로 이어짐 */
 const QUESTIONS = ['오늘 하루는 어땠어요?', '지금 마음은 어떤 날씨예요?', '오늘은 어떤 하루인가요?', '요즘 어떻게 지내요?'];
 /** 지금 별자리가 화면에서 이만큼(px, 대각선) 이상일 때만 퀘스트 이름표·큰 별 표시 */
-const DETAIL_SPAN = 170;
+const DETAIL_SPAN = 90;
 
 const koreanDate = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'long', day: 'numeric' });
 function memoryDate(value: string) {
@@ -66,7 +66,7 @@ function measure(text: string, maxLine: number) {
   return { lines: lines.length, width: Math.max(...lines) };
 }
 
-function placeLabels(items: { x: number; y: number; text: string }[], width: number, height: number) {
+function placeLabels(items: { x: number; y: number; text: string }[], width: number, height: number, band?: { top: number; bottom: number }) {
   const STAR = 16, GAP = 18, PAD = 14, LINE = 15;
   const stars: Box[] = items.map(i => ({ x: i.x - STAR, y: i.y - STAR, w: STAR * 2, h: STAR * 2 }));
   const placed: Box[] = [];
@@ -82,7 +82,9 @@ function placeLabels(items: { x: number; y: number; text: string }[], width: num
       [{ x: x - GAP - 4 - w, y: y - h / 2, w, h }, 'right'],
     ];
     for (const [box, align] of candidates) {
-      if (box.x < 4 || box.x + box.w > width - 4 || box.y < 4 || box.y + box.h > height - 4) continue;
+      // 화면 안 + (있으면) 위쪽 글자와 캐릭터 사이 빈 공간 안
+      const minY = band ? Math.max(4, band.top) : 4, maxY = band ? Math.min(height - 4, band.bottom) : height - 4;
+      if (box.x < 4 || box.x + box.w > width - 4 || box.y < minY || box.y + box.h > maxY) continue;
       if (stars.some(s => overlaps(box, s)) || placed.some(p => overlaps(box, p))) continue;
       placed.push(box);
       // 단추(56px) 가운데가 기준인 상대 위치
@@ -143,7 +145,14 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     const sky = skies[i];
     if (!sky) return;
     const { width, height } = frameSize();
-    skyView.flyTo(fitView(sky.points, width, height), ms);
+    skyView.flyTo(fitView(sky.points, width, height, freeBand()), ms);
+  }
+  /** 위쪽 글자(모든 별 보기 버튼)와 아래 캐릭터 사이 빈 공간 (캔버스 기준 y) */
+  function freeBand() {
+    const top = document.querySelector('.night-list')?.getBoundingClientRect().bottom;
+    const bottom = document.querySelector('.char-hotspot')?.getBoundingClientRect().top;
+    const offset = skyView.frame()?.top ?? 0;
+    return top !== undefined && bottom !== undefined ? { top: top + 12 - offset, bottom: bottom - 8 - offset } : undefined;
   }
 
   // 처음 열 때: 보여 줄 별자리로 바로 맞춤
@@ -215,7 +224,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     const pos = positions[safeIndex];
     if (!g || !pos || !frame || !detailed) return [];
     const shown = g.stars.map((s, i) => ({ s, p: pos[i] })).filter((x): x is { s: Star; p: NonNullable<typeof x.p> } => !!x.p);
-    const spots = placeLabels(shown.map(({ s, p }) => ({ x: p.x, y: p.y, text: s.title })), frame.width, frame.height);
+    const spots = placeLabels(shown.map(({ s, p }) => ({ x: p.x, y: p.y, text: s.title })), frame.width, frame.height, freeBand());
     return g.stars.map(s => {
       const k = shown.findIndex(x => x.s.starId === s.starId);
       return k < 0 ? null : spots[k];

@@ -8,6 +8,7 @@
 // - 위치·시간·카메라 권한을 쓰지 않음 (실제 내 위치의 하늘이 아니라 별자리 지도)
 import { useEffect, useRef } from 'react';
 import { projector, scaleFor, skyView, unit, type Vec3 } from '@/lib/sky-view';
+import SkyPerson from '@/components/sky-person';
 import './sky-preview.css';
 
 type Celestial = { stars: [number, number, number, number][]; milkyway: [number, number, number][] };
@@ -218,7 +219,7 @@ export default function SkyPanorama({ background = false }: { background?: boole
         <canvas ref={canvas} className="panorama-canvas" aria-hidden="true" />
         <div ref={hills} className="panorama-hills" aria-hidden="true" />
         <div className="panorama-grass" aria-hidden="true" />
-        <div className="panorama-person" aria-hidden="true" />
+        <div className="panorama-person" aria-hidden="true"><SkyPerson /></div>
       </div>
     </div>
   );
