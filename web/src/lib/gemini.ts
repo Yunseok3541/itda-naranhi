@@ -29,6 +29,8 @@ export async function generateJson<T>(opts: {
   schema: Record<string, unknown>;
   validate: (value: unknown) => value is T;
   fallback: T;
+  /** 응답을 기다리는 시간. 기본 10초 (화면 요청). 미리 돌리는 일괄 분류처럼 화면이 기다리지 않는 작업만 늘린다 */
+  timeoutMs?: number;
 }): Promise<GenerateResult<T>> {
   if (!ai) return { data: opts.fallback, usedFallback: true, modelVersion: null, fallbackReason: "no_key" };
 
@@ -40,7 +42,7 @@ export async function generateJson<T>(opts: {
         systemInstruction: opts.system,
         responseMimeType: "application/json",
         responseJsonSchema: opts.schema,
-        abortSignal: AbortSignal.timeout(TIMEOUT_MS),
+        abortSignal: AbortSignal.timeout(opts.timeoutMs ?? TIMEOUT_MS),
       },
     });
     let parsed: unknown = null;
