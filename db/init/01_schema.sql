@@ -18,6 +18,16 @@ CREATE TABLE users (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- 데모 세션 (로그인 없이 브라우저마다 가상 사용자 1명)
+-- 쿠키에는 무작위 토큰을 넣고, DB에는 토큰의 SHA-256 해시만 저장 (DB가 유출돼도 쿠키를 만들 수 없음)
+-- 사용자를 지우면 세션도 함께 삭제
+CREATE TABLE demo_sessions (
+  token_hash    CHAR(64) PRIMARY KEY,   -- sha256(쿠키 토큰) hex
+  user_id       INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- 선택형 마음 점검 (단축형 UCLA 3문항 + Mini-SPIN 3문항)
 -- 레벨·위험 판정에는 쓰지 않고, 원하는 사용자만 4주마다 응답해 변화 추이를 보는 용도 (효과 측정 지표)
 CREATE TABLE survey_results (
@@ -187,6 +197,7 @@ CREATE TABLE policy_events (
 -- 5. 인덱스
 ------------------------------------------------------------
 
+CREATE INDEX idx_demo_sessions_user  ON demo_sessions (user_id);
 CREATE INDEX idx_attempts_user_time  ON star_attempts (user_id, created_at DESC);
 CREATE INDEX idx_attempts_star_time  ON star_attempts (star_id, created_at);
 CREATE INDEX idx_checkins_user_time  ON checkins (user_id, created_at DESC);

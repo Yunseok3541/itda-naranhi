@@ -15,6 +15,15 @@ CREATE TABLE users (
   PRIMARY KEY (id)
 ) COMMENT '사용자';
 
+CREATE TABLE demo_sessions (
+  token_hash    CHAR(64)  NOT NULL COMMENT '쿠키 토큰 SHA-256 해시',
+  user_id       INT       NOT NULL COMMENT '사용자 ID',
+  created_at    DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 시각',
+  last_seen_at  DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '마지막 사용 시각',
+  PRIMARY KEY (token_hash),
+  FOREIGN KEY (user_id) REFERENCES users (id)
+) COMMENT '데모 세션';
+
 CREATE TABLE survey_results (
   id          INT       NOT NULL AUTO_INCREMENT COMMENT '검사 결과 ID',
   user_id     INT       NOT NULL COMMENT '사용자 ID',
