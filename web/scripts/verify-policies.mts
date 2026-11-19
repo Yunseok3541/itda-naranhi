@@ -161,8 +161,7 @@ try {
   // 점수: 전화가 부담인 사용자에게 전화 정책은 뒤로, 돈 때문에 멈춘 적 있으면 생활비 정책을 앞으로
   const row = (k: string) => ({ id: id[k], title: k, summary: "", burden: defs.find((d) => d[0] === k)![3], stage: defs.find((d) => d[0] === k)![2],
     difficulty_note: null, relevance: defs.find((d) => d[0] === k)![4], tags: defs.find((d) => d[0] === k)![5], url: null, apply_end: null, apply_always: true, region_code: "11000" }) as Parameters<typeof scorePolicy>[0];
-  const prof: Parameters<typeof scorePolicy>[1] = { level: 1, region: "11440", age: 26, burdens: [], together: null, costStops: 0, needs: [], support: null, living: null,
-    info: { job: null, school: null, married: null, income: null, special: null } };
+  const prof = { level: 1, region: "11440", age: 26, burdens: [] as string[], together: null, costStops: 0 };
   check("전화 부담 → 전화 정책 점수 낮아짐", scorePolicy(row("P5"), { ...prof, burdens: ["phone"] }, today) < scorePolicy(row("P5"), prof, today));
   check("혼자 하고 싶음 → 함께하는 정책 점수 낮아짐", scorePolicy(row("P6"), { ...prof, together: false }, today) < scorePolicy(row("P6"), prof, today));
   check("돈 때문에 멈춘 적 있음 → 생활비 정책 점수 높아짐", scorePolicy(row("P3"), { ...prof, costStops: 1 }, today) > scorePolicy(row("P3"), prof, today));

@@ -10,16 +10,10 @@
 CREATE TABLE users (
   id             SERIAL PRIMARY KEY,
   nickname       VARCHAR(30) NOT NULL,
-  -- 시작 질문 답 (모두 선택, null = 답하지 않음. 기획: docs/기획/프로필.md)
-  -- {"range":"home","burden":["people"],"with":"alone","support":"unsure","living":"family","needs":["health"]}
-  -- 유형 이름(고립형·은둔형 등)은 저장하지 않음. 답 그대로 두고 추천할 때만 읽음
-  start_answers  JSONB,
+  start_answers  JSONB,                 -- 시작 질문 답 {"range":"home","burden":["people"],"with":"alone"}
   current_stage  SMALLINT NOT NULL DEFAULT 1 CHECK (current_stage BETWEEN 1 AND 6),  -- 추천 기준 단계 (한 단계 위까지는 사용자가 직접 열 수 있음)
   region_code    CHAR(5),                                          -- 법정 시군구 코드 (정책 필터, 같은 하늘의 별)
-  birth_year     SMALLINT,                                         -- 정책 나이 조건 필터 (선택)
-  -- 정책 신청 정보 (선택, 자격 규칙에만 쓰고 AI에 보내지 않음. 전부 지우면 NULL)
-  -- {"job":"unemployed","school":"high_grad","married":"single","income":"under_2000","special":[]}
-  policy_info    JSONB,
+  birth_year     SMALLINT,                                         -- 정책 나이 조건 필터
   share_in_sky   BOOLEAN NOT NULL DEFAULT false,                   -- 같은 하늘의 별 집계 포함 동의
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );

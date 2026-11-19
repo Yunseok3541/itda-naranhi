@@ -1,8 +1,4 @@
-import type { PolicyInfo, StartAnswers } from './profile';
 export type Mode = 'example' | 'api';
-export type Profile = { startAnswers: StartAnswers | null; policyInfo: PolicyInfo; birthYear: number | null };
-export type ProfileUpdate = { startAnswers?: StartAnswers; policyInfo?: PolicyInfo | null; birthYear?: number | null };
-const profileKey = 'naranhi-example-profile';
 export type Help = { title: string; lines: string[] } | null;
 export type Status = 'untried' | 'dim' | 'bright';
 // constellationId 등은 실제 API(/api/sky)에만 있음. 예시 모드는 별 번호로 별자리를 나눔 (night-sky.tsx)
@@ -39,8 +35,5 @@ export function client(mode: Mode) { return {
   async checkin(text: string, todayChoice: string): Promise<Checkin> { if (mode === 'api') return request('checkin', 'POST', { text, todayChoice }); const s = read(); const id = Date.now(); s.checkins[id] = { text, todayChoice, weather: 'partly_cloudy' }; write(s); return { checkinId: id, weather: 'partly_cloudy', help: null, usedFallback: true }; },
   async weather(checkinId: number, weather: string) { if (mode === 'api') return request('checkin/weather', 'PATCH', { checkinId, weather }); const s = read(); s.checkins[checkinId].weather = weather; write(s); return { weather }; },
   async recommendations(checkinId: number): Promise<{ items: Recommendation[]; usedFallback: boolean }> { if (mode === 'api') return request('recommendations', 'POST', { checkinId }); const s = read(); const choice = s.checkins[checkinId]?.todayChoice; const ids = choice === 'rest' ? [] : choice === 'home' ? [1, 2, 4] : [12, 13, 16]; return { items: ids.map(id => ({ starId: id, title: titles[id - 1], reason: '오늘 고른 활동 범위에서, 가볍게 시작할 수 있는 별이에요.' })), usedFallback: true }; },
-  // 프로필 (시작 질문·정책 신청 정보). 예시 모드는 이 브라우저에만 저장
-  async profile(): Promise<Profile> { if (mode === 'api') return request('profile'); const raw = localStorage.getItem(profileKey); return raw ? JSON.parse(raw) : { startAnswers: null, policyInfo: { job: null, school: null, married: null, income: null, special: null }, birthYear: null }; },
-  async saveProfile(update: ProfileUpdate): Promise<Profile> { if (mode === 'api') return request('profile', 'PUT', update); const next = { ...(await this.profile()), ...update }; if (next.policyInfo === null) next.policyInfo = { job: null, school: null, married: null, income: null, special: null }; localStorage.setItem(profileKey, JSON.stringify(next)); return next as Profile; },
   async attempt(body: { starId: number; status: 'dim' | 'bright'; reflection: string; verifyMethod: string; stopReason?: string }): Promise<{ attemptId: number; starId: number; status: string; cheer: string; help: Help }> { if (mode === 'api') return request('attempts', 'POST', body); const s = read(); const star = s.stars.find(x => x.starId === body.starId); if (!star) throw new Error('별을 찾을 수 없어요.'); const id = Date.now(); star.status = star.status === 'bright' ? 'bright' : body.status; star.memories.push({ attemptId: id, date: new Date().toISOString(), reflection: body.reflection }); write(s); return { attemptId: id, starId: body.starId, status: body.status, cheer: '오늘 손을 뻗은 순간도 당신의 하늘에 남아요.', help: null }; }
 }; }
