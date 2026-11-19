@@ -26,7 +26,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
+export async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
   const response = await fetch('/api/' + path, { method, credentials: 'same-origin', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) });
   const data = await response.json().catch(() => null);
   if (!response.ok) throw new ApiError(data?.error || `요청에 실패했어요 (${response.status}). 다시 시도해 주세요.`, response.status, data?.code, data?.help ?? null);
