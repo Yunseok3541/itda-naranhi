@@ -1,7 +1,8 @@
 export type Mode = 'example' | 'api';
 export type Help = { title: string; lines: string[] } | null;
 export type Status = 'untried' | 'dim' | 'bright';
-export type Star = { starId: number; title: string; status: Status; memories: { attemptId: number; date: string; reflection: string }[] };
+// constellationId 등은 실제 API(/api/sky)에만 있음. 예시 모드는 별 번호로 별자리를 나눔 (night-sky.tsx)
+export type Star = { starId: number; title: string; status: Status; memories: { attemptId: number; date: string; reflection: string | null }[]; description?: string | null; constellationId?: number; constellationName?: string; position?: number; verifyType?: string };
 export type Checkin = { checkinId: number | null; weather: string; help: Help; usedFallback: boolean };
 export type Recommendation = { starId: number; title: string; reason: string };
 export const weatherNames: Record<string, string> = { sunny: '맑음', partly_cloudy: '구름 조금', cloudy: '흐림', rainy: '비', foggy: '안개' };
