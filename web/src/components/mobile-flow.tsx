@@ -90,13 +90,13 @@ export default function MobileFlow({screen='sky',starId,centerId}:{screen?:strin
  const locked = ready&&screen==='sky';
  // 페이지 스크롤 잠금은 <html>에 표시. 다른 화면으로 가면 Next가 이전 화면을 숨겨 둔 채 DOM에 남기므로
  // CSS :has(.sky-locked)로는 잠금이 풀리지 않음 → 화면이 보일 때만 붙이고 벗어나면 뗀다
- // 밤하늘 색(어두운 배경·밝은 글자)도 같은 이유로 <html> 표시로. 예전 body:has(.sky-mode)는 숨겨진 메인 때문에 다른 화면까지 어두워졌음
+ // 밤하늘 색(어두운 배경·밝은 글자)은 <html> 표시로. 이제 모든 화면이 밤하늘 분위기라 이 컴포넌트가 보이는 동안 항상 붙임
+ // (예전 body:has(.sky-mode)는 Next가 숨겨 둔 이전 화면 때문에 잘못 걸렸음)
  useEffect(() => {
-   if (!night) return;
    const root = document.documentElement;
    root.classList.add('sky-night-page');
    return () => root.classList.remove('sky-night-page');
- }, [night]);
+ }, []);
  useEffect(() => {
    if (!locked) return;
    const root = document.documentElement;
@@ -105,7 +105,7 @@ export default function MobileFlow({screen='sky',starId,centerId}:{screen?:strin
  }, [locked]);
  const footer = <footer>시연용 서비스 · 실제 개인정보를 입력하지 마세요.{ready&&<button className="text-button" disabled={busy} onClick={()=>{localStorage.removeItem('naranhi-mode');R(false);K(null);I(null);H(null);V('');SS(null);E('');setNeedsSession(false);}}>체험 방식 다시 선택</button>}</footer>;
  if(!loaded)return <main className="shell sky-mode"><p className="night-loading">밤하늘을 준비하고 있어요…</p></main>;
- return <>{night&&<SkyPanorama background/>}<main className={night?`shell sky-mode panorama-content${locked?' sky-locked':''}`:'shell'} lang="ko">{locked
+ return <>{night&&<SkyPanorama background/>}<main className={night?`shell sky-mode panorama-content${locked?' sky-locked':''}`:'shell night-ui'} lang="ko">{locked
    // 메인: 왼쪽 위 도움받을 곳, 오른쪽 위 정책추천·청년센터 (머리글 대신 모서리 버튼)
    ? <header className="sky-top">
        <button type="button" className="sky-pill" aria-expanded={help?.title===HELP.title} onClick={()=>H(h=>h?.title===HELP.title?null:HELP)}><span aria-hidden="true">♡</span> 도움받을 곳</button>
@@ -114,6 +114,9 @@ export default function MobileFlow({screen='sky',starId,centerId}:{screen?:strin
          <Link className="sky-pill small-pill" href="/centers"><span aria-hidden="true">⌖</span> 청년센터</Link>
        </div>
      </header>
+   : ready
+   // 다른 화면: 도감처럼 왼쪽 "← 내 밤하늘", 오른쪽 도움받을 곳
+   ? <header className="sub-top"><Link className="sub-back" href="/sky"><span aria-hidden="true">←</span> 내 밤하늘</Link><span className="sub-top-right">{mode==='example'&&<span className="small">예시 기록</span>}<button type="button" className="sky-pill" aria-expanded={help?.title===HELP.title} onClick={()=>H(h=>h?.title===HELP.title?null:HELP)}><span aria-hidden="true">♡</span> 도움받을 곳</button></span></header>
    : <header><Link className="brand" href="/">✧ 나란히</Link>{ready&&mode==='example'&&<span className="small">예시 기록</span>}{!ready&&<Link className="text-button" href="/catalog">별자리 도감</Link>}{ready&&<Link className="text-button" href="/sky">내 밤하늘</Link>}<button className="text-button" onClick={()=>H(h=>h?.title===HELP.title?null:HELP)}>도움받을 곳</button></header>}
  {help&&<aside className="help" role="alert"><h2>{help.title}</h2>{help.lines.map(line=><p key={line}>{line}</p>)}<button type="button" className="text-button" onClick={()=>H(null)}>닫기</button></aside>}
  {error&&<p className="error" role="alert">{error}</p>}
