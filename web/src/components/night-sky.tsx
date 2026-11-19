@@ -4,7 +4,7 @@
 // - 좌우로 밀거나 아래 점을 눌러 다른 별자리로
 // - 별 상태: 아직 만나기 전(희미한 점) / 손을 뻗은 별(은은한 빛) / 딴 별(밝게 반짝임)
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { getActivityConstellation } from '@/lib/constellations';
 import type { Star } from '@/lib/mobile-data';
 
@@ -69,12 +69,14 @@ function groupStars(stars: Star[]): Group[] {
   });
 }
 
-export default function NightSky({ stars, selected, onSelect, busy, onReload }: {
+export default function NightSky({ stars, selected, onSelect, busy, onReload, footer }: {
   stars: Star[];
   selected: Star | null;
   onSelect: (star: Star | null) => void;
   busy: boolean;
   onReload: () => void;
+  /** 메인은 한 화면에 고정이라 페이지 아래 안내(footer)를 "모든 별 목록" 창 맨 아래에 둔다 */
+  footer?: ReactNode;
 }) {
   const groups = useMemo(() => groupStars(stars), [stars]);
   // 처음에는 아직 다 따지 않은 첫 별자리를 보여 줌
@@ -85,7 +87,9 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload }: 
   const [burst, setBurst] = useState<{ key: number; x: number; y: number } | null>(null);
   const swipe = useRef<number | null>(null);
   const sheet = useRef<HTMLElement>(null);
+  const list = useRef<HTMLDetailsElement>(null);
   const burstCount = useRef(0);
+  const closeList = () => { if (list.current) list.current.open = false; };
 
   const current = groups[Math.min(index, Math.max(groups.length - 1, 0))];
   const shape = current ? (SHAPES[current.id]?.points.length === current.stars.length ? SHAPES[current.id] : arcShape(current.stars.length)) : null;
@@ -125,6 +129,23 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload }: 
     </div>
 
     <div className="night-toolbar">
+      {/* 접근성용 전체 목록: 열면 아래에서 올라오는 창 (메인은 스크롤 없이 한 화면에 고정) */}
+      <details className="night-list" ref={list}>
+        <summary>모든 별 목록</summary>
+        <div className="night-list-body" role="dialog" aria-label="모든 별 목록">
+          <div className="sheet-grip" aria-hidden="true" />
+          {groups.map(g => <div key={g.id}>
+            <h3>{g.name}</h3>
+            {g.stars.map(s => <button key={s.starId} type="button" className="night-row" onClick={() => { setIndex(groups.indexOf(g)); onSelect(s); closeList(); }}>
+              <span className={`dot ${s.status}`} aria-hidden="true" />
+              <span>{s.title}<small>{labels[s.status]}</small></span>
+            </button>)}
+          </div>)}
+          <button type="button" className="ghost" disabled={busy} onClick={onReload}>밤하늘 다시 불러오기</button>
+          <button type="button" className="ghost" onClick={closeList}>닫기</button>
+          {footer}
+        </div>
+      </details>
       <p>내 밤하늘</p>
       <Link className="catalog-link" href="/catalog">
         <span aria-hidden="true">✧</span> 도감
@@ -136,6 +157,15 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload }: 
         <h1 className={complete ? 'complete' : undefined}>{current.name}</h1>
         <p>{complete ? '별자리를 모두 이었어요' : current.theme}</p>
       </div>
+
+      {groups.length > 1 && <div className="pager">
+        <button type="button" className="pager-arrow" onClick={() => step(-1)} aria-label="이전 별자리">‹</button>
+        <div className="pager-dots">
+          {groups.map((g, i) => <button key={g.id} type="button" aria-label={g.name} aria-current={i === index ? 'true' : undefined} onClick={() => jump(i)} />)}
+        </div>
+        <button type="button" className="pager-arrow" onClick={() => step(1)} aria-label="다음 별자리">›</button>
+      </div>}
+      <p className="night-hint">별을 누르면 그날의 기억이 떠올라요</p>
 
       <div className="stage"
         onPointerDown={e => { swipe.current = e.clientX; }}
@@ -167,16 +197,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload }: 
           {Array.from({ length: 8 }, (_, i) => <i key={i} style={{ '--a': `${i * 45}deg` } as CSSProperties} />)}
         </span>}
       </div>
-
-      {groups.length > 1 && <div className="pager">
-        <button type="button" className="pager-arrow" onClick={() => step(-1)} aria-label="이전 별자리">‹</button>
-        <div className="pager-dots">
-          {groups.map((g, i) => <button key={g.id} type="button" aria-label={g.name} aria-current={i === index ? 'true' : undefined} onClick={() => jump(i)} />)}
-        </div>
-        <button type="button" className="pager-arrow" onClick={() => step(1)} aria-label="다음 별자리">›</button>
-      </div>}
-      <p className="night-hint">별을 누르면 그날의 기억이 떠올라요</p>
-    </> : <div className="night-title"><h1>아직 하늘이 비어 있어요</h1><p>밤하늘을 다시 불러와 주세요.</p></div>}
+    </> :<div className="night-title"><h1>아직 하늘이 비어 있어요</h1><p>밤하늘을 다시 불러와 주세요.</p></div>}
 
     {selected && <section ref={sheet} tabIndex={-1} className="sheet" aria-label="별의 기억">
       <div className="sheet-grip" aria-hidden="true" />
@@ -191,17 +212,5 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload }: 
         <button type="button" className="ghost" onClick={() => onSelect(null)}>닫기</button>
       </div>
     </section>}
-
-    <details className="night-list">
-      <summary>모든 별 목록</summary>
-      {groups.map(g => <div key={g.id}>
-        <h3>{g.name}</h3>
-        {g.stars.map(s => <button key={s.starId} type="button" className="night-row" onClick={() => { setIndex(groups.indexOf(g)); onSelect(s); }}>
-          <span className={`dot ${s.status}`} aria-hidden="true" />
-          <span>{s.title}<small>{labels[s.status]}</small></span>
-        </button>)}
-      </div>)}
-      <button type="button" className="ghost" disabled={busy} onClick={onReload}>밤하늘 다시 불러오기</button>
-    </details>
   </section>;
 }

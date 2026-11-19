@@ -127,9 +127,25 @@ body:has(.sky-mode) {
 .memories p { margin: 2px 0 0; }
 .sheet-actions { display: grid; gap: 8px; margin-top: 12px; }
 
-/* 접근성용 전체 목록 */
-.night-list { margin-top: 18px; }
-.night-list summary { text-align: center; color: rgba(238, 233, 255, .5); font-size: .875rem; }
+/* 접근성용 전체 목록: 위쪽 왼편 버튼 → 아래에서 올라오는 창 */
+.night-list { justify-self: start; grid-column: 1; grid-row: 1; }
+.night-list summary {
+  list-style: none; display: inline-flex; align-items: center; min-height: 44px; padding: 0 13px;
+  border-radius: 999px; border: 1px solid var(--glass-line); background: var(--glass);
+  color: var(--starlight-dim); font-size: .875rem; font-weight: 650; text-align: center;
+}
+.night-list summary::-webkit-details-marker { display: none; }
+/* 열렸을 때 뒤쪽을 어둡게. 어두운 곳을 누르면(= summary 클릭) 닫힘 */
+.night-list[open] > summary::after { content: ""; position: fixed; inset: 0; z-index: 6; background: rgba(5, 6, 26, .6); }
+.night-list-body {
+  position: fixed; z-index: 7; left: 50%; bottom: 0; transform: translateX(-50%);
+  width: min(100%, 520px); max-height: 78dvh; overflow-y: auto; overscroll-behavior: contain;
+  padding: 10px 20px calc(20px + env(safe-area-inset-bottom));
+  border-radius: 22px 22px 0 0; border: 1px solid var(--glass-line); border-bottom: 0;
+  background: #100f30; box-shadow: 0 -10px 40px rgba(0, 0, 0, .45);
+  text-align: left;
+}
+.night-list-body footer { margin-top: 14px; }
 .night-list h3 { margin: 16px 0 6px; font-size: .9rem; color: var(--starlight-dim); }
 .night-row { display: flex; align-items: center; gap: 12px; text-align: left; background: var(--glass); border: 1px solid var(--glass-line); color: var(--starlight); margin-block: 6px; font-weight: 500; }
 .night-row > span:last-child { flex: 1; min-width: 0; }
@@ -137,6 +153,33 @@ body:has(.sky-mode) {
 .dot.dim { background: #f1dfb6; opacity: .75; }
 .dot.bright { background: var(--star-gold); box-shadow: 0 0 8px var(--star-gold); }
 .night-list .ghost { margin-top: 12px; }
+
+/* ───────── 메인 "내 밤하늘": 스크롤 없이 한 화면에 고정 ─────────
+   화면 높이 = 머리글 + 별자리 이름 + 넘기기 + 무대(남는 만큼) + 하단 메뉴
+   무대 아래쪽은 배경 인물(손 끝까지 화면 아래 약 21%)과 겹치지 않게 비워 둔다 */
+html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+.sky-mode.sky-locked {
+  height: 100dvh; min-height: 0; overflow: hidden;
+  display: flex; flex-direction: column;
+  padding-bottom: calc(92px + env(safe-area-inset-bottom));
+}
+.sky-locked > header { flex: none; margin-bottom: 0; }
+.sky-locked > .help, .sky-locked > .error, .sky-locked > .card { flex: none; max-height: 28dvh; overflow-y: auto; }
+.sky-locked .night {
+  flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
+  padding-bottom: clamp(0px, calc(21dvh - 92px), 110px);
+}
+.sky-locked .night-toolbar, .sky-locked .night-title, .sky-locked .pager { flex: none; }
+.sky-locked .night-title { margin-top: 0; }
+.sky-locked .night-hint { flex: none; margin: 0; }
+.sky-locked .stage { flex: 1 1 auto; height: auto; min-height: 150px; max-height: 460px; margin-block: auto; }
+
+/* 가로 모드처럼 아주 낮은 화면에서는 고정하지 않고 스크롤 허용 (별이 잘리지 않게) */
+@media (max-height: 540px) {
+  html.sky-locked-page, html.sky-locked-page body { height: auto; overflow: auto; }
+  .sky-mode.sky-locked { height: auto; min-height: 100dvh; overflow: visible; }
+  .sky-locked .stage { flex: none; height: 320px; }
+}
 
 /* 움직임 (줄이기 설정을 켠 사용자에게는 멈춤) */
 @media (prefers-reduced-motion: no-preference) {
