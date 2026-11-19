@@ -103,7 +103,8 @@
   "todayChoice": "home",
   "risk": "normal",             // normal | caution | danger
   "help": null,                 // risk가 normal이 아니면 { title, lines[] }
-  "usedFallback": false         // AI 대신 기본값을 썼는지
+  "usedFallback": false,        // AI 대신 기본값을 썼는지
+  "modelVersion": "gemini-3.5-flash-lite"   // 실제 응답한 모델 버전, 기본값이면 null (검증용, 화면에서 쓰지 않음)
 }
 // 401 세션 없음 (위기 표현이면 help 포함)
 ```
@@ -555,7 +556,7 @@ const { cheer, help } = await processReflection({
 | ⑥ 문의 초안 (가상 센터) | 201 | gemini-3.5-flash-lite | gemini-3.5-flash-lite | false | sent=false | 12:38:50 |
 
 - 같은 날 재요청한 추천은 모델을 부르지 않았다. `reused: true`이고 `modelVersion` 칸이 없다. 최초 호출과 섞어 세지 않는다.
-- 체크인 응답에는 `modelVersion` 칸이 없어 성공 근거는 `usedFallback: false`뿐이다 (체크인은 윤석 담당. 칸 추가 요청).
+- 위 실행 당시 체크인 응답에는 `modelVersion` 칸이 없어 성공 근거는 `usedFallback: false`뿐이었다. 이후 체크인 응답에 `modelVersion`을 추가했다 (윤석, `feat/checkin-model-version`).
 
 **로컬, 키 없음 (`GEMINI_API_KEY` 비움), 2026-11-19 12:39 KST** — `/api/health` 설정값은 `gemini-3.5-flash-lite`, `gemini: "no key"`
 
