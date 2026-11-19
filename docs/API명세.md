@@ -2,7 +2,7 @@
 
 > API는 Next.js 앱(`web/src/app/api/`)의 Route Handler로 구현한다 (고민기록 #27).
 > 화면은 같은 앱에서 `fetch('/api/...')`로 호출한다. 화면 쪽 내용은 [화면설계.md](화면설계.md), 문구는 [기능 완료 기준](기획/기능완료기준과_콘텐츠.md), 세션 사용법은 [web/README.md](../web/README.md) "데모 세션"
-> 마지막 갱신: 2026-11-19 12시 (쉬어 가기 빈 추천, 회고 처리 함수 계약, 세션 오류 코드 통일, 실제 모델 검증 결과. 담당 고은비)
+> 마지막 갱신: 2026-11-19 13시 (청년센터·문의 초안 화면 연결 계약, 초안 `sent` 칸, 문의 API 세션 장애 503, 실데이터 전환 계획, AI 실호출 기록. 담당 고은비)
 
 ## 담당과 구현 위치
 
@@ -15,8 +15,8 @@
 | Gemini 공통 호출 `generateJson()` | 고은비 | `lib/gemini.ts` | 10초 제한, 실제 응답 모델 버전 반환 |
 | 시도 저장 `POST /api/attempts` | 윤석 | `api/attempts/route.ts`, `api/_lib/attempts.ts` | ⚠ 고은비가 먼저 구현해 둠 → 윤석이 이어받을지 PR에서 결정 |
 | 밤하늘 `GET /api/sky` | 윤석 | `api/sky/route.ts`, `api/_lib/sky.ts` | ⚠ 고은비가 먼저 구현해 둠 → 위와 같음 |
-| 청년센터 `GET /api/centers`, `/api/centers/{id}` | 고은비 (후속) | `api/centers/`, `api/_lib/centers*.ts` | 예시 데이터로 구현. 실데이터는 인증키 대기 |
-| 문의 초안 `POST·GET /api/inquiries`, `PATCH /api/inquiries/{id}` (AI ⑥) | 고은비 (후속) | `api/inquiries/`, `api/_lib/inquiries.ts` | 초안 생성·저장까지 구현 |
+| 청년센터 `GET /api/centers`, `/api/centers/{id}` | 고은비 | `api/centers/`, `api/_lib/centers*.ts` | 가상 센터 1곳으로 HTTP 검증 완료. 실데이터는 인증키 대기 |
+| 문의 초안 `POST·GET /api/inquiries`, `PATCH /api/inquiries/{id}` (AI ⑥) | 고은비 | `api/inquiries/`, `api/_lib/inquiries.ts` | 생성·수정·재조회·보냄 기록 HTTP 검증 완료 |
 
 - `api/_lib/http.ts`는 새 API가 함께 쓰는 응답 형식·날짜 도우미다 (밑줄 폴더라 라우트가 되지 않음).
 - 위기 표현 규칙 `lib/safety.ts`는 공용이다. 고은비가 AI 출력 검사(`isSafeAiText`)와 규칙 안내(`ruleHelp`)를 추가했다.
@@ -330,82 +330,183 @@ const { cheer, help } = await processReflection({
 - 별 상세 화면 URL(예: `/stars/12`)로 바로 들어와도 이 응답에서 `starId`로 제목을 얻는다.
 - ⚠ 화면 예시 데이터의 별 17 "가상 청년센터 앞까지 가 보기"는 DB 시드에 없다. 실제 API 모드에서 이 별로 시도를 저장하면 404다 (센터 별 시드 필요).
 
-### 5. 청년센터 목록·상세 — `GET /api/centers`, `GET /api/centers/{centerId}` (후속, 고은비)
+### 5·6. 청년센터와 문의 초안 — 화면 연결 계약 (고은비 → 재희)
 
-세션 없이 조회 가능 (공공 데이터). **지금은 예시 센터 1곳뿐이다.** 화면은 `isSample`이 `true`면 "예시 데이터예요"를 표시한다.
+> 2026-11-19 12:38 로컬 HTTP로 검증한 실제 응답이다 (`scripts/verify-inquiry-http.mts`, 25/25 통과). **지금 센터는 가상 센터 1곳(`centerId: 9001`)뿐**이라 이 응답 그대로 화면을 만들면 된다.
+
+#### ID는 어디에서 받나
+
+| ID | 받는 곳 | 쓰는 곳 |
+| -- | ------- | ------- |
+| `centerId` | `GET /api/centers` 목록의 `centerId` (지금은 `9001`) | 센터 상세 `GET /api/centers/{centerId}`, 초안 생성 `POST /api/inquiries`의 본문, 초안 목록 `?centerId=` |
+| `draftId` | 초안 생성 응답(201) 또는 `GET /api/inquiries` 목록의 `draftId` | 초안 수정·보냄 기록 `PATCH /api/inquiries/{draftId}` |
+| `starId` | `GET /api/sky`의 `stars[].starId` 또는 `POST /api/recommendations`의 `items[].starId` | 별 수행 `POST /api/attempts` |
+
+- 센터와 별은 연결돼 있지 않다. **센터 상세 응답에는 `starId`가 없다.**
+- "앞까지 가 보기"에 쓸 센터 별은 아직 DB 시드에 없다. 화면 예시의 별 17로 시도를 저장하면 404다. 센터 별이 시드에 들어가기 전까지 실제 API 모드에서는 이 버튼을 숨기거나 "준비 중"으로 둔다.
+- URL 경로의 `centerId`는 숫자다. 화면 주소 `/centers/demo`는 화면 쪽 이름이라 API에는 `9001`을 넘긴다.
+
+#### 정상 흐름 (요청 순서대로)
+
+**① 센터 목록** — `GET /api/centers?region=11440` (세션 불필요. `region`은 선택, 시군구 5자리)
 
 ```jsonc
-// GET /api/centers?region=11440   (region 선택, 시군구 5자리)
 // 200
 {
   "centers": [
     {
-      "centerId": 9001, "name": "예시 청년센터", "address": "예시 주소 (실제 장소가 아니에요)", "regionCode": "11440",
-      "isSample": true,
-      "source": null   // 실데이터면 { "name", "url", "basisDate": "YYYY-MM-DD", "terms": "이용 조건" }
+      "centerId": 9001,
+      "name": "예시 청년센터",
+      "address": "예시 주소 (실제 장소가 아니에요)",
+      "regionCode": "11440",
+      "isSample": true,   // true면 "예시 데이터예요" 표시
+      "source": null      // 가상 센터는 null. 실데이터면 아래 "실데이터 출처" 모양
     }
   ]
 }
-// 200 빈 결과: { "centers": [] }
-// 400 { "error": "region은 시군구 코드 5자리예요.", "code": "INVALID", "help": null }
 ```
 
+**② 센터 상세** — `GET /api/centers/9001` (세션 불필요)
+
 ```jsonc
-// GET /api/centers/9001
 // 200
 {
   "center": {
-    "centerId": 9001, "name": "예시 청년센터", "address": "예시 주소 (실제 장소가 아니에요)",
-    "phone": null, "url": null, "regionCode": "11440", "lat": null, "lng": null,
-    "hours": null,                // 확인된 값이 없으면 null (꾸며내지 않음). 화면은 "운영시간은 센터에 확인해 주세요"
+    "centerId": 9001,
+    "name": "예시 청년센터",
+    "address": "예시 주소 (실제 장소가 아니에요)",
+    "phone": null,      // 확인된 값이 없으면 null. 가상 센터에는 전화번호를 붙이지 않음
+    "url": null,
+    "regionCode": "11440",
+    "lat": null,
+    "lng": null,        // 좌표가 null이면 지도 핀을 그리지 않음
+    "hours": null,      // null이면 "운영시간은 센터에 확인해 주세요"
     "programs": [ { "title": "예시 프로그램", "summary": "시연을 위한 가상의 프로그램이에요." } ],
     "isSample": true,
     "source": null
   }
 }
-// 400 { "error": "centerId가 올바르지 않아요.", "code": "INVALID", "help": null }
-// 404 { "error": "센터를 찾을 수 없어요.", "code": "NOT_FOUND", "help": null }
 ```
 
-- 실제 출처 후보: 공공데이터포털 [한국고용정보원_온통청년_청년센터](https://www.data.go.kr/data/15171410/openapi.do). 제공 한국고용정보원, 이용허락범위 "제한 없음", 등록·수정 2026-10-14 (2026-11-19 페이지 확인).
-- **인증키가 없어 실데이터는 수집 전**이다. 공개 페이지에서 요청 변수·응답 필드의 영문 이름도 확인되지 않아, 키를 받은 뒤 활용가이드로 수집 코드를 만든다.
-- 실데이터에는 `source`의 제공처·주소·기준일·이용 조건을 모두 채운다. 저장하려면 `youth_centers`에 칸이 필요하다 (아래 "DB 변경 요청"). 그 전까지 센터는 `web/src/app/api/_lib/centers-data.ts`에서 읽는다.
-
-### 6. 문의 문장 초안 — `POST /api/inquiries`, `GET /api/inquiries`, `PATCH /api/inquiries/{draftId}` (AI ⑥, 후속, 고은비)
+**③ 초안 생성** — `POST /api/inquiries` (세션 필요. AI ⑥ 호출 1번)
 
 ```jsonc
-// POST 요청
+// 요청
 { "centerId": 9001, "question": "처음인데 예약 없이 들러도 되나요?" }   // question 1~300자
-// 201 저장 성공 (2026-11-19 실제 응답, gemini-3.5-flash-lite)
+// 201 (gemini-3.5-flash-lite 실제 응답)
 {
-  "draftId": 7, "centerId": 9001, "question": "처음인데 예약 없이 들러도 되나요?",
-  "draft": "안녕하세요. 예시 청년센터의 예시 프로그램에 대해 문의드립니다. 처음 방문하는 경우에 예약 없이 들러서 참여해도 괜찮은지 궁금합니다. 확인 부탁드립니다.",
-  "sentAt": null, "date": "2026-11-19",
-  "usedFallback": false,     // true면 기본 틀로 만든 초안
-  "risk": "normal", "help": null, "modelVersion": "gemini-3.5-flash-lite"
+  "draftId": 11,
+  "centerId": 9001,
+  "question": "처음인데 예약 없이 들러도 되나요?",
+  "draft": "안녕하세요. 예시 청년센터의 예시 프로그램에 대해 문의드립니다. 처음 방문하는 경우에 예약 없이 들러서 참여해도 괜찮은지 궁금합니다.",
+  "sent": false,          // 초안만 저장한 상태
+  "sentAt": null,
+  "date": "2026-11-19",   // 초안을 만든 날 (한국 날짜)
+  "usedFallback": false,  // true면 기본 틀로 만든 초안 (AI 실패)
+  "risk": "normal",
+  "help": null,
+  "modelVersion": "gemini-3.5-flash-lite"   // 검증용, 화면에서 쓰지 않음
 }
-// 500 저장 실패 — 초안은 화면에 보여 주되 "저장되지 않았어요" + 다시 저장하기
+```
+
+**④ 초안 수정** — `PATCH /api/inquiries/11` (세션 필요. AI 호출 없음)
+
+```jsonc
+// 요청
+{ "draft": "안녕하세요. 처음 방문하려고 하는데 예약 없이 잠깐 둘러봐도 괜찮을까요?" }   // 1~1000자
+// 200
+{
+  "draftId": 11, "centerId": 9001, "question": "처음인데 예약 없이 들러도 되나요?",
+  "draft": "안녕하세요. 처음 방문하려고 하는데 예약 없이 잠깐 둘러봐도 괜찮을까요?",
+  "sent": false, "sentAt": null, "date": "2026-11-19", "help": null
+}
+```
+
+**⑤ 재조회** — `GET /api/inquiries?centerId=9001` (세션 필요. 내 초안만, 최신순. `centerId`를 빼면 내 전체 초안)
+
+```jsonc
+// 200
+{ "drafts": [ { "draftId": 11, "centerId": 9001, "question": "처음인데 예약 없이 들러도 되나요?",
+                "draft": "안녕하세요. 처음 방문하려고 하는데 예약 없이 잠깐 둘러봐도 괜찮을까요?",
+                "sent": false, "sentAt": null, "date": "2026-11-19" } ] }
+// 초안이 없으면 { "drafts": [] }
+```
+
+**⑥ "문의해 봤어요" 기록** — `PATCH /api/inquiries/11` (사용자가 앱 밖에서 직접 보낸 뒤 누르는 버튼)
+
+```jsonc
+// 요청
+{ "sent": true }   // draft와 함께 보내도 됨
+// 200
+{ "draftId": 11, "centerId": 9001, "question": "처음인데 예약 없이 들러도 되나요?",
+  "draft": "안녕하세요. 처음 방문하려고 하는데 예약 없이 잠깐 둘러봐도 괜찮을까요?",
+  "sent": true, "sentAt": "2026-11-19", "date": "2026-11-19", "help": null }
+```
+
+#### 초안 저장 vs 문의를 보냈다는 기록
+
+| 상태 | `sent` | `sentAt` | 화면 문구 예 |
+| ---- | ------ | -------- | ------------ |
+| 초안만 저장 | `false` | `null` | "초안이에요. 보내기 전에 내용을 확인해 주세요" · **초안만 저장하고 끝내기** 가능 |
+| 문의해 봤다고 기록 | `true` | `"YYYY-MM-DD"` | "11월 19일에 문의해 봤어요" |
+
+- **앱은 문의를 보내지 않는다.** `sent: true`는 사용자가 앱 밖에서 직접 보냈다고 누른 기록일 뿐이다.
+- 보냄 기록은 되돌리지 않는다 (`sent: false`는 400). 보낸 뒤에도 문장 수정은 된다.
+- 초안 저장(①~⑤)과 보냄 기록(⑥), 센터 앞까지 가 본 별(GPS·직접 도착)은 서로 다른 기록이다.
+
+#### 오류와 help
+
+| HTTP | code | 언제 | 화면 처리 |
+| ---- | ---- | ---- | --------- |
+| 400 | `INVALID` | `centerId`가 숫자 아님, `region` 형식 오류, 질문 비었거나 300자 초과, 초안 1000자 초과, `sent`가 true 아님, PATCH에 `draft`·`sent` 둘 다 없음 | 입력 유지, `error` 문구 |
+| 401 | `NO_SESSION` | 세션 쿠키 없음 (초안 API만. 센터 조회는 세션 불필요) | 입력 유지 + 데모 다시 시작 |
+| 404 | `NOT_FOUND` | 없는 센터, 없는 초안, **다른 세션의 초안** (구분하지 않음) | "찾을 수 없어요" |
+| 500 | `SAVE_FAILED` | 초안 저장·수정 실패 | 생성 실패면 응답의 `draft`를 보여 주되 "저장되지 않았어요" + 다시 저장하기 |
+| 500 | `LOAD_FAILED` | 초안 목록 조회 실패 | 다시 불러오기 |
+| 503 | `SAVE_FAILED`·`LOAD_FAILED` | 세션 확인 중 DB 장애 (세션이 없는 것이 아님) | 데모를 다시 시작시키지 말고 잠시 뒤 다시 시도 |
+
+```jsonc
+// 401
+{ "error": "데모를 다시 시작해 주세요.", "code": "NO_SESSION", "help": null }
+// 404 (다른 세션의 초안을 고치려 할 때도 같음)
+{ "error": "초안을 찾을 수 없어요.", "code": "NOT_FOUND", "help": null }
+// 500 초안 생성 저장 실패 — draft는 저장되지 않은 문장
 { "error": "지금은 초안을 저장하지 못했어요.", "code": "SAVE_FAILED", "draft": "안녕하세요. ...", "help": null }
-// 400 { "error": "궁금한 점을 300자 이하로 적어 주세요.", "code": "INVALID", "help": null }
-// 401 { "error": "데모를 다시 시작해 주세요.", "code": "NO_SESSION", "help": null }
-// 404 { "error": "센터를 찾을 수 없어요.", "code": "NOT_FOUND", "help": null }
+// 400 위기 표현이 담긴 질문이면 오류 응답에도 help
+{ "error": "궁금한 점을 300자 이하로 적어 주세요.", "code": "INVALID", "help": { "title": "혼자 감당하지 않아도 돼요", "lines": ["자살예방상담전화 109 (24시간)", "..."] } }
 ```
+
+- 질문(`question`)과 고친 초안(`draft`)도 사용자 문장이라 위기 표현 판단을 거친다. `help`가 있으면 상태 코드와 관계없이 안내를 띄운다 (세션 없는 401 포함).
+- 초안 생성 때 AI가 입력에 없는 숫자(운영시간·전화번호 등)를 넣으면 버리고 기본 틀을 쓴다. 기본 틀: "안녕하세요. {센터 이름}에 처음 문의드려요. {질문} 알려주시면 감사하겠습니다."
+
+#### 실데이터 출처 (인증키 대기)
+
+- 후보: 공공데이터포털 [한국고용정보원_온통청년_청년센터](https://www.data.go.kr/data/15171410/openapi.do). 제공기관 한국고용정보원, 이용허락범위 "제한 없음", 등록·수정 2026-10-14 (2026-11-19 페이지 확인).
+- **2026-11-19 13시 기준 `YOUTH_CENTER_API_KEY`가 비어 있어 실데이터를 조회하지 않았다.** 공개 페이지에서 요청 변수·응답 필드의 영문 이름도 확인되지 않았다.
+- 실데이터가 들어오면 `source`는 이 모양이고, 확인하지 못한 값(주소·전화·운영시간·좌표)은 `null`로 둔다.
 
 ```jsonc
-// GET /api/inquiries?centerId=9001  → 내 초안만, 최신순 (centerId 생략 시 전체)
-{ "drafts": [ { "draftId": 7, "centerId": 9001, "question": "...", "draft": "...", "sentAt": null, "date": "2026-11-19" } ] }
+"isSample": false,
+"source": {
+  "name": "한국고용정보원_온통청년_청년센터",
+  "url": "https://www.data.go.kr/data/15171410/openapi.do",
+  "basisDate": "YYYY-MM-DD",          // 실제로 조회한 날
+  "terms": "이용허락범위 제한 없음"     // 조회 시점 데이터셋 페이지 문구 그대로
+}
 ```
 
-```jsonc
-// PATCH /api/inquiries/7  — 사용자가 고친 최종본 저장, "문의해 봤어요" 직접 기록
-{ "draft": "고친 문장", "sent": true }      // 둘 다 선택, 하나는 있어야 함. draft는 1~1000자
-// 200 { "draftId": 7, "centerId": 9001, "question": "...", "draft": "고친 문장", "sentAt": "2026-11-19", "date": "2026-11-19", "help": null }
-// 404 남의 초안이거나 없음
-```
+#### 실데이터로 바꿀 때 고칠 곳
 
-- 초안에는 센터 정보와 사용자가 적은 질문만 쓴다. 입력에 없는 숫자(운영시간·전화번호 등)가 들어가면 버리고 기본 틀을 쓴다.
-- 보내기는 사용자가 직접 한다. 앱은 문의를 대신 보내지 않는다. 초안 저장과 "문의해 봤어요"(`sentAt`)는 다른 기록이다.
-- 화면 문구: "초안이에요. 보내기 전에 내용을 확인해 주세요"
+| 단계 | 파일·DB | 할 일 |
+| ---- | ------- | ----- |
+| 1 | `web/.env.local`, Vercel 환경 변수 | `YOUTH_CENTER_API_KEY` 입력 (윤석) |
+| 2 | 공용 DB `youth_centers` | 아래 "DB 변경 요청" 2번 칸 추가: `source_name`, `source_url`, `basis_date`, `terms`, `is_sample`, `hours`, `programs` (기존 `source_id`, `name`, `address`, `phone`, `url`, `region_code`, `lat`, `lng`는 그대로 사용) |
+| 3 | `web/scripts/collect-centers.mts` (새로 만듦) | 시연 지역(마포구 `11440`) 센터만 소수 조회 → `youth_centers`에 `is_sample=false`, 출처·기준일·이용 조건과 함께 저장. 응답에 없는 값은 NULL |
+| 4 | `web/src/app/api/_lib/centers.ts` | `CENTERS` 배열 대신 `youth_centers` 조회로 교체. 응답 모양(`centerId`, `isSample`, `source{name,url,basisDate,terms}`)은 그대로라 화면은 바꿀 필요 없음 |
+| 5 | `web/src/app/api/_lib/centers-data.ts` | 가상 센터 9001은 `is_sample=true` 행으로 DB에 옮기거나 그대로 두고 목록에 합침 (시연 리허설용) |
+| 6 | `web/src/app/api/_lib/inquiries.ts` | `findCenter`가 DB 조회를 쓰도록 바꿈 (초안 생성 시 센터 확인) |
+
+- `inquiry_drafts.center_id`에는 외래키가 없어 가상 센터 ID(9001)와 실데이터 ID가 함께 들어갈 수 있다. 실데이터 ID는 9000번대를 피한다.
 
 ---
 
@@ -439,17 +540,53 @@ const { cheer, help } = await processReflection({
 - 공통 처리: `web/src/lib/gemini.ts`의 `generateJson`. JSON 스키마 지정 → 검증 함수 통과 못 하면 기본값. 키 없음·네트워크 오류·**10초 초과**·빈 응답·JSON 아님도 기본값. 실제 응답 모델 버전과 기본값 사유를 돌려준다.
 - 모델에 보내지 않는 것: 닉네임, 사용자 ID, 지역 코드, 출생 연도, (추천 시) 회고 원문. 무료 등급은 입력이 서비스 개선에 쓰일 수 있어 가상 문장만 사용한다.
 
+### 실호출 기록 — 새 가상 세션으로 기능마다 1번 (`scripts/verify-ai-live.mts`)
+
+판정 기준: AI 호출 성공은 **각 응답의 `usedFallback: false`와 응답 `modelVersion`**으로만 본다. `/api/health`의 `geminiModel`은 서버 설정값일 뿐이다. 아래 키 없음 실행에서 설정값은 `gemini-3.5-flash-lite`였지만 모든 응답이 기본값이었다.
+
+**로컬, `GEMINI_MODEL=gemini-3.5-flash-lite`, 2026-11-19 12:38 KST** (브랜치 `feat/center-inquiry`, 공용 Neon)
+
+| 기능 | HTTP | 요청 모델(서버 설정) | 응답 `modelVersion` | `usedFallback` | 비고 | 확인 시각 (KST) |
+| ---- | ---- | -------------------- | ------------------- | -------------- | ---- | --------------- |
+| ② 체크인 마음 날씨 | 200 | gemini-3.5-flash-lite | **응답에 칸 없음** | false | weather=partly_cloudy | 12:38:45 |
+| ① 추천 (최초 호출) | 200 | gemini-3.5-flash-lite | gemini-3.5-flash-lite | false | reused=false, 별 11·13 | 12:38:47 |
+| ① 추천 (같은 날 재요청) | 200 | 모델 호출 없음 | 응답에 칸 없음 | false (최초 값 그대로) | **reused=true**, 최초와 같은 별·이유 | 12:38:48 |
+| ④ 회고 응원 | 201 | gemini-3.5-flash-lite | gemini-3.5-flash-lite | false | help=null | 12:38:49 |
+| ⑥ 문의 초안 (가상 센터) | 201 | gemini-3.5-flash-lite | gemini-3.5-flash-lite | false | sent=false | 12:38:50 |
+
+- 같은 날 재요청한 추천은 모델을 부르지 않았다. `reused: true`이고 `modelVersion` 칸이 없다. 최초 호출과 섞어 세지 않는다.
+- 체크인 응답에는 `modelVersion` 칸이 없어 성공 근거는 `usedFallback: false`뿐이다 (체크인은 윤석 담당. 칸 추가 요청).
+
+**로컬, 키 없음 (`GEMINI_API_KEY` 비움), 2026-11-19 12:39 KST** — `/api/health` 설정값은 `gemini-3.5-flash-lite`, `gemini: "no key"`
+
+| 기능 | HTTP | 응답 `modelVersion` | `usedFallback` | 응답 내용 |
+| ---- | ---- | ------------------- | -------------- | --------- |
+| ② 체크인 | 200 | 응답에 칸 없음 | true | weather=partly_cloudy (기본값) |
+| ① 추천 (최초) | 200 | null | true | 실제 후보 11·12·13 + 기본 이유 |
+| ① 추천 (재요청) | 200 | 응답에 칸 없음 | true | reused=true |
+| ④ 회고 응원 | 201 | null | true | "오늘 손을 뻗어 본 순간을 이 별에 담았어요." |
+| ⑥ 문의 초안 | 201 | null | true | "안녕하세요. 예시 청년센터에 처음 문의드려요. …" 기본 틀 |
+
+**공개 주소 `https://itda-naranhi.vercel.app` — 확인 전**
+
+- 2026-11-19 12:34·12:39 KST 기준 `/api/health`의 `geminiModel`이 아직 `gemini-3.5-flash`다 (운영 모델 미적용, 배포 커밋 `1a541b3`). 이 모델은 오전에 무료 하루 한도 20건을 넘긴 기록이 있어 공개 주소 AI 호출은 하지 않았다.
+- 윤석이 운영 환경 변수를 `gemini-3.5-flash-lite`로 바꾸고 재배포하면 아래를 **한 번만** 실행해 이 표를 채운다.
+
+```bash
+node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-ai-live.mts --base=https://itda-naranhi.vercel.app
+```
+
 ### 기능별
 
 | # | 기능 | 위치 | 입력 → 출력 | 기본값 (실패 시) | 구현·검증 범위 |
 | - | ---- | ---- | ----------- | ---------------- | -------------- |
 | ① | 오늘의 별 추천 | `api/recommendations/` | 오늘 선택, 부담 상황, 마음 날씨, 체크인 한 줄, 최근 시도 5개(별 제목·결과·멈춘 이유), 후보 별 최대 8개 → `{ items: [{ starId, reason }] }` | 후보 앞에서 최대 3개 + 범위별 기본 이유. 쉬어 가기는 빈 추천 | **구현·검증**: 실제 추천, 쉬어 가기, 반복 요청 일관성, 후보 밖 ID 제거, 금지 표현 이유 교체, 키 없음·잘못된 키·한도 초과, 다른 세션 거절 |
 | ① | 시도 후 다음 행동 | 미구현 | 멈춘 이유 + 별 → 다음 행동 제안 | 이유별 고정 문구(기능 완료 기준 문서) | **미구현** (11/21) |
-| ② | 마음 날씨 | `api/checkin` (윤석) | 체크인 한 줄 → `{ weather, risk }` | `partly_cloudy`, 위험은 규칙 판단 | HTTP 검증 중 실제 호출 성공 (`usedFallback: false`) 확인만 함 |
+| ② | 마음 날씨 | `api/checkin` (윤석) | 체크인 한 줄 → `{ weather, risk }` | `partly_cloudy`, 위험은 규칙 판단 | 실호출 `usedFallback: false`, 키 없음 `true` 확인. 응답에 `modelVersion` 칸 없음 |
 | ③ | 위기 표현 안내 | `lib/safety.ts` + 체크인·회고·문의 | 문장 → 규칙(직접·간접) + AI 위험도 중 높은 쪽 | AI 실패 시 규칙 + 부정 감정 표현으로 최소 caution | **회고 처리 함수로 가상 문장 30개 검증**, 문의 질문·초안 수정에도 적용 |
 | ④ | 회고 응원 | `lib/reflection.ts` | 별 제목, 결과(bright/dim), 멈춘 이유, 회고 → `{ cheer, risk }` | bright "오늘 해낸 일을 이 별에 담았어요." / dim "오늘 손을 뻗어 본 순간을 이 별에 담았어요." | **구현·검증**: 실제 응원, 금지 표현 교체, 회고 없음, 호출 예외·형식 오류, 위기 표현 시 기본 문구 |
 | ⑤ | 정책 참여 부담 분류 | 미구현 | 정책 설명 → 참여 방식 + 요약 | — | **미구현** (정책 API 키 없음) |
-| ⑥ | 문의 문장 초안 | `api/inquiries` | 센터 이름·프로그램 요약, 사용자 질문 → `{ draft, risk }` | "안녕하세요. {센터}에 처음 문의드려요. {질문} 알려주시면 감사하겠습니다." | **구현·검증 (예시 센터만)**: 실제 초안, 입력에 없는 숫자 차단, 저장 실패 시 초안 유지 |
+| ⑥ | 문의 문장 초안 | `api/inquiries` | 센터 이름·프로그램 요약, 사용자 질문 → `{ draft, risk }` | "안녕하세요. {센터}에 처음 문의드려요. {질문} 알려주시면 감사하겠습니다." | **구현·검증 (가상 센터만)**: 실제 초안, 입력에 없는 숫자 차단, 저장 실패 시 초안 유지, 생성 → 수정 → 재조회 → 보냄 기록 HTTP 확인 |
 
 AI 출력 검사 (`lib/safety.ts`의 `isSafeAiText`): 위험 표현, 지시·과장·진단 표현("반드시", "~해야 해요", "완벽", "최고", "대단", "진단", "치료" 등)이 있거나 길이를 넘으면 쓰지 않고 기본값. 실제로 `gemini-3.6-flash`가 "정말 대단해요!"를 낸 사례가 있어 이 필터에 걸린다.
 
@@ -467,7 +604,21 @@ GEMINI_MODEL=gemini-3.5-flash-lite node --env-file=.env.local node_modules/tsx/d
 GEMINI_MODEL=gemini-3.5-flash-lite node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-safety.mts
 # 서버를 띄운 뒤 (npm run build && npx next start -p 3107)
 node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-http.mts --base=http://localhost:3107
+node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-inquiry-http.mts --base=http://localhost:3107   # 센터·문의 초안
+node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-ai-live.mts --base=http://localhost:3107       # AI 실호출 기록 (공개 주소는 1번만)
 ```
+
+### 2026-11-19 점심 추가 검증 (12:37~12:39 KST, 브랜치 `feat/center-inquiry` = `master` 1a541b3 + 이번 변경)
+
+| 실행 | 결과 | 비고 |
+| ---- | ---- | ---- |
+| 키 없음 로직 검증 (`verify-star-api.mts --no-key`, 먼저 실행) | **61 / 61 통과** | Gemini 호출 없음. 회고 저장 실패 → 500 + help + cheer 없음, 초안 생성 → 수정 → 재조회 → 보냄 기록 포함 |
+| 센터·문의 초안 HTTP (`verify-inquiry-http.mts`, flash-lite) | **25 / 25 통과** | 실제 쿠키 세션 2개. AI 호출은 초안 생성 1번 |
+| AI 실호출 기록 (`verify-ai-live.mts`, flash-lite) | 4기능 모두 `usedFallback: false` | 위 "실호출 기록" 표 |
+| AI 실호출 기록, 키 없음 | 4기능 모두 `usedFallback: true` | 기본 응답 확인 |
+
+- 센터·문의 HTTP에서 확인한 것: 가상 센터의 `isSample: true`·`source: null`·전화·운영시간·좌표 `null`, 없는 센터 404, 형식 오류 400, 세션 없음 401(위기 표현이면 help), 초안 생성 직후 `sent: false`, 수정 후 재조회에 고친 문장, 다른 세션에서 목록에 안 보이고 수정·보냄 기록 404, 보냄 기록 뒤 `sent: true`·`sentAt` 날짜·문장 유지
+- 테스트로 만든 데모 사용자는 실행마다 그 쿠키의 사용자만 지웠다 (47·48·49·50번).
 
 ### 결과
 

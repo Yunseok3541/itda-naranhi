@@ -33,10 +33,19 @@ export function fallbackDraft(centerName: string, question: string) {
   return `안녕하세요. ${centerName}에 처음 문의드려요. ${q} 알려주시면 감사하겠습니다.`;
 }
 
-type DraftRow = { draftId: number; centerId: number; question: string | null; draft: string; sentAt: string | null; date: string };
+// sent: false = 초안만 저장한 상태 / true = 사용자가 "문의해 봤어요"로 직접 기록한 상태 (앱은 문의를 보내지 않음)
+type DraftRow = {
+  draftId: number;
+  centerId: number;
+  question: string | null;
+  draft: string;
+  sent: boolean;
+  sentAt: string | null;
+  date: string;
+};
 
 const DRAFT_COLUMNS = `id AS "draftId", center_id AS "centerId", question, draft,
-  ${KST_DATE("sent_at")} AS "sentAt", ${KST_DATE("created_at")} AS date`;
+  (sent_at IS NOT NULL) AS sent, ${KST_DATE("sent_at")} AS "sentAt", ${KST_DATE("created_at")} AS date`;
 
 /** 규칙만으로 본 안내 (AI를 부르지 않는 응답에도 help를 담기 위함) */
 export const ruleHelpFromText = ruleHelp;
