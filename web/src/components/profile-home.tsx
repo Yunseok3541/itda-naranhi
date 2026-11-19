@@ -12,20 +12,11 @@ import { client, type Mode, type Star } from '@/lib/mobile-data';
 import { evaluate, NO_FACTS, type MilestoneFacts } from '@/lib/milestones';
 import { groupStars, latestGroupIndex } from './night-sky';
 import { ProfileScreen } from './profile-form';
-import SkyPerson from './sky-person';
+import { Avatar, Hero, ScreenBar, Section, Summary } from './screen-kit';
 import './profile-home.css';
 
 const AVATAR_KEY = 'naranhi-avatar';
 const DEFAULT_AVATAR = 'person';
-
-function Avatar({ id, size = 96 }: { id: string; size?: number }) {
-  const c = characters.find(x => x.id === id);
-  return <span className="avatar" style={{ width: size, height: size }}>
-    {c
-      ? <img src={`/catalog/${c.id}.webp`} alt="" />  // eslint-disable-line @next/next/no-img-element
-      : <span className="avatar-person"><SkyPerson /></span>}
-  </span>;
-}
 
 const shortDate = (value: string) => {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
@@ -80,30 +71,22 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
     .slice(0, 5), [stars]);
 
   if (settings) return <>
-    <div className="profile-bar">
-      <button type="button" className="profile-icon" aria-label="프로필로 돌아가기" onClick={() => { setSettings(false); history.replaceState(null, '', '/profile'); }}>‹</button>
-      <h1>설정</h1>
-      <span className="profile-icon" aria-hidden="true" />
-    </div>
+    <ScreenBar title="설정" backLabel="프로필로 돌아가기" onBack={() => { setSettings(false); history.replaceState(null, '', '/profile'); }} />
     <ProfileScreen mode={mode} />
   </>;
 
   return <div className="profile-home">
-    <div className="profile-bar">
-      <span className="profile-icon" aria-hidden="true" />
-      <h1>나의 프로필</h1>
-      <button type="button" className="profile-icon" aria-label="설정 (시작 질문·정책 신청 정보)" onClick={() => setSettings(true)}>⚙</button>
-    </div>
+    <ScreenBar title="나의 프로필" right={<button type="button" className="screen-icon" aria-label="설정 (시작 질문·정책 신청 정보)" onClick={() => setSettings(true)}>⚙</button>} />
 
-    <section className="profile-hero">
-      <button type="button" className="avatar-button" aria-label="프로필 그림 바꾸기" onClick={() => setPicking(p => !p)}>
+    <Hero
+      visual={<button type="button" className="avatar-button" aria-label="프로필 그림 바꾸기" onClick={() => setPicking(p => !p)}>
         <Avatar id={avatar} />
         <span className="avatar-edit" aria-hidden="true">✎</span>
-      </button>
-      <h2>별을 바라보는 사람</h2>
-      <p>나만의 밤하늘을 만들어 가는 중 <span aria-hidden="true">✨</span></p>
-      {walking && <span className="profile-chip">{walking}</span>}
-    </section>
+      </button>}
+      title="별을 바라보는 사람"
+      message={<>나만의 밤하늘을 만들어 가는 중 <span aria-hidden="true">✨</span></>}
+      chip={walking}
+    />
 
     {picking && <section className="card avatar-picker" aria-label="프로필 그림 고르기">
       <h3>프로필 그림 고르기</h3>
@@ -121,14 +104,13 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
 
     {error && <p className="error" role="alert">{error}</p>}
 
-    <section className="profile-stats" aria-label="나의 기록">
-      <div><strong>{counts.bright}</strong><span>딴 별</span></div>
-      <div><strong>{counts.dim}</strong><span>손을 뻗은 별</span></div>
-      <div><strong>{counts.met}</strong><span>만난 별자리</span></div>
-    </section>
+    <Summary label="나의 기록" items={[
+      { value: counts.bright, label: '딴 별' },
+      { value: counts.dim, label: '손을 뻗은 별' },
+      { value: counts.met, label: '만난 별자리' },
+    ]} />
 
-    <section aria-labelledby="profile-catalog">
-      <h2 id="profile-catalog" className="profile-section">나의 별자리 도감</h2>
+    <Section id="profile-catalog" title="나의 별자리 도감">
       <div className="profile-strip">
         {groups.map(g => {
           const c = characters.find(x => x.constellation.name === g.name);
@@ -142,10 +124,9 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
         })}
         <Link href="/catalog" className="strip-more"><span aria-hidden="true">+</span>더 보기</Link>
       </div>
-    </section>
+    </Section>
 
-    <section aria-labelledby="profile-badges">
-      <h2 id="profile-badges" className="profile-section">나의 배지</h2>
+    <Section id="profile-badges" title="나의 배지">
       {earned.length
         ? <div className="badge-grid">{earned.map(b => <div key={b.id} className="badge earned">
             <span className="badge-icon" aria-hidden="true">{b.icon}</span><strong>{b.name}</strong><small>{b.done}</small>
@@ -157,10 +138,9 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
           <span className="badge-icon" aria-hidden="true">{b.icon}</span><strong>{b.name}</strong><small>{b.hint}</small>
         </div>)}</div>
       </details>}
-    </section>
+    </Section>
 
-    <section aria-labelledby="profile-log">
-      <h2 id="profile-log" className="profile-section">나의 활동 기록</h2>
+    <Section id="profile-log" title="나의 활동 기록">
       {records.length
         ? <ul className="profile-log">{records.map(r => <li key={r.attemptId}>
             <span className="log-icon" aria-hidden="true">{r.status === 'dim' ? '☆' : '✦'}</span>
@@ -168,6 +148,6 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
             <time dateTime={r.date}>{shortDate(r.date)}</time>
           </li>)}</ul>
         : <p className="small">별을 기록하면 여기에 그날의 기억이 쌓여요.</p>}
-    </section>
+    </Section>
   </div>;
 }

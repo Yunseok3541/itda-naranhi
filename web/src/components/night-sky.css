@@ -347,8 +347,8 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .night-ui .check input { accent-color: var(--star-gold); }
 
 /* 버튼 */
-/* 아이콘·그림 단추(프로필의 ⚙·프로필 그림)는 금빛 큰 버튼에서 뺌 */
-.night-ui button:not(.secondary):not(.text-button):not(.sky-pill):not(.profile-icon):not(.avatar-button):not(.avatar-option), .night-ui .primary {
+/* 아이콘·그림 단추(제목 줄 아이콘·프로필 그림)는 금빛 큰 버튼에서 뺌 */
+.night-ui button:not(.secondary):not(.text-button):not(.sky-pill):not(.screen-icon):not(.avatar-button):not(.avatar-option), .night-ui .primary {
   background: linear-gradient(180deg, #ffe3a3, var(--star-gold)); color: #24183f; border: 0;
   box-shadow: 0 0 22px rgba(246, 207, 125, .28);
 }
