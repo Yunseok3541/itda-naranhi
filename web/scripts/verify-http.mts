@@ -48,7 +48,7 @@ try {
   // 세션 없음
   const n1 = await N.call("POST", "recommendations", { checkinId: 1 });
   show("세션 없이 추천", n1);
-  check("세션 없이 추천 → 401 DEMO_SESSION_REQUIRED", n1.status === 401 && n1.data.code === "DEMO_SESSION_REQUIRED");
+  check("세션 없이 추천 → 401 NO_SESSION", n1.status === 401 && n1.data.code === "NO_SESSION");
   const n2 = await N.call("POST", "attempts", { starId: 1, status: "dim", reflection: "그냥 다 끝내고 싶어요" });
   check("세션 없이 위기 표현 회고 → 401 + help", n2.status === 401 && n2.data.help?.title !== undefined, n2.data);
 

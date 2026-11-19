@@ -5,7 +5,7 @@ import { HELP_MESSAGE } from "@/lib/safety";
 
 export type Help = typeof HELP_MESSAGE | null;
 
-// 세션 없음(401)은 윤석 담당 @/lib/demo-session 의 demoSessionRequired() → code "DEMO_SESSION_REQUIRED"
+// 세션 없음(401)은 @/lib/demo-session의 demoSessionRequired()가 NO_SESSION을 반환한다
 export type ErrorCode = "INVALID" | "NOT_FOUND" | "SAVE_FAILED" | "LOAD_FAILED";
 
 /** 서비스 함수의 결과. 라우트에서 toResponse로 그대로 응답한다 (테스트에서는 값만 확인) */

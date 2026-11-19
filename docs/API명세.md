@@ -52,7 +52,7 @@
 
 ```jsonc
 // 401
-{ "error": "데모 세션이 없어요. 데모 시작 화면에서 다시 시작해 주세요.", "code": "DEMO_SESSION_REQUIRED", "help": null }
+{ "error": "데모를 다시 시작해 주세요.", "code": "NO_SESSION", "help": null }
 ```
 
 ### 오류 응답 형식
@@ -66,10 +66,11 @@
 | HTTP | code | 언제 | 프론트 처리 |
 | ---- | ---- | ---- | ----------- |
 | 400 | `INVALID` | 필드 누락·허용값 아님·길이 초과 | 입력 유지, `error` 문구 표시. 입력을 고치게 함 |
-| 401 | `DEMO_SESSION_REQUIRED` | 세션 쿠키 없음·만료 | 입력을 지우지 말고 `POST /api/demo/session`을 다시 부르거나 데모 시작 화면으로 |
+| 401 | `NO_SESSION` | 세션 쿠키 없음·만료 | 입력을 지우지 말고 `POST /api/demo/session`을 다시 부르거나 데모 시작 화면으로 |
 | 404 | `NOT_FOUND` | 없는 ID, **다른 세션의 기록** (존재 여부를 알려주지 않으려고 404로 통일) | "찾을 수 없어요" 안내 후 이전 화면으로 |
 | 500 | `SAVE_FAILED` | DB 저장 실패 | "지금은 저장하지 못했어요. 적어 둔 글은 그대로 있어요." + **다시 저장하기**. 입력 유지 |
 | 500 | `LOAD_FAILED` | DB 조회 실패 | 다시 불러오기 버튼 |
+| 503 | `SAVE_FAILED` / `LOAD_FAILED` | 시도 저장·밤하늘 조회 전에 DB 장애로 세션을 확인하지 못함 | 입력을 유지하고 같은 요청을 재시도한다. `help`가 있으면 표시한다. |
 
 - **`help`가 `null`이 아니면 상태 코드와 관계없이 항상 안내를 띄운다** (`{ title, lines[] }`). 400·401·404·500 응답에도 들어올 수 있다.
   - ⚠ 프론트 `web/src/lib/mobile-data.ts`의 `request()`는 2xx가 아니면 `error`만 담아 예외를 던져서 오류 응답의 `help`가 사라진다. 시도 저장 실패(500)·세션 없음(401)에서도 안내가 보이도록 `help`를 함께 넘겨야 한다 (재희).
@@ -145,8 +146,8 @@
     }
   ],
   "usedFallback": false,   // true면 이유 옆에 "준비해 둔 별에서 골랐어요." 표시
-  "reused": false,         // 오늘 이미 만든 추천을 다시 돌려준 경우 true
-  "todayChoice": "near",   // 이 추천을 만든 기준 (재사용이면 처음 만든 날의 선택)
+  "reused": false,         // 오늘 저장된 추천을 사용해 AI 호출을 건너뛴 경우 true
+  "todayChoice": "near",   // 현재 체크인의 활동 범위
   "modelVersion": "gemini-3.5-flash-lite"
 }
 ```
@@ -182,7 +183,7 @@
 
 ```jsonc
 // 401 세션 없음
-{ "error": "데모 세션이 없어요. 데모 시작 화면에서 다시 시작해 주세요.", "code": "DEMO_SESSION_REQUIRED", "help": null }
+{ "error": "데모를 다시 시작해 주세요.", "code": "NO_SESSION", "help": null }
 // 404 다른 세션의 체크인 또는 없는 체크인 (구분하지 않음)
 { "error": "체크인을 찾을 수 없어요.", "code": "NOT_FOUND", "help": null }
 // 400 { "error": "checkinId가 필요해요.", "code": "INVALID", "help": null }
@@ -193,7 +194,7 @@
 
 - **현재 세션 사용자의 체크인인지 확인**한다 (`checkins.user_id`). 다른 세션의 체크인은 404.
 - **쉬어 가기(`rest`)는 빈 추천**이다. Gemini를 부르지 않고 저장하지도 않는다 → 같은 날 다른 범위로 다시 체크인하면 그때 추천을 만든다. 오늘 추천이 이미 있어도 쉬어 가기 체크인에는 빈 추천.
-- **하루 한 번**: 같은 사용자·같은 한국 날짜에 추천이 있으면 Gemini를 부르지 않고 저장된 결과를 돌려준다 (`reused: true`). 같은 요청을 반복해도, 같은 날 다른 범위로 체크인해도, 마음 날씨를 고쳐도 첫 추천이 그대로다. `todayChoice`로 어떤 선택 기준인지 알 수 있다.
+- **일일 추천 재사용**: 같은 사용자·같은 한국 날짜에 추천이 있으면 Gemini 호출 없이 `reused: true`를 반환한다. 같은 범위이면 이전 별과 이유를 재사용한다. 범위를 바꾸면 현재 범위의 별만 남기고 기본 이유를 사용한다. 남는 별이 없으면 현재 범위의 기본 후보를 반환한다. `todayChoice`는 현재 체크인의 범위다.
 - 추천 개수: 최대 3개. 오늘 선택이 없으면 `home`으로 본다.
 - 후보 범위 (임시 규칙, 콘텐츠 정의서 확정 시 교체)
 
@@ -286,7 +287,8 @@ const { cheer, help } = await processReflection({
   "help": { "title": "혼자 감당하지 않아도 돼요", "lines": ["자살예방상담전화 109 (24시간)", "정신건강위기상담전화 1577-0199", "지역 청년마음건강 지원사업도 찾아볼 수 있어요."] }
 }
 // 400 { "error": "stopReason은 손 뻗어 보기(dim)일 때만 보낼 수 있어요.", "code": "INVALID", "help": null }
-// 401 { "error": "데모 세션이 없어요. ...", "code": "DEMO_SESSION_REQUIRED", "help": { ... } }   // 회고에 위기 표현이 있으면
+// 401 { "error": "데모를 다시 시작해 주세요.", "code": "NO_SESSION", "help": { ... } }   // 회고에 위기 표현이 있으면
+// 503 { "error": "지금은 저장하지 못했어요. 적어 둔 글은 그대로 있어요.", "code": "SAVE_FAILED", "help": { ... } }   // 세션 조회 DB 장애
 // 404 { "error": "별을 찾을 수 없어요.", "code": "NOT_FOUND", "help": null }
 ```
 
@@ -318,8 +320,9 @@ const { cheer, help } = await processReflection({
       "status": "untried", "attempts": 0, "memories": [] }
   ]
 }
-// 401 { "error": "데모 세션이 없어요. ...", "code": "DEMO_SESSION_REQUIRED", "help": null }
+// 401 { "error": "데모를 다시 시작해 주세요.", "code": "NO_SESSION", "help": null }
 // 500 { "error": "지금은 밤하늘을 불러오지 못했어요.", "code": "LOAD_FAILED", "help": null }
+// 503 { "error": "지금은 밤하늘을 불러오지 못했어요.", "code": "LOAD_FAILED", "help": null }   // 세션 조회 DB 장애
 ```
 
 - 별 목록은 **시드의 모든 별**(현재 16개)을 별자리·순서대로 준다 (별자리 선택 API가 생기면 바꿈).
@@ -384,7 +387,7 @@ const { cheer, help } = await processReflection({
 // 500 저장 실패 — 초안은 화면에 보여 주되 "저장되지 않았어요" + 다시 저장하기
 { "error": "지금은 초안을 저장하지 못했어요.", "code": "SAVE_FAILED", "draft": "안녕하세요. ...", "help": null }
 // 400 { "error": "궁금한 점을 300자 이하로 적어 주세요.", "code": "INVALID", "help": null }
-// 401 { "error": "데모 세션이 없어요. ...", "code": "DEMO_SESSION_REQUIRED", "help": null }
+// 401 { "error": "데모를 다시 시작해 주세요.", "code": "NO_SESSION", "help": null }
 // 404 { "error": "센터를 찾을 수 없어요.", "code": "NOT_FOUND", "help": null }
 ```
 
@@ -480,10 +483,10 @@ node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-http.mts
 
 - **정상 추천:** 집 근처 체크인 → 실제 시드 별 2개 + AI 이유 (위 "정상" 예시가 실제 응답)
 - **쉬어 가기:** 빈 추천, AI 호출 0회, 저장 안 함. 그 뒤 같은 날 집 안으로 체크인하면 새 추천 생성
-- **반복 요청 일관성:** 같은 요청 3번 → 3번 모두 같은 별·같은 이유, AI 호출 0회. 같은 날 다른 범위 체크인도 첫 추천(`todayChoice`는 처음 기준)
+- **반복 요청 일관성(당시 구현):** 같은 요청 3번 모두 같은 별·같은 이유, AI 호출 0회. 이후 활동 범위를 바꾼 요청에 현재 범위를 적용하도록 수정했다.
 - **Gemini 실패 시 기본값:** 키 없음·잘못된 키·형식 오류·호출 예외·모두 후보 밖 → 유효한 실제 후보 + 기본 이유. 바깥 선택이면 GPS 별 16부터
 - **후보 밖 ID:** 없는 별 999, 범위 밖 GPS 별, 중복 제거. 금지 표현 이유만 기본 이유로 교체
-- **다른 세션의 체크인 거절:** 브라우저 B가 A의 체크인으로 추천 → 404 (HTTP·로직 모두). 세션 없이 → 401 `DEMO_SESSION_REQUIRED`
+- **다른 세션의 체크인 거절:** 브라우저 B가 A의 체크인으로 추천 → 404 (HTTP·로직 모두). 세션이 없으면 401이며 현재 오류 코드는 `NO_SESSION`이다.
 - **회고 처리 함수:** 반환 키가 `cheer`·`help` 두 개. 회고 없음 → AI 호출 없음. 호출 예외·형식 오류 → 기본 응원 + 규칙 기반 help. AI가 normal이어도 규칙 danger면 help
 - **시도 저장 오류에도 help:** 가짜 DB로 INSERT 실패 → 500 `SAVE_FAILED` + help 유지 + cheer 없음. DB 전체 장애도 500 + help. 세션 없이 위기 표현 회고 → 401 + help (HTTP)
 - **새로고침 후 회고 조회:** 같은 쿠키로 밤하늘 재조회 → 같은 별에 날짜·회고. 다른 세션의 밤하늘에는 기록 없음. 데모 시작을 다시 눌러도 같은 사용자

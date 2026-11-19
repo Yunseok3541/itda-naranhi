@@ -151,6 +151,8 @@ export async function recommend(
   let checkin: { text: string; weather: string; user_weather: string | null; today_choice: TodayChoice | null } | undefined;
   let user: { current_stage: number; start_answers: { burden?: unknown } | null } | undefined;
   let stars: StarRow[];
+  let choice: ActiveChoice;
+  let candidates: StarRow[];
   try {
     // 현재 세션 사용자의 체크인만 (남의 체크인은 없는 것처럼 404)
     checkin = (
@@ -164,23 +166,22 @@ export async function recommend(
     // 쉬어 가기: 빈 추천 (AI를 부르지 않고 저장하지 않음 → 같은 날 다른 범위를 고르면 그때 추천을 만든다)
     if (checkin.today_choice === "rest") return ok({ items: [], usedFallback: false, reused: false, todayChoice: "rest" });
 
-    // 하루 한 번: 오늘 추천이 있으면 그대로 돌려준다 (체크인이 달라도, 날씨를 고쳐도)
-    const reused = await loadToday(userId, today, db);
-    if (reused) return ok({ ...reused, reused: true });
-
+    choice = checkin.today_choice ?? "home";
     user = (
       await db.query<NonNullable<typeof user>>("SELECT current_stage, start_answers FROM users WHERE id = $1", [userId])
     ).rows[0];
     // 시작 단계 + 바로 위 단계까지
     stars = (await db.query<StarRow>(STAR_SQL, [userId, (user?.current_stage ?? 1) + 1])).rows;
+    candidates = pickCandidates(stars, choice);
+
+    // 하루 한 번 생성한 추천을 현재 선택 범위에 맞춰 재사용한다.
+    const reused = await loadToday(userId, today, choice, stars, candidates, db);
+    if (reused) return ok({ ...reused, reused: true });
   } catch (error) {
     console.error("[recommendations] 조회 실패", errorCode(error));
     return fail(500, "LOAD_FAILED", "지금은 추천을 불러오지 못했어요.");
   }
 
-  // 선택을 안 했으면 집 안 (rest는 위에서 이미 빈 추천으로 끝남)
-  const choice: ActiveChoice = checkin.today_choice ?? "home";
-  const candidates = pickCandidates(stars, choice);
   if (candidates.length === 0) return ok({ items: [], usedFallback: true, reused: false, todayChoice: choice });
 
   const recent = await recentAttempts(userId, db);
@@ -230,7 +231,7 @@ export async function recommend(
   const usedFallback = items.length === 0;
   if (usedFallback) items = candidates.slice(0, MAX_ITEMS).map((s) => toItem(s, defaultReason(s)));
 
-  // 저장 실패해도 추천은 돌려준다. 동시에 두 번 요청되면 먼저 저장된 쪽을 돌려준다
+  // 동시에 두 번 요청되면 먼저 저장된 추천을 현재 범위에 맞춰 재사용한다.
   try {
     const stored: StoredRec = {
       v: 1,
@@ -244,7 +245,7 @@ export async function recommend(
       [userId, today, items.map((i) => i.starId), JSON.stringify(stored), checkinId],
     );
     if (inserted.rowCount === 0) {
-      const first = await loadToday(userId, today, db);
+      const first = await loadToday(userId, today, choice, stars, candidates, db);
       if (first) return ok({ ...first, reused: true });
     }
   } catch (error) {
@@ -254,7 +255,14 @@ export async function recommend(
   return ok({ items, usedFallback, reused: false, todayChoice: choice, modelVersion: ai.modelVersion });
 }
 
-async function loadToday(userId: number, today: string, db: Db) {
+async function loadToday(
+  userId: number,
+  today: string,
+  choice: ActiveChoice,
+  stars: StarRow[],
+  candidates: StarRow[],
+  db: Db,
+) {
   const row = (
     await db.query<{ star_ids: number[]; reason: string | null }>(
       "SELECT star_ids, reason FROM daily_recommendations WHERE user_id = $1 AND rec_date = $2::date",
@@ -263,19 +271,20 @@ async function loadToday(userId: number, today: string, db: Db) {
   ).rows[0];
   if (!row) return null;
   const stored = parseStored(row.reason, row.star_ids);
-  const rows = (
-    await db.query<StarRow>(
-      `SELECT s.id, s.title, s.description, s.verify_type, c.stage, c.name AS constellation_name, 'untried' AS status
-       FROM stars s JOIN constellations c ON c.id = s.constellation_id WHERE s.id = ANY($1)`,
-      [row.star_ids],
-    )
-  ).rows;
-  const byId = new Map(rows.map((s) => [s.id, s]));
+  const sameChoice = stored.todayChoice === choice;
+  const inScope = stars.filter((s) => SCOPE_ORDER[choice].includes(scopeOf(s)));
+  const byId = new Map(inScope.map((s) => [s.id, s]));
   const items = stored.items.flatMap((i) => {
     const star = byId.get(i.starId);
-    return star ? [toItem(star, i.reason || defaultReason(star))] : [];
+    return star ? [toItem(star, sameChoice && i.reason ? i.reason : defaultReason(star))] : [];
   });
-  return { items, usedFallback: stored.usedFallback, todayChoice: stored.todayChoice ?? null };
+  if (items.length > 0) return { items, usedFallback: stored.usedFallback || !sameChoice, todayChoice: choice };
+
+  return {
+    items: candidates.slice(0, MAX_ITEMS).map((s) => toItem(s, defaultReason(s))),
+    usedFallback: true,
+    todayChoice: choice,
+  };
 }
 
 /** 최근 시도 5개 (별 제목·결과·멈춘 이유만. 회고 원문은 보내지 않음) */

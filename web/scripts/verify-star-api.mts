@@ -132,9 +132,11 @@ try {
   check("반복 요청 usedFallback 유지", repeats.every((r) => r.body.usedFallback === b1.usedFallback));
 
   const cA2 = await checkin(A, "out");
-  const r3 = await recommend(A, { checkinId: cA2 }, client);
-  check("같은 날 다른 체크인(바깥)도 첫 추천 재사용", (r3.body as Body).reused === true && JSON.stringify((r3.body as Body).items) === JSON.stringify(b1.items));
-  check("재사용 응답의 todayChoice는 처음 기준(near)", (r3.body as Body).todayChoice === "near");
+  const changedChoiceGen = fakeGen({ items: [{ starId: 16, reason: "바깥 별이에요." }] });
+  const r3 = await recommend(A, { checkinId: cA2 }, client, changedChoiceGen);
+  const b3 = r3.body as Body;
+  check("활동 범위가 넓어지면 범위에 맞는 기존 별 재사용", b3.reused === true && JSON.stringify(b3.items.map((i: Body) => i.starId)) === JSON.stringify(ids1));
+  check("범위 변경은 현재 선택·기본 이유 반환, AI 호출 0회", b3.todayChoice === "out" && b3.usedFallback === true && changedChoiceGen.calls === 0);
 
   // 쉬어 가기 → 빈 추천, AI 호출·저장 없음. 오늘 추천이 이미 있어도 빈 추천
   const cArest = await checkin(A, "rest");
@@ -177,6 +179,17 @@ try {
   await client.query("DELETE FROM daily_recommendations WHERE user_id = $1", [C]);
   const rInvalidRec = await recommend(C, { checkinId: cC }, client, invalidGen);
   check("형식 오류 → 같은 기본 후보", (rInvalidRec.body as Body).usedFallback === true && JSON.stringify((rInvalidRec.body as Body).items) === JSON.stringify(ba.items));
+
+  // 바깥 추천만 저장된 날 집 안으로 바꿔도 GPS 별을 보여주거나 Gemini를 재호출하지 않는다.
+  await client.query("DELETE FROM daily_recommendations WHERE user_id = $1", [C]);
+  const outdoor = await recommend(C, { checkinId: cC }, client, changedChoiceGen);
+  check("바깥 선택에 GPS 별만 저장", (outdoor.body as Body).items.map((i: Body) => i.starId).join(",") === "16");
+  const cHome = await checkin(C, "home");
+  const noSecondCall = fakeGen({ items: [] });
+  const narrowed = (await recommend(C, { checkinId: cHome }, client, noSecondCall)).body as Body;
+  check("바깥 → 집 안: 집 안 기본 후보 최대 3개, AI 재호출 없음",
+    narrowed.todayChoice === "home" && narrowed.reused && narrowed.usedFallback && noSecondCall.calls === 0
+    && narrowed.items.length === 3 && narrowed.items.every((i: Body) => i.starId >= 1 && i.starId <= 10), narrowed);
 
   // 체크인 소유·입력
   const rOther = await recommend(B, { checkinId: cA }, client);
