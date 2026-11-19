@@ -35,6 +35,8 @@ UPDATE stars SET place_type = 'convenience' WHERE constellation_id = 3 AND posit
 UPDATE stars SET category = 'center'
 WHERE (constellation_id, position) IN ((1, 5), (3, 5));
 
--- 데모 사용자 (시작 질문: 집 안 활동만 괜찮음, 사람 만나는 게 부담, 혼자 → 1단계 시작. 지역 예시: 서울 마포구 11440)
-INSERT INTO users (nickname, start_answers, current_stage, region_code, birth_year, share_in_sky)
-VALUES ('데모', '{"range":"home","burden":["people"],"with":"alone"}', 1, '11440', 2000, true);
+-- 사용자는 시드로 만들지 않음 (users.id = 1 고정 사용 금지)
+-- 데모 사용자는 POST /api/demo/session 이 브라우저마다 새로 만든다 (web/src/lib/demo-session.ts)
+--   새 사용자 초기값: 닉네임 '데모 사용자', current_stage 1, region_code '11440'(데모 지역 서울 마포구)
+--   체크인·별 시도·회고는 비어 있는 상태로 시작 (다른 사람 기록을 복제하지 않음)
+-- 별자리·별은 모든 사용자가 함께 쓰는 콘텐츠라 위에서 한 번만 넣는다
