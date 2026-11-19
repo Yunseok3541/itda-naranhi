@@ -1,46 +1,18 @@
 "use client";
-// 메인 화면 "내 밤하늘" — 큰 별자리 하나를 바라보는 고요한 화면 (어비스리움 느낌)
+// 메인 화면 "내 밤하늘" — 천구 배경(sky-panorama) 위 실제 별자리 자리에 퀘스트 별을 올린다
+// - 퀘스트 별 하나 = 실제 별 하나 (lib/sky-constellations.ts). 배경과 같은 시점(lib/sky-view.ts)으로 위치 계산
+// - 넘기기(점·화살표)를 누르면 그 별자리로 하늘이 이동하며 알맞게 확대. 하늘을 끌다 다른 별자리에 다가가면 제목도 바뀜
 // - 별을 두드리면 반짝임 + 그날의 기억 (숫자·포인트 없음)
-// - 좌우로 밀거나 아래 점을 눌러 다른 별자리로
-// - 별 상태: 아직 만나기 전(희미한 점) / 손을 뻗은 별(은은한 빛) / 딴 별(밝게 반짝임)
+// - 별 상태: 아직 만나기 전(흰 점) / 손을 뻗은 별(은은한 금빛) / 딴 별(밝게 반짝임)
+// - 시인성: 배경 별은 어둡게, 퀘스트 별은 크게, 지금 별자리는 별 이름·실선, 다른 별자리는 흐리게
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
 import { getActivityConstellation } from '@/lib/constellations';
 import type { Star } from '@/lib/mobile-data';
+import { angleBetween, fitView, projector, RAD, skyView, toLonLat, unit, type Vec3 } from '@/lib/sky-view';
+import { skyConstellation } from '@/lib/sky-constellations';
 
 const labels = { untried: '아직 만나기 전', dim: '손을 뻗은 별', bright: '딴 별' } as const;
-
-type Shape = { points: [number, number][]; edges: [number, number][] };
-
-// 별자리 모양 (무대 안의 % 좌표). 별 수가 다르면 아래 arcShape로 그림
-const SHAPES: Record<number, Shape> = {
-  1: { points: [[12, 38], [31, 60], [50, 42], [69, 64], [88, 36]], edges: [[0, 1], [1, 2], [2, 3], [3, 4]] },
-  2: { points: [[16, 60], [34, 40], [55, 32], [74, 44], [86, 66]], edges: [[0, 1], [1, 2], [2, 3], [3, 4]] },
-  3: {
-    points: [[50, 14], [38, 32], [62, 32], [34, 56], [66, 56], [28, 82], [72, 82]],
-    edges: [[0, 1], [0, 2], [1, 2], [1, 3], [2, 4], [3, 4], [3, 5], [4, 6]],
-  },
-};
-
-function arcShape(n: number): Shape {
-  const points = Array.from({ length: n }, (_, i): [number, number] => {
-    const t = n === 1 ? 0.5 : i / (n - 1);
-    return [12 + t * 76, 62 - Math.sin(t * Math.PI) * 34];
-  });
-  return { points, edges: points.slice(1).map((_, i): [number, number] => [i, i + 1]) };
-}
-
-// 배경 빛 입자 (서버·클라이언트가 같은 값을 쓰도록 고정 난수)
-function seeded(seed: number) {
-  let s = seed;
-  return () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646;
-}
-const DUST = (() => {
-  const r = seeded(7);
-  return Array.from({ length: 46 }, (_, i) => ({
-    id: i, x: r() * 100, y: r() * 100, size: 1 + r() * 2.2, delay: r() * 6, duration: 3 + r() * 5,
-  }));
-})();
 
 const koreanDate = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'long', day: 'numeric' });
 function memoryDate(value: string) {
@@ -69,6 +41,59 @@ function groupStars(stars: Star[]): Group[] {
   });
 }
 
+type Box = { x: number; y: number; w: number; h: number };
+const overlaps = (a: Box, b: Box) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+
+/**
+ * 별 이름표 자리 정하기: 별 아래 → 위 → 오른쪽 → 왼쪽 순서로, 다른 별·이름표와 겹치지 않고 화면 안인 곳
+ * 놓을 곳이 없으면 null (이름은 별을 누르거나 목록에서 볼 수 있음). 글자 폭은 한글 기준으로 어림
+ */
+/** 단어 단위 줄바꿈(word-break: keep-all)으로 몇 줄·얼마나 넓은지 어림. 글자 0.72rem 기준 */
+function measure(text: string, maxLine: number) {
+  const CHAR = 11.8, SPACE = 3.6;
+  const lines: number[] = [];
+  let line = 0;
+  for (const word of text.split(/\s+/).filter(Boolean)) {
+    const w = word.length * CHAR;
+    if (line > 0 && line + SPACE + w > maxLine) { lines.push(line); line = w; }
+    else line += (line > 0 ? SPACE : 0) + w;
+  }
+  lines.push(line);
+  return { lines: lines.length, width: Math.max(...lines) };
+}
+
+function placeLabels(items: { x: number; y: number; text: string }[], width: number, height: number) {
+  const STAR = 16, GAP = 18, PAD = 14, LINE = 15;
+  const stars: Box[] = items.map(i => ({ x: i.x - STAR, y: i.y - STAR, w: STAR * 2, h: STAR * 2 }));
+  const placed: Box[] = [];
+  return items.map(({ x, y, text }) => {
+    // 두 줄 안에 들어가는 가장 좁은 폭 (110px부터 넓혀 봄, 최대 160px. 그래도 넘치면 두 줄에서 말줄임)
+    let m = measure(text, 110);
+    for (let maxLine = 122; m.lines > 2 && maxLine <= 160; maxLine += 12) m = measure(text, maxLine);
+    const w = Math.ceil(m.width) + PAD, h = Math.min(2, m.lines) * LINE + 4;
+    const candidates: [Box, 'center' | 'left' | 'right'][] = [
+      [{ x: x - w / 2, y: y + GAP, w, h }, 'center'],
+      [{ x: x - w / 2, y: y - GAP - h, w, h }, 'center'],
+      [{ x: x + GAP + 4, y: y - h / 2, w, h }, 'left'],
+      [{ x: x - GAP - 4 - w, y: y - h / 2, w, h }, 'right'],
+    ];
+    for (const [box, align] of candidates) {
+      if (box.x < 4 || box.x + box.w > width - 4 || box.y < 4 || box.y + box.h > height - 4) continue;
+      if (stars.some(s => overlaps(box, s)) || placed.some(p => overlaps(box, p))) continue;
+      placed.push(box);
+      // 단추(56px) 가운데가 기준인 상대 위치
+      return { left: box.x - x + 28, top: box.y - y + 28, width: w, align };
+    }
+    return null;
+  });
+}
+
+/** 지금 화면(배경 캔버스) 크기. 아직 모르면 창 크기 */
+function frameSize() {
+  const f = skyView.frame();
+  return f ? { width: f.width, height: f.height } : { width: window.innerWidth, height: window.innerHeight };
+}
+
 export default function NightSky({ stars, selected, onSelect, busy, onReload, footer }: {
   stars: Star[];
   selected: Star | null;
@@ -79,21 +104,54 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   footer?: ReactNode;
 }) {
   const groups = useMemo(() => groupStars(stars), [stars]);
+  const skies = useMemo(() => groups.map(g => skyConstellation(g.id, g.stars.length)), [groups]);
+  const centers = useMemo(() => skies.map(s => {
+    const sum: Vec3 = [0, 0, 0];
+    for (const p of s.points) { sum[0] += p[0]; sum[1] += p[1]; sum[2] += p[2]; }
+    const c = toLonLat(sum);
+    return unit(c.lon / RAD, c.lat / RAD);
+  }), [skies]);
   // 처음에는 아직 다 따지 않은 첫 별자리를 보여 줌
   const [index, setIndex] = useState(() => {
     const i = groupStars(stars).findIndex(g => g.stars.some(s => s.status !== 'bright'));
     return i < 0 ? 0 : i;
   });
   const [burst, setBurst] = useState<{ key: number; x: number; y: number } | null>(null);
-  const swipe = useRef<number | null>(null);
   const sheet = useRef<HTMLElement>(null);
   const list = useRef<HTMLDetailsElement>(null);
   const burstCount = useRef(0);
   const closeList = () => { if (list.current) list.current.open = false; };
 
-  const current = groups[Math.min(index, Math.max(groups.length - 1, 0))];
-  const shape = current ? (SHAPES[current.id]?.points.length === current.stars.length ? SHAPES[current.id] : arcShape(current.stars.length)) : null;
+  // 배경 시점이 바뀌면 다시 그림 (끌기·확대·이동 애니메이션)
+  useSyncExternalStore(skyView.subscribe, skyView.version, () => 0);
+  const view = skyView.get();
+  const frame = skyView.frame();
+
+  const safeIndex = Math.min(index, Math.max(groups.length - 1, 0));
+  const current = groups[safeIndex];
   const complete = !!current && current.stars.length > 0 && current.stars.every(s => s.status === 'bright');
+
+  /** i번째 별자리로 하늘을 옮기고 알맞게 확대 */
+  function flyToGroup(i: number, ms = 900) {
+    const sky = skies[i];
+    if (!sky) return;
+    const { width, height } = frameSize();
+    skyView.flyTo(fitView(sky.points, width, height), ms);
+  }
+
+  // 처음 열 때: 보여 줄 별자리로 바로 맞춤
+  const initialIndex = useRef(safeIndex);
+  useEffect(() => { flyToGroup(initialIndex.current, 0); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 하늘을 끌다 다른 별자리 가까이 가면 그 별자리를 "지금 별자리"로 (이동 애니메이션 중에는 바꾸지 않음)
+  useEffect(() => skyView.subscribe(() => {
+    if (skyView.isFlying() || !centers.length) return;
+    const v = skyView.get();
+    const c = unit(v.lon / RAD, v.lat / RAD);
+    let best = -1, bestAngle = Infinity;
+    centers.forEach((p, i) => { const a = angleBetween(c, p); if (a < bestAngle) { bestAngle = a; best = i; } });
+    if (best >= 0 && bestAngle < v.fov * 0.22) setIndex(i => (i === best ? i : best));
+  }), [centers]);
 
   useEffect(() => { if (selected) sheet.current?.focus(); }, [selected]);
   useEffect(() => {
@@ -106,11 +164,14 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   // 앞뒤로 넘기기 (빠르게 여러 번 눌러도 한 칸씩 정확히 넘어가도록 이전 값 기준으로 계산)
   function step(delta: number) {
     if (!groups.length) return;
-    setIndex(i => (i + delta + groups.length) % groups.length);
+    const next = (safeIndex + delta + groups.length) % groups.length;
+    setIndex(next);
+    flyToGroup(next);
     onSelect(null);
   }
   function jump(i: number) {
     setIndex(i);
+    flyToGroup(i);
     onSelect(null);
   }
 
@@ -122,11 +183,62 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
 
   const tried = (s?: Star) => !!s && s.status !== 'untried';
 
+  // 화면 좌표 (보이지 않는 별은 null → 그리지 않음. 목록에서는 언제든 고를 수 있음)
+  const positions = useMemo(() => {
+    if (!frame) return [];
+    const project = projector(view, frame.width, frame.height);
+    const pad = 40;
+    return skies.map(s => s.points.map(p => {
+      const q = project(p);
+      return q && q.x > -pad && q.x < frame.width + pad && q.y > -pad && q.y < frame.height + pad ? q : null;
+    }));
+  }, [skies, view, frame]);
+
+  // 지금 별자리 별 이름표 자리 (겹치면 숨김)
+  const labelSpots = useMemo(() => {
+    const g = groups[safeIndex];
+    const pos = positions[safeIndex];
+    if (!g || !pos || !frame) return [];
+    const shown = g.stars.map((s, i) => ({ s, p: pos[i] })).filter((x): x is { s: Star; p: NonNullable<typeof x.p> } => !!x.p);
+    const spots = placeLabels(shown.map(({ s, p }) => ({ x: p.x, y: p.y, text: s.title })), frame.width, frame.height);
+    return g.stars.map(s => {
+      const k = shown.findIndex(x => x.s.starId === s.starId);
+      return k < 0 ? null : spots[k];
+    });
+  }, [groups, positions, safeIndex, frame]);
+
   return <section className="night" aria-label="내 밤하늘">
-    <div className="night-dust" aria-hidden="true">
-      {DUST.map(d => <i key={d.id} style={{ left: `${d.x}%`, top: `${d.y}%`, width: d.size, height: d.size, animationDelay: `${d.delay}s`, animationDuration: `${d.duration}s` }} />)}
-      <b className="shooting" />
-    </div>
+    <div className="night-dust" aria-hidden="true"><b className="shooting" /></div>
+
+    {frame && <div className="sky-anchors" style={{ left: frame.left, top: frame.top, width: frame.width, height: frame.height }}>
+      <svg width={frame.width} height={frame.height} aria-hidden="true">
+        {groups.map((g, gi) => skies[gi].edges.map(([a, b]) => {
+          const p = positions[gi]?.[a], q = positions[gi]?.[b];
+          if (!p || !q) return null;
+          const lit = tried(g.stars[a]) && tried(g.stars[b]);
+          return <line key={`${g.id}-${a}-${b}`} x1={p.x} y1={p.y} x2={q.x} y2={q.y}
+            className={`edge${lit ? ' lit' : ''}${gi === safeIndex ? ' current' : ''}`} />;
+        }))}
+      </svg>
+      {groups.map((g, gi) => g.stars.map((s, i) => {
+        const p = positions[gi]?.[i];
+        if (!p) return null;
+        const isCurrent = gi === safeIndex;
+        return <button key={s.starId} type="button"
+          className={`nstar ${s.status}${isCurrent ? ' current' : ' other'}${selected?.starId === s.starId ? ' active' : ''}`}
+          style={{ left: p.x, top: p.y, animationDelay: `${(i * 0.7) % 3}s` }}
+          aria-label={`${g.name} ${s.title}, ${labels[s.status]}`}
+          onClick={() => { if (!isCurrent) setIndex(gi); tap(s, p.x, p.y); }}>
+          <span className="glow" aria-hidden="true" />
+          <span className="core" aria-hidden="true" />
+          {isCurrent && labelSpots[i] && <span className="nstar-label" aria-hidden="true"
+            style={{ left: labelSpots[i]!.left, top: labelSpots[i]!.top, width: labelSpots[i]!.width, textAlign: labelSpots[i]!.align }}>{s.title}</span>}
+        </button>;
+      }))}
+      {burst && <span key={burst.key} className="burst" style={{ left: burst.x, top: burst.y }} aria-hidden="true">
+        {Array.from({ length: 8 }, (_, i) => <i key={i} style={{ '--a': `${i * 45}deg` } as CSSProperties} />)}
+      </span>}
+    </div>}
 
     <div className="night-toolbar">
       {/* 접근성용 전체 목록: 열면 아래에서 올라오는 창 (메인은 스크롤 없이 한 화면에 고정) */}
@@ -134,9 +246,9 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
         <summary>모든 별 목록</summary>
         <div className="night-list-body" role="dialog" aria-label="모든 별 목록">
           <div className="sheet-grip" aria-hidden="true" />
-          {groups.map(g => <div key={g.id}>
+          {groups.map((g, gi) => <div key={g.id}>
             <h3>{g.name}</h3>
-            {g.stars.map(s => <button key={s.starId} type="button" className="night-row" onClick={() => { setIndex(groups.indexOf(g)); onSelect(s); closeList(); }}>
+            {g.stars.map(s => <button key={s.starId} type="button" className="night-row" onClick={() => { setIndex(gi); flyToGroup(gi); onSelect(s); closeList(); }}>
               <span className={`dot ${s.status}`} aria-hidden="true" />
               <span>{s.title}<small>{labels[s.status]}</small></span>
             </button>)}
@@ -161,43 +273,14 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
       {groups.length > 1 && <div className="pager">
         <button type="button" className="pager-arrow" onClick={() => step(-1)} aria-label="이전 별자리">‹</button>
         <div className="pager-dots">
-          {groups.map((g, i) => <button key={g.id} type="button" aria-label={g.name} aria-current={i === index ? 'true' : undefined} onClick={() => jump(i)} />)}
+          {groups.map((g, i) => <button key={g.id} type="button" aria-label={g.name} aria-current={i === safeIndex ? 'true' : undefined} onClick={() => jump(i)} />)}
         </div>
         <button type="button" className="pager-arrow" onClick={() => step(1)} aria-label="다음 별자리">›</button>
       </div>}
-      <p className="night-hint">별을 누르면 그날의 기억이 떠올라요</p>
+      <p className="night-hint">별을 누르면 기억이 떠올라요 · 하늘은 끌어서 둘러봐요</p>
+    </> : <div className="night-title"><h1>아직 하늘이 비어 있어요</h1><p>밤하늘을 다시 불러와 주세요.</p></div>}
 
-      <div className="stage"
-        onPointerDown={e => { swipe.current = e.clientX; }}
-        onPointerUp={e => {
-          if (swipe.current === null) return;
-          const dx = e.clientX - swipe.current;
-          swipe.current = null;
-          if (Math.abs(dx) > 60) step(dx < 0 ? 1 : -1);
-        }}>
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-          {shape!.edges.map(([a, b]) => {
-            const lit = tried(current.stars[a]) && tried(current.stars[b]);
-            const [x1, y1] = shape!.points[a], [x2, y2] = shape!.points[b];
-            return <line key={`${a}-${b}`} x1={x1} y1={y1} x2={x2} y2={y2} className={lit ? 'edge lit' : 'edge'} vectorEffect="non-scaling-stroke" />;
-          })}
-        </svg>
-        {current.stars.map((s, i) => {
-          const [x, y] = shape!.points[i];
-          return <button key={s.starId} type="button"
-            className={`nstar ${s.status}${selected?.starId === s.starId ? ' active' : ''}`}
-            style={{ left: `${x}%`, top: `${y}%`, animationDelay: `${(i * 0.7) % 3}s` }}
-            aria-label={`${s.title}, ${labels[s.status]}`}
-            onClick={() => tap(s, x, y)}>
-            <span className="glow" aria-hidden="true" />
-            <span className="core" aria-hidden="true" />
-          </button>;
-        })}
-        {burst && <span key={burst.key} className="burst" style={{ left: `${burst.x}%`, top: `${burst.y}%` }} aria-hidden="true">
-          {Array.from({ length: 8 }, (_, i) => <i key={i} style={{ '--a': `${i * 45}deg` } as CSSProperties} />)}
-        </span>}
-      </div>
-    </> :<div className="night-title"><h1>아직 하늘이 비어 있어요</h1><p>밤하늘을 다시 불러와 주세요.</p></div>}
+    <div className="night-space" aria-hidden="true" />
 
     {selected && <section ref={sheet} tabIndex={-1} className="sheet" aria-label="별의 기억">
       <div className="sheet-grip" aria-hidden="true" />

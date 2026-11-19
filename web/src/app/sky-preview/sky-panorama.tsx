@@ -2,19 +2,18 @@
 // 메인 배경 "천구 뷰": 실제 별 위치(적경·적위)를 구 위에 놓고, 끌면 하늘이 돌아간다
 // - 데이터: public/sky/celestial.json (5.5등급까지 별 2,851개 + 은하수 밝기 격자, 약 27KB 압축)
 //   만드는 법·출처: scripts/build-celestial-data.mjs, 라이선스: public/sky/LICENSE-d3-celestial.txt
-// - 그림: Canvas 2D + 평사도법(stereographic). 3D 라이브러리 없음, 끌 때만 다시 그림 (가만히 있으면 연산 0)
+// - 시점은 lib/sky-view.ts에 함께 둔다 → 별자리 화면(night-sky)이 같은 시점으로 퀘스트 별을 올린다
+// - 그림: Canvas 2D + 평사도법. 3D 라이브러리 없음, 시점이 바뀔 때만 다시 그림 (가만히 있으면 연산 0)
+// - 조작: 한 손가락·마우스로 끌기, 두 손가락·휠로 확대, 방향키·+/- 키
 // - 위치·시간·카메라 권한을 쓰지 않음 (실제 내 위치의 하늘이 아니라 별자리 지도)
 import { useEffect, useRef } from 'react';
+import { projector, scaleFor, skyView, unit, type Vec3 } from '@/lib/sky-view';
 import './sky-preview.css';
 
 type Celestial = { stars: [number, number, number, number][]; milkyway: [number, number, number][] };
 
-const RAD = Math.PI / 180;
-/** 화면의 긴 쪽에 보이는 하늘 각도 */
-const FOV = 110 * RAD;
-/** 처음 바라보는 곳: 카시오페이아자리 근처 (앱의 첫 별자리) */
-const START = { lon: 15 * RAD, lat: 52 * RAD };
-const LAT_LIMIT = 85 * RAD;
+/** 배경 별 밝기 (퀘스트 별이 돋보이도록 전체를 조금 낮춤) */
+const BACKGROUND_DIM = 0.72;
 
 // 페이지를 옮겨 다녀도 한 번만 받음
 let dataPromise: Promise<Celestial> | null = null;
@@ -36,11 +35,6 @@ function starColor(bv100: number) {
   return '255, 198, 156';
 }
 
-function unit(raDeg: number, decDeg: number): [number, number, number] {
-  const ra = raDeg * RAD, dec = decDeg * RAD;
-  return [Math.cos(dec) * Math.cos(ra), Math.cos(dec) * Math.sin(ra), Math.sin(dec)];
-}
-
 function wrapped(value: number, period: number) {
   return ((value % period) + period) % period;
 }
@@ -49,9 +43,8 @@ export default function SkyPanorama({ background = false }: { background?: boole
   const surface = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const hills = useRef<HTMLDivElement>(null);
-  const view = useRef({ ...START });
-  const renderFrame = useRef<() => void>(() => {});
-  const pointer = useRef<{ id: number; x: number; y: number } | null>(null);
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<number | null>(null);
 
   useEffect(() => {
     const host = surface.current;
@@ -62,11 +55,12 @@ export default function SkyPanorama({ background = false }: { background?: boole
     let requested = 0;
     let alive = true;
     let dpr = 1;
+    let raw: Celestial | null = null;
     // 미리 계산한 단위 벡터 (그릴 때마다 삼각함수를 다시 부르지 않게)
-    let stars: { v: [number, number, number]; r: number; alpha: number; color: string; glow: boolean }[] = [];
-    let dust: { v: [number, number, number]; alpha: number }[] = [];
+    let stars: { v: Vec3; r: number; alpha: number; color: string; glow: boolean }[] = [];
+    let dust: { v: Vec3; alpha: number }[] = [];
 
-    // 은하수 칸 하나를 그릴 부드러운 빛 점
+    // 은하수 칸·밝은 별 둘레를 그릴 부드러운 빛 점
     const glow = document.createElement('canvas');
     glow.width = glow.height = 64;
     const g = glow.getContext('2d');
@@ -84,67 +78,44 @@ export default function SkyPanorama({ background = false }: { background?: boole
       const { width, height } = stage;
       context.clearRect(0, 0, width, height);
       if (!stars.length) return;
-
-      const { lon, lat } = view.current;
-      // 바라보는 방향(f)과 화면의 오른쪽·위쪽 축. 하늘은 안에서 올려다보므로 동쪽이 왼쪽
-      const f = [Math.cos(lat) * Math.cos(lon), Math.cos(lat) * Math.sin(lon), Math.sin(lat)];
-      const east = [-Math.sin(lon), Math.cos(lon), 0];
-      const north = [-Math.sin(lat) * Math.cos(lon), -Math.sin(lat) * Math.sin(lon), Math.cos(lat)];
-      const scale = Math.max(width, height) / 2 / (2 * Math.tan(FOV / 4));
-      const cx = width / 2, cy = height / 2;
+      const view = skyView.get();
+      const project = projector(view, width, height);
       const horizonFade = height * 0.72; // 아래쪽(지평선 빛)으로 갈수록 별이 옅어짐
-
-      const project = (v: [number, number, number]) => {
-        const z = v[0] * f[0] + v[1] * f[1] + v[2] * f[2];
-        if (z < -0.2) return null;
-        const k = 2 / (1 + z) * scale;
-        const x = cx - (v[0] * east[0] + v[1] * east[1]) * k;
-        const y = cy - (v[0] * north[0] + v[1] * north[1] + v[2] * north[2]) * k;
-        return x < -60 || x > width + 60 || y < -60 || y > height + 60 ? null : { x, y, k };
-      };
       const fade = (y: number) => (y < horizonFade ? 1 : Math.max(0, 1 - (y - horizonFade) / (height - horizonFade)) * 0.9 + 0.1);
+      const visible = (p: { x: number; y: number } | null, pad: number) => p && p.x > -pad && p.x < width + pad && p.y > -pad && p.y < height + pad;
 
-      // ① 은하수
-      const cell = 3 * RAD * 3.4; // 칸 간격(3°)보다 크게 겹쳐 그려 덩어리 없이 이어지게
+      // ① 은하수 (칸 간격 3°보다 크게 겹쳐 그려 덩어리 없이 이어지게)
+      const cell = 3 * (Math.PI / 180) * 3.4;
       for (const d of dust) {
         const p = project(d.v);
-        if (!p) continue;
-        const size = cell * p.k;
+        const size = p ? cell * p.k : 0;
+        if (!p || !visible(p, size)) continue;
         context.globalAlpha = d.alpha * fade(p.y);
         context.drawImage(glow, p.x - size / 2, p.y - size / 2, size, size);
       }
-      // ② 별 (밝은 별부터 저장되어 있어 어두운 별이 위로 덮지 않음 → 뒤에서부터 그림)
+      // ② 별 (밝은 별부터 저장되어 있어 뒤에서부터 그려 밝은 별이 위에 오게)
       for (let i = stars.length - 1; i >= 0; i--) {
         const s = stars[i];
         const p = project(s.v);
-        if (!p) continue;
-        const a = s.alpha * fade(p.y);
+        if (!visible(p, 20)) continue;
+        const a = s.alpha * fade(p!.y) * BACKGROUND_DIM;
         if (s.glow) {
           context.globalAlpha = a * 0.35;
           const size = s.r * 9;
-          context.drawImage(glow, p.x - size / 2, p.y - size / 2, size, size);
+          context.drawImage(glow, p!.x - size / 2, p!.y - size / 2, size, size);
         }
         context.globalAlpha = a;
         context.fillStyle = `rgb(${s.color})`;
         context.beginPath();
-        context.arc(p.x, p.y, s.r, 0, Math.PI * 2);
+        context.arc(p!.x, p!.y, s.r, 0, Math.PI * 2);
         context.fill();
       }
       context.globalAlpha = 1;
-      if (hills.current) hills.current.style.backgroundPositionX = `${wrapped(lon / (2 * Math.PI) * host.clientWidth * 2, host.clientWidth * 2)}px`;
+      if (hills.current) hills.current.style.backgroundPositionX = `${wrapped(view.lon / (2 * Math.PI) * host.clientWidth * 2, host.clientWidth * 2)}px`;
     }
     function schedule() {
       if (!requested) requested = requestAnimationFrame(draw);
     }
-    function resize() {
-      if (!host || !stage) return;
-      dpr = Math.min(window.devicePixelRatio || 1, 1.6);
-      stage.width = Math.max(1, Math.round(host.clientWidth * dpr));
-      stage.height = Math.max(1, Math.round(host.clientHeight * dpr));
-      prepareSizes();
-      schedule();
-    }
-    let raw: Celestial | null = null;
     function prepareSizes() {
       if (!raw) return;
       stars = raw.stars.map(([ra, dec, mag, bv]) => ({
@@ -156,8 +127,18 @@ export default function SkyPanorama({ background = false }: { background?: boole
       }));
       dust = raw.milkyway.map(([ra, dec, level]) => ({ v: unit(ra, dec), alpha: 0.03 + level * 0.025 }));
     }
+    function resize() {
+      if (!host || !stage) return;
+      dpr = Math.min(window.devicePixelRatio || 1, 1.6);
+      stage.width = Math.max(1, Math.round(host.clientWidth * dpr));
+      stage.height = Math.max(1, Math.round(host.clientHeight * dpr));
+      const r = stage.getBoundingClientRect();
+      skyView.setFrame({ left: r.left, top: r.top, width: r.width, height: r.height });
+      prepareSizes();
+      schedule();
+    }
 
-    renderFrame.current = schedule;
+    const unsubscribe = skyView.subscribe(schedule);
     loadCelestial().then(data => {
       if (!alive) return;
       raw = data;
@@ -166,12 +147,14 @@ export default function SkyPanorama({ background = false }: { background?: boole
     }).catch(() => { /* 데이터를 못 받으면 배경 그라데이션만 보임 */ });
     const observer = new ResizeObserver(resize);
     observer.observe(host);
+    window.addEventListener('resize', resize);
     resize();
     return () => {
       alive = false;
+      unsubscribe();
       observer.disconnect();
+      window.removeEventListener('resize', resize);
       cancelAnimationFrame(requested);
-      renderFrame.current = () => {};
     };
   }, []);
 
@@ -179,38 +162,59 @@ export default function SkyPanorama({ background = false }: { background?: boole
   function turn(dx: number, dy: number) {
     const host = surface.current;
     if (!host) return;
-    const perPixel = 1 / (Math.max(host.clientWidth, host.clientHeight) / 2 / (2 * Math.tan(FOV / 4)));
-    const v = view.current;
-    v.lon = wrapped(v.lon + dx * perPixel, 2 * Math.PI);
-    v.lat = Math.max(-LAT_LIMIT, Math.min(LAT_LIMIT, v.lat + dy * perPixel));
-    renderFrame.current();
+    const v = skyView.get();
+    const perPixel = 1 / scaleFor(v.fov, host.clientWidth, host.clientHeight);
+    skyView.set({ lon: v.lon + dx * perPixel, lat: v.lat + dy * perPixel });
   }
+  /** 확대(factor < 1) · 축소(factor > 1) */
+  function zoom(factor: number) {
+    skyView.set({ fov: skyView.get().fov * factor });
+  }
+  const spread = () => {
+    const [a, b] = [...pointers.current.values()];
+    return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : null;
+  };
 
   return (
     <div className={background ? 'panorama-shell panorama-background' : 'panorama-shell'}>
       <div className="panorama-surface" ref={surface} tabIndex={0}
-        role="region" aria-label="실제 별 위치로 그린 밤하늘. 끌거나 방향키로 둘러보세요."
+        role="region" aria-label="실제 별 위치로 그린 밤하늘. 끌어서 둘러보고, 두 손가락이나 휠로 확대하세요. 방향키와 +, - 키도 쓸 수 있어요."
         onKeyDown={event => {
           const step = 40;
-          const keys: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] };
-          const move = keys[event.key];
-          if (!move) return;
+          const keys: Record<string, () => void> = {
+            ArrowLeft: () => turn(-step, 0), ArrowRight: () => turn(step, 0), ArrowUp: () => turn(0, step), ArrowDown: () => turn(0, -step),
+            '+': () => zoom(0.8), '=': () => zoom(0.8), '-': () => zoom(1.25),
+          };
+          const run = keys[event.key];
+          if (!run) return;
           event.preventDefault();
-          turn(...move);
+          run();
         }}
+        onWheel={event => zoom(Math.exp(event.deltaY * 0.0015))}
         onPointerDown={event => {
-          if (!event.isPrimary || event.button !== 0) return;
-          pointer.current = { id: event.pointerId, x: event.clientX, y: event.clientY };
-          event.currentTarget.setPointerCapture(event.pointerId);
+          if (event.pointerType === 'mouse' && event.button !== 0) return;
+          pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+          try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* 이미 끝난 손가락 등: 잡지 못해도 끌기는 동작 */ }
+          pinch.current = spread();
         }}
         onPointerMove={event => {
-          const active = pointer.current;
-          if (!active || active.id !== event.pointerId) return;
-          turn(event.clientX - active.x, event.clientY - active.y);
-          active.x = event.clientX;
-          active.y = event.clientY;
+          const prev = pointers.current.get(event.pointerId);
+          if (!prev) return;
+          const next = { x: event.clientX, y: event.clientY };
+          pointers.current.set(event.pointerId, next);
+          if (pointers.current.size >= 2) {
+            // 두 손가락: 벌린 만큼 확대
+            const now = spread();
+            if (now && pinch.current) zoom(pinch.current / now);
+            pinch.current = now;
+            return;
+          }
+          turn(next.x - prev.x, next.y - prev.y);
         }}
-        onLostPointerCapture={() => { pointer.current = null; }}>
+        onLostPointerCapture={event => {
+          pointers.current.delete(event.pointerId);
+          pinch.current = spread();
+        }}>
         <canvas ref={canvas} className="panorama-canvas" aria-hidden="true" />
         <div ref={hills} className="panorama-hills" aria-hidden="true" />
         <div className="panorama-grass" aria-hidden="true" />
