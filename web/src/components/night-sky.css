@@ -16,7 +16,7 @@
   --glass: rgba(255, 255, 255, .07);
   --glass-line: rgba(255, 255, 255, .14);
 }
-body:has(.sky-mode) {
+html.sky-night-page body {
   background:
     radial-gradient(120% 70% at 50% 110%, rgba(120, 82, 200, .35), transparent 60%),
     radial-gradient(90% 50% at 15% 10%, rgba(70, 90, 200, .22), transparent 70%),
@@ -31,7 +31,7 @@ body:has(.sky-mode) {
 .sky-mode .help { background: rgba(246, 207, 125, .14); border: 1px solid var(--star-gold-soft); color: var(--starlight); }
 .sky-mode .error { background: rgba(255, 120, 150, .16); color: #ffd3dd; }
 .sky-mode footer { color: rgba(238, 233, 255, .45); }
-.sky-mode button:not(.nstar):not(.text-button):not(.ghost):not(.pager-arrow):not(.night-row):not(.pager-dots button),
+.sky-mode button:not(.nstar):not(.sky-pill):not(.text-button):not(.ghost):not(.pager-arrow):not(.night-row):not(.pager-dots button),
 .sky-mode .primary { background: linear-gradient(180deg, #ffe3a3, var(--star-gold)); color: #24183f; box-shadow: 0 0 24px rgba(246, 207, 125, .35); }
 .sky-mode .ghost { background: transparent; color: var(--starlight-dim); border: 1px solid var(--glass-line); }
 .night-loading { margin-top: 40vh; text-align: center; color: var(--starlight-dim); }
@@ -45,20 +45,29 @@ body:has(.sky-mode) {
 .sky-mode .onboarding .card { border: 1px solid var(--glass-line); border-radius: 16px; padding: 16px; background: var(--glass); }
 .sky-mode .onboarding label, .sky-mode .onboarding legend { color: var(--starlight); }
 
-/* 하단 메뉴: 어두운 유리 + 가운데 큰 "오늘의 별" 버튼 */
-.bottom-nav { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-.bottom-nav a { gap: 0; line-height: 1.2; }
-.nav-icon { font-size: 1.1rem; }
-.sky-mode .bottom-nav { border-top: 0; background: linear-gradient(180deg, transparent, rgba(5, 6, 26, .92) 35%); padding-top: 18px; align-items: end; }
-.sky-mode .bottom-nav a { color: var(--starlight-dim); }
-.sky-mode .bottom-nav a[aria-current] { background: transparent; color: var(--starlight); }
-.sky-mode .bottom-nav a:nth-child(2) {
-  justify-self: center; width: 74px; height: 74px; border-radius: 50%; margin-top: -30px;
-  background: radial-gradient(circle at 50% 35%, #fff1c9, var(--star-gold) 60%, #c9933e);
-  color: #24183f; font-weight: 800; font-size: .75rem;
-  box-shadow: 0 0 0 6px rgba(246, 207, 125, .12), 0 0 34px rgba(246, 207, 125, .55);
+/* 하단 버튼 3개: 왼쪽 프로필(동그라미) · 가운데 도감(금빛 큰 버튼) · 오른쪽 퀘스트(동그라미) */
+.bottom-nav.dock {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: end;
+  padding: 14px 22px calc(12px + env(safe-area-inset-bottom));
+  border-top: 0; background: linear-gradient(180deg, transparent, rgba(247, 245, 250, .96) 40%);
 }
-.sky-mode .bottom-nav a:nth-child(2) .nav-icon { font-size: 1.5rem; }
+.dock a { display: grid; place-items: center; align-content: center; gap: 1px; line-height: 1.15; font-size: .8125rem; font-weight: 750; text-decoration: none; }
+.dock .dock-side {
+  width: 64px; height: 64px; min-height: 64px; border-radius: 50%;
+  border: 1.5px solid #A89BB8; background: white; color: var(--accent);
+}
+.dock .dock-side:last-child { justify-self: end; }
+.dock .dock-main {
+  min-width: 112px; height: 60px; padding: 0 22px; border-radius: 999px; margin-bottom: 2px;
+  background: radial-gradient(circle at 50% 30%, #fff1c9, #f6cf7d 62%, #d9a24c); color: #24183f;
+  box-shadow: 0 4px 18px rgba(201, 147, 62, .35);
+}
+.dock a[aria-current] { box-shadow: 0 0 0 3px rgba(128, 87, 191, .35); }
+.dock .dock-main[aria-current] { box-shadow: 0 0 0 3px rgba(246, 207, 125, .45), 0 4px 18px rgba(201, 147, 62, .35); }
+/* 밤하늘 화면 */
+.sky-mode .bottom-nav.dock { background: linear-gradient(180deg, transparent, rgba(5, 6, 26, .85) 45%); }
+.sky-mode .dock .dock-side { border-color: rgba(190, 160, 255, .75); background: rgba(24, 16, 52, .72); color: var(--starlight); }
+.sky-mode .dock .dock-main { box-shadow: 0 0 0 6px rgba(246, 207, 125, .12), 0 0 30px rgba(246, 207, 125, .5); }
 
 /* 무대 */
 .night { position: relative; min-height: calc(100dvh - 96px); }
@@ -128,9 +137,9 @@ body:has(.sky-mode) {
 .sheet-actions { display: grid; gap: 8px; margin-top: 12px; }
 
 /* 접근성용 전체 목록: 위쪽 왼편 버튼 → 아래에서 올라오는 창 */
-.night-list { justify-self: start; grid-column: 1; grid-row: 1; }
+.night-list { align-self: center; margin-top: 8px; position: relative; z-index: 1; }
 .night-list summary {
-  list-style: none; display: inline-flex; align-items: center; min-height: 44px; padding: 0 13px;
+  list-style: none; display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; cursor: pointer;
   border-radius: 999px; border: 1px solid var(--glass-line); background: var(--glass);
   color: var(--starlight-dim); font-size: .875rem; font-weight: 650; text-align: center;
 }
@@ -164,7 +173,7 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
   padding-bottom: calc(92px + env(safe-area-inset-bottom));
 }
 .sky-locked > header { flex: none; margin-bottom: 0; }
-.sky-locked > .help, .sky-locked > .error, .sky-locked > .card { flex: none; max-height: 28dvh; overflow-y: auto; }
+.sky-locked > .error, .sky-locked > .card { flex: none; max-height: 28dvh; overflow-y: auto; }
 .sky-locked .night {
   flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
   padding-bottom: clamp(0px, calc(21dvh - 92px), 110px);
@@ -237,3 +246,25 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
   width: min(calc(100% - 32px), 488px); margin: 0; padding: 10px 14px; border-radius: 12px;
   background: rgba(16, 15, 48, .95); border: 1px solid var(--glass-line); color: var(--starlight); font-size: .875rem; text-align: center;
 }
+
+/* ───────── 메인 모서리 버튼 (왼쪽 위 도움받을 곳, 오른쪽 위 정책추천·청년센터) ───────── */
+.sky-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px; position: relative; z-index: 1; }
+.sky-top-right { display: grid; justify-items: end; gap: 6px; }
+.sky-mode .sky-pill {
+  display: inline-flex; align-items: center; gap: 6px; width: auto; min-height: 44px; padding: 0 16px;
+  border-radius: 999px; border: 1.5px solid rgba(190, 160, 255, .7); background: rgba(24, 16, 52, .62);
+  color: var(--starlight); font-size: .875rem; font-weight: 700; box-shadow: none; text-decoration: none;
+}
+.sky-mode .sky-pill.gold span { color: var(--star-gold); font-size: 1.05rem; }
+.sky-mode .sky-pill.small-pill { min-height: 36px; padding: 0 13px; font-size: .8125rem; font-weight: 650; color: var(--starlight-dim); border-color: var(--glass-line); }
+.sky-mode button.sky-pill { background: rgba(24, 16, 52, .62); color: var(--starlight-dim); }
+.sky-mode .sky-pill[aria-expanded="true"] { color: var(--starlight); border-color: var(--star-gold-soft); }
+/* 메인에서는 도움 안내를 모서리 버튼 아래 뜨는 불투명한 창으로 (뒤 별자리와 겹쳐 읽기 어렵지 않게, 배치를 밀지 않게) */
+.sky-locked > .help {
+  position: fixed; z-index: 6; top: calc(68px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+  width: min(calc(100% - 32px), 488px); max-height: 62dvh; overflow-y: auto; margin: 0; padding: 14px 16px;
+  background: #171236; border: 1px solid var(--star-gold-soft); border-radius: 16px; box-shadow: 0 12px 36px rgba(0, 0, 0, .5);
+}
+.sky-locked > .help h2 { margin-top: 0; }
+.sky-locked > .help p { margin: 6px 0; }
+.sky-locked > .help .text-button { margin-top: 8px; }

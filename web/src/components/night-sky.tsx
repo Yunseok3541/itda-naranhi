@@ -251,30 +251,6 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
       </span>}
     </div>}
 
-    <div className="night-toolbar">
-      {/* 접근성용 전체 목록: 열면 아래에서 올라오는 창 (메인은 스크롤 없이 한 화면에 고정) */}
-      <details className="night-list" ref={list}>
-        <summary>모든 별 목록</summary>
-        <div className="night-list-body" role="dialog" aria-label="모든 별 목록">
-          <div className="sheet-grip" aria-hidden="true" />
-          {groups.map((g, gi) => <div key={g.id}>
-            <h3>{g.name}</h3>
-            {g.stars.map(s => <button key={s.starId} type="button" className="night-row" onClick={() => { setIndex(gi); flyToGroup(gi); onSelect(s); closeList(); }}>
-              <span className={`dot ${s.status}`} aria-hidden="true" />
-              <span>{s.title}<small>{labels[s.status]}</small></span>
-            </button>)}
-          </div>)}
-          <button type="button" className="ghost" disabled={busy} onClick={onReload}>밤하늘 다시 불러오기</button>
-          <button type="button" className="ghost" onClick={closeList}>닫기</button>
-          {footer}
-        </div>
-      </details>
-      <p>내 밤하늘</p>
-      <Link className="catalog-link" href="/catalog">
-        <span aria-hidden="true">✧</span> 도감
-      </Link>
-    </div>
-
     {current ? <>
       <div className="night-title">
         <h1 className={complete ? 'complete' : undefined}>{current.name}</h1>
@@ -291,6 +267,23 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
       <p className="night-hint">별을 누르면 기억이 떠올라요 · 하늘은 끌어서 둘러봐요</p>
     </> : <div className="night-title"><h1>아직 하늘이 비어 있어요</h1><p>밤하늘을 다시 불러와 주세요.</p></div>}
 
+    {/* 모든 별 목록: 안내 문구 아래 작은 버튼 → 아래에서 올라오는 창 (캔버스를 못 쓰는 사람도 모든 별을 고를 수 있게) */}
+      <details className="night-list" ref={list}>
+        <summary>모든 별 보기</summary>
+        <div className="night-list-body" role="dialog" aria-label="모든 별 목록">
+          <div className="sheet-grip" aria-hidden="true" />
+          {groups.map((g, gi) => <div key={g.id}>
+            <h3>{g.name}</h3>
+            {g.stars.map(s => <button key={s.starId} type="button" className="night-row" onClick={() => { setIndex(gi); flyToGroup(gi); onSelect(s); closeList(); }}>
+              <span className={`dot ${s.status}`} aria-hidden="true" />
+              <span>{s.title}<small>{labels[s.status]}</small></span>
+            </button>)}
+          </div>)}
+          <button type="button" className="ghost" disabled={busy} onClick={onReload}>밤하늘 다시 불러오기</button>
+          <button type="button" className="ghost" onClick={closeList}>닫기</button>
+          {footer}
+        </div>
+      </details>
     <div className="night-space" aria-hidden="true" />
 
     {selected && <section ref={sheet} tabIndex={-1} className="sheet" aria-label="별의 기억">

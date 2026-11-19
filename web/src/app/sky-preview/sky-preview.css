@@ -1,4 +1,4 @@
-body:has(.panorama-shell) { background: #0d0820; }
+body:has(.panorama-shell:not(.panorama-background)) { background: #0d0820; }
 .panorama-shell {
   width: 100%;
   min-height: 100dvh;
