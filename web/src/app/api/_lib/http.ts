@@ -5,7 +5,8 @@ import { HELP_MESSAGE } from "@/lib/safety";
 
 export type Help = typeof HELP_MESSAGE | null;
 
-export type ErrorCode = "INVALID" | "NO_SESSION" | "NOT_FOUND" | "SAVE_FAILED" | "LOAD_FAILED";
+// 세션 없음(401)은 윤석 담당 @/lib/demo-session 의 demoSessionRequired() → code "DEMO_SESSION_REQUIRED"
+export type ErrorCode = "INVALID" | "NOT_FOUND" | "SAVE_FAILED" | "LOAD_FAILED";
 
 /** 서비스 함수의 결과. 라우트에서 toResponse로 그대로 응답한다 (테스트에서는 값만 확인) */
 export type ApiResult = { status: number; body: Record<string, unknown> };
@@ -25,10 +26,6 @@ export function fail(
 
 export function toResponse(result: ApiResult): Response {
   return Response.json(result.body, { status: result.status });
-}
-
-export function noSession(help: Help = null): Response {
-  return toResponse(fail(401, "NO_SESSION", "데모를 다시 시작해 주세요.", { help }));
 }
 
 /** DB 접근 (Pool 또는 트랜잭션 중인 PoolClient). 테스트에서 롤백용 클라이언트를 넣을 수 있게 인자로 받는다 */

@@ -1,9 +1,8 @@
 // AI ③ 위기 표현 안내 검증: 가상 회고 문장 30개 (실제 상담 내용·개인정보 아님)
-// 실제 시도 저장 흐름(createAttempt)에 넣어 규칙 + AI 결과를 보고, 규칙만 / AI 실패 시 결과와 비교한다.
-// 트랜잭션 안에서 가상 사용자로 저장 후 롤백 → 공용 DB에 남지 않음
+// 시도 저장 API가 부르는 회고 처리 함수(inspectReflection = processReflection + 기록용 값)에 넣어
+// 규칙 + AI 결과를 보고, 규칙만 / AI 실패 시 결과와 비교한다. DB는 쓰지 않는다.
 // 실행 (web/에서): node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-safety.mts
-const { db } = await import("@/lib/db");
-const { createAttempt } = await import("@/app/api/_lib/attempts");
+const { inspectReflection } = await import("@/lib/reflection");
 const { assessRisk, ruleRisk } = await import("@/lib/safety");
 const { GEMINI_MODEL } = await import("@/lib/gemini");
 
@@ -42,14 +41,11 @@ const CASES: { group: string; text: string; expect: Expect }[] = [
 ];
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const client = await db.connect();
 const rows: Record<string, string>[] = [];
-try {
-  await client.query("BEGIN");
-  const user = (await client.query<{ id: number }>("INSERT INTO users (nickname) VALUES ('안전검증') RETURNING id")).rows[0].id;
+{
   for (const c of CASES) {
-    const r = await createAttempt(user, { starId: 12, status: "dim", reflection: c.text }, client);
-    const b = r.body as { risk?: string; help?: unknown; cheer?: string; usedFallback?: boolean; modelVersion?: string | null };
+    // 별 제목 없이 회고만 넣는다 (제목이 모든 문장에 같으면 응원이 제목을 따라가는 것을 막기 위함)
+    const b = await inspectReflection({ status: "dim", reflection: c.text, starTitle: null });
     rows.push({
       group: c.group,
       text: c.text,
@@ -64,10 +60,6 @@ try {
     console.log(JSON.stringify(rows.at(-1)));
     await sleep(2500); // 무료 등급 분당 호출 제한
   }
-} finally {
-  await client.query("ROLLBACK");
-  client.release();
-  await db.end();
 }
 
 const alertOf = (risk: string) => risk !== "normal";
