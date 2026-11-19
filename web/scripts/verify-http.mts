@@ -145,7 +145,7 @@ try {
   const skyA3 = await A.call("GET", "sky");
   check("데모 시작 재호출 → 같은 사용자(기록 유지)", JSON.stringify(skyA3.data) === JSON.stringify(skyA2.data));
 
-  // 포인트 (고민기록 #28): dim은 0점, 처음 밝히면 난이도×10, 다시 밝히면 0점. 다른 세션 총점은 그대로
+  // 포인트 (고민기록 #31): dim은 0점, 처음 밝히면 난이도×10, 다시 밝히면 0점. 다른 세션 총점은 그대로
   const br1 = await A.call("POST", "attempts", { starId, status: "bright" });
   const br2 = await A.call("POST", "attempts", { starId, status: "bright" });
   const skyA4 = await A.call("GET", "sky");

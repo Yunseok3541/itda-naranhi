@@ -70,7 +70,7 @@ export async function createAttempt(
   const r = await inspectReflection({ status, reflection, starTitle, stopReason }, generate);
 
   try {
-    // 포인트(고민기록 #28): 이 별을 처음 밝혔을 때만 v_star_points 점수를 준다. dim·다시 완료는 0점
+    // 포인트(고민기록 #31): 이 별을 처음 밝혔을 때만 v_star_points 점수를 준다. dim·다시 완료는 0점
     // 같은 문장의 CTE는 INSERT 전 상태를 보므로 prev = 이번 시도 전 기록. 총점의 기준은 뷰 v_user_points
     const { rows } = await db.query<{ id: number; date: string; had_bright: boolean; total_before: number; star_points: number }>(
       `WITH prev AS (

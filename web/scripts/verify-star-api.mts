@@ -269,7 +269,7 @@ try {
     && sky1.stars.filter((x: Body) => x.starId !== star).every((x: Body) => x.points === 0), sky1.totalPoints);
   check("다른 사용자 포인트 0", ((await getSky(B, client)).body as Body).totalPoints === 0);
 
-  // ---------- 포인트 (고민기록 #28): 별을 처음 밝힐 때만 난이도×10, 중복·dim 적립 없음 ----------
+  // ---------- 포인트 (고민기록 #31): 별을 처음 밝힐 때만 난이도×10, 중복·dim 적립 없음 ----------
   const D = await mk("검증D");
   const earned: number[] = [];
   const brighten = async (starId: number) => {

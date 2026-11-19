@@ -5,7 +5,7 @@
 > 마지막 갱신: 2026-11-19 18시 (포인트: 시도 저장 `pointsEarned`·`totalPoints`, 밤하늘 `totalPoints`·별 `points`, 시드 별자리 10개·별 30개로 교체. 담당 고은비, 브랜치 `feat/points`)
 > 이전 갱신: 2026-11-19 13시 (청년센터·문의 초안 화면 연결 계약, 초안 `sent` 칸, 문의 API 세션 장애 503, 실데이터 전환 계획, AI 실호출 기록)
 >
-> ⚠ **`feat/points`부터 시드가 바뀌어 별 ID와 별자리가 달라졌다** (별 1~30, 고민기록 #28). 아래 응답 예시 중 "실제 응답"이라고 적힌 것은 이전 시드(별 16개)로 받은 기록이라 ID·별자리 이름이 지금과 다르다. 형식은 그대로다.
+> ⚠ **`feat/points`부터 시드가 바뀌어 별 ID와 별자리가 달라졌다** (별 1~30, 고민기록 #31). 아래 응답 예시 중 "실제 응답"이라고 적힌 것은 이전 시드(별 16개)로 받은 기록이라 ID·별자리 이름이 지금과 다르다. 형식은 그대로다.
 > 화면(재희) 영향: `mobile-flow.tsx`가 `starId` 16·17을 GPS 별로 가정하는 부분은 새 시드에서 16 = '청년센터 홈페이지에서 프로그램 둘러보기'(self), 17 = '동네 게시판·소식지 읽어 보기'(self)이고 센터 앞까지 가 보는 GPS 별은 20이다 (v4에서는 17). 밤하늘 응답의 `verifyType === "gps"`로 판단하는 것을 권장한다. 예시 모드의 별 제목 17개도 새 시드와 다르다.
 
 ## 담당과 구현 위치
@@ -315,7 +315,7 @@ const { cheer, help } = await processReflection({
 
 - 응원·위기 안내는 위 **회고 처리 함수** 결과를 쓴다. `help`는 400·401·404·500에도 담는다 (이때는 AI 없이 규칙만).
 - 같은 별을 여러 번 시도할 수 있다. 시도마다 한 줄씩 쌓인다.
-- **포인트 (고민기록 #28):** 별을 **처음** bright로 만든 시도만 `pointsEarned` = 별자리 난이도(`stage`) × 10 (10·20·30·40). dim, 이미 딴 별을 다시 딴 경우, 하위 퀘스트(더 작게 해 보기)로 이미 밝아진 별은 0. 감점은 없다.
+- **포인트 (고민기록 #31):** 별을 **처음** bright로 만든 시도만 `pointsEarned` = 별자리 난이도(`stage`) × 10 (10·20·30·40). dim, 이미 딴 별을 다시 딴 경우, 하위 퀘스트(더 작게 해 보기)로 이미 밝아진 별은 0. 감점은 없다.
   - 규칙은 뷰 `v_star_points` 한 곳, 총점의 기준은 뷰 `v_user_points` (별을 처음 밝힐 때만 더하므로 (사용자, 별)당 한 번만 셈). 적립 기록 테이블은 없다.
   - 같은 별을 동시에 두 번 보내면 두 응답 모두 `pointsEarned`가 나올 수 있지만 총점(`v_user_points`, 밤하늘 `totalPoints`)은 한 번만 센다. 화면은 저장 중 버튼을 막는다.
   - 저장 실패(500)에는 `pointsEarned`·`totalPoints`를 보내지 않는다.
@@ -535,6 +535,94 @@ const { cheer, help } = await processReflection({
 
 - `inquiry_drafts.center_id`에는 외래키가 없어 가상 센터 ID(9001)와 실데이터 ID가 함께 들어갈 수 있다. 실데이터 ID는 9000번대를 피한다.
 
+
+### 7. 개인 맞춤 정책 추천 — `GET /api/policies`, `POST /api/policies/{policyId}/click` (AI ⑤, 윤석, 기획: `docs/기획/정책추천.md`)
+
+```jsonc
+// GET /api/policies  → 오늘의 정책 추천 (하루 한 번 생성·저장, 같은 날은 저장된 결과)
+// 200
+{
+  "items": [
+    {
+      // 2026-11-19 로컬 응답 (키 없음 → 문장 틀 이유)
+      "policyId": 137, "title": "2026 고립·은둔 청년 지원",
+      "summary": "고립·은둔 청년과 가족을 위한 종합적이고 체계적인 맞춤 지원을 제공한다.",   // AI 쉬운 말 요약 (원문에 없는 숫자 없음)
+      "reason": "집에서 온라인으로 신청할 수 있어요",               // AI 맞춤 이유, 실패 시 문장 틀
+      "burden": "online", "burdenLabel": "온라인으로 신청",          // online | visit | phone | group
+      "difficulty": 1, "difficultyNote": "온라인으로 간편하게 신청",  // 참여 난이도 1~6 (별 단계와 같은 눈금)
+      "tags": ["마음건강", "사람과 함께"], "scope": "서울",            // 서울 | 전국 | 서울 마포구
+      "applyEnd": null, "applyAlways": true, "deadline": "상시 모집",
+      "url": "https://...",
+      "needsInquiry": false,                                           // 전화·방문 정책이면 true → 문의 문장 준비하기 연결
+      "conditionsToCheck": ["소득: 기준 중위소득 150% 이하"],         // 원문에서 확인할 자격 조건 (답하지 않은 칸, "기타", 문장 조건). 없으면 []
+      "mayNotFit": []                                                  // 내 정책 신청 정보와 맞지 않을 수 있는 조건. 추천에서는 항상 [] (이미 뺌), ?view=all에서만 생김
+    }
+  ],
+  "usedFallback": false,     // true면 AI 대신 규칙 순서 ("준비해 둔 순서로 보여 드려요")
+  "reused": false,           // 같은 날 다시 요청하면 true (AI 호출 없음)
+  "maxDifficulty": 2,        // 이번 추천에 쓴 난이도 상한 (내 단계 + 1, 후보가 3개 미만이면 넓힘)
+  "basis": { "region": "서울 마포구", "updatedAt": "2026-11-19 17:32" },   // 화면 상단 "정책 정보 기준"
+  "modelVersion": "gemini-3.5-flash-lite"   // 새로 만든 추천에만, 검증용
+}
+// GET /api/policies?view=all → { "items": [...같은 모양, reason은 문장 틀], "basis": {...} }  (AI 없음, 난이도 거르지 않음)
+// 401 { "error": "데모를 다시 시작해 주세요.", "code": "NO_SESSION", "help": null }
+// 500 { "error": "지금은 정책을 불러오지 못했어요.", "code": "LOAD_FAILED", "help": null }
+// 503 같은 문구 (세션 조회 DB 장애)
+```
+
+```jsonc
+// POST /api/policies/137/click → 원문 열기 기록 ("정보 확인", 신청·참여 아님)
+// 200 { "url": "https://..." }   화면은 이 url을 새 탭으로 연다 (기록 실패해도 원문은 열기)
+// 400 잘못된 ID / 404 없는 정책 / 500 { "code": "SAVE_FAILED", "error": "기록하지 못했어요. 원문은 그대로 열 수 있어요." }
+```
+
+- 추천 대상: 분류됨 · 개인이 이용 가능(`actionable`) · 신청 가능(상시 또는 마감 전) · 지역(전국, 서울 전체, 내 시군구) · 나이(입력한 경우만) · **자격 조건이 내 정책 신청 정보와 확실히 어긋나지 않음**(입력한 경우만, 8장).
+- "모든 정책 보기"는 자격으로 숨기지 않고 `mayNotFit`으로 표시만 한다 (원문 코드가 틀린 경우가 있음). 화면 문구 예: "알려 주신 정보와 맞지 않을 수 있어요 · {mayNotFit}" / "원문에서 확인해 주세요 · {conditionsToCheck}"
+- 화면 문구: "자격은 원문에서 확인해 주세요. 요약은 AI가 만들어 틀릴 수 있어요." / 상단 "예시 지역: 서울 마포구 · 정책 정보 기준 {basis.updatedAt}"
+- 데이터 수집·분류: `web/scripts/sync-policies.mts` (새·바뀐 정책만 분류). 검증: `web/scripts/verify-policies.mts` (트랜잭션 롤백, 가짜 AI).
+
+### 8. 프로필 — `GET /api/profile`, `PUT /api/profile` (윤석, 기획: `docs/기획/프로필.md`)
+
+모든 칸은 선택이다. `null` = 답하지 않음. 유형 이름은 만들지 않는다. 화면 `/profile` "내 정보"와 첫 화면 시작 질문이 사용한다.
+
+```jsonc
+// GET /api/profile
+// 200
+{
+  "startAnswers": {                 // 시작 질문을 거치지 않았으면 null
+    "range": "near",                // ① home 집 안 | near 집 앞 | out 혼자 외출 | people 사람 있는 곳
+    "burden": ["phone"],            // ② people | unfamiliar | phone | morning (여러 개)
+    "with": null,                   // ③ alone | together
+    "support": "unsure",            // ④ 힘들 때 연락할 사람: yes | unsure | no
+    "living": "family",             // ⑤ 누구와 지내는지: alone | family | other
+    "needs": ["health"]             // ⑥ 도움이 필요한 것: money_job | health | family | people | unsure (여러 개)
+  },
+  "policyInfo": {                   // 정책 신청 정보 (AI에 보내지 않음)
+    "job": null,                    // unemployed | employed | short_term | daily | freelancer | self_employed | founder | farmer | other
+    "school": null,                 // below_high | high_student | high_grad | college_student | college_grad | grad_school | other
+    "married": null,                // single | married
+    "income": null,                 // 본인 연소득: under_2000 | 2000_3000 | 3000_5000 | 5000_7000 | over_7000 (만원)
+    "special": null                 // basic_living | single_parent | disabled | leaving_care | family_carer (여러 개). [] = 해당 없음
+  },
+  "birthYear": null,
+  "currentStage": 2                 // 추천 기준 단계 (① 활동 범위로 정해짐)
+}
+// 401 NO_SESSION / 404 NOT_FOUND / 500 LOAD_FAILED / 503 (세션 조회 DB 장애)
+```
+
+```jsonc
+// PUT /api/profile — 보낸 칸만 바꾼다. 응답은 GET과 같은 모양
+{ "startAnswers": { "range": "near", "needs": ["health"] } }   // 시작 질문 전체를 보낸다 (빠진 키 = 답하지 않음). range가 있으면 currentStage도 정함 (1·2·3·4, 초안)
+{ "policyInfo": { "job": "unemployed", "special": [] }, "birthYear": 2000 }   // 모두 비우거나 policyInfo: null → DB에서 지움
+// 400 { "error": "선택지에 없는 답이 있어요.", "code": "INVALID", "help": null, "field": "policyInfo.job" }
+// 400 { "error": "출생연도를 확인해 주세요.", "code": "INVALID", "field": "birthYear" }   // 15~45세 범위
+// 400 { "error": "저장할 내용이 없어요.", "code": "INVALID" }
+// 500 { "code": "SAVE_FAILED", "error": "저장하지 못했어요. 고른 답은 화면에 그대로 있어요." }
+```
+
+- DB: `users.policy_info JSONB` 추가 (`db/migrations/20261120_profile.sql`, 여러 번 실행 안전). ④~⑥은 기존 `start_answers`에 키만 늘어남. **공용 Neon 적용은 PR이 합쳐진 뒤 팀에 알리고 진행**
+- 검증: `web/scripts/verify-profile.mts` 40/40 (로컬 DB, 트랜잭션 롤백, 가짜 AI). `verify-policies.mts` 39/39 그대로
+
 ---
 
 ## 만들 것 (기획: `docs/기획/아이디어_v4.md`)
@@ -547,7 +635,7 @@ const { cheer, help } = await processReflection({
 | 청년센터 실데이터 수집 | 온통청년 청년센터 API → 저장 | 인증키·DB 칸 필요 |
 | 센터 행동 기록 | 상세 보기(`viewed`)·"참여했어요"(`joined`) 저장 | `center_events` (테이블 준비됨). 센터 "앞까지 가 본 별"은 별 20(v4에서는 17)으로 시드 완료 |
 | 주변 장소 | GPS 별의 목표 장소 (카카오 로컬) | 좌표 저장 안 함 |
-| 정책 추천 (AI ⑤) | 미리 분류해 둔 정책 조회 + 노출·클릭 기록 | `policies`, `policy_events` |
+| 정책 추천 화면 연결 | 위 7번 API → 청년센터·바깥 지도 화면 "나에게 맞는 정책" | API 완료 (`feat/policy-recommend`). 예약 수집은 추후 |
 
 ---
 
@@ -635,7 +723,7 @@ node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-inquiry-
 node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-ai-live.mts --base=http://localhost:3107       # AI 실호출 기록 (공개 주소는 1번만)
 ```
 
-### 2026-11-20 master(ERD v4, PR #9~#12) 합친 뒤 재검증 (브랜치 `feat/points`, 로컬 Docker만)
+### 2026-11-20 master(PR #9~#17: ERD v4, 정책·프로필·카탈로그) 합친 뒤 재검증 (브랜치 `feat/points`, 로컬 Docker만)
 
 | 실행 | 결과 | 비고 |
 | ---- | ---- | ---- |
@@ -645,6 +733,7 @@ node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-ai-live.
 | D. 순서 오류: 옛 `db/init` → `20261120_points.sql`만 | 의도대로 실패 | "v4를 먼저 적용해 주세요"로 멈추고 아무것도 바뀌지 않음 |
 | HTTP (`next dev`, A, 키 없음) — `verify-http.mts` / `verify-inquiry-http.mts` | **20 / 20**, **25 / 25 통과** | master가 추가한 바깥 → 집 안 범위 케이스 포함 |
 | `eslint src scripts`, `tsc --noEmit` | 오류 없음 | |
+| PR #13~#17까지 합친 뒤: 새 DB / 최신 master `db/init` + 포인트 / 옛 `db/init` → 변경 SQL 4개(이름 순서, 포인트 2번) | 콘텐츠·스키마 3개 모두 같음, `verify-star-api` **81 / 81** ×3 | 정책 `verify-policies` **41 / 41**, `verify-profile` **40 / 40**, HTTP **20 / 20**·**25 / 25**. `tsc`는 `next typegen`으로 라우트 타입을 다시 만든 뒤 통과 |
 
 ### 2026-11-19 포인트·새 시드 검증 (17:48~17:50 KST, 브랜치 `feat/points` = `master` d710e8b + 이번 변경)
 
@@ -749,7 +838,7 @@ node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-ai-live.
 
 - ⚠ 별 ID가 바뀌어 **`star_attempts`·`daily_recommendations`·`user_constellations`·`sub_quests`를 비우고 다시 넣는다** (데모 사용자의 시도·회고·오늘 추천이 사라짐. 사용자·체크인·문의 초안·센터 기록은 유지). 팀에 알린 뒤, 시연 직전이 아닐 때 적용한다.
 - 적용 전까지 Neon에서는 새 코드의 시도 저장·밤하늘이 뷰가 없어 실패한다 → 이 브랜치를 배포하기 전에 적용해야 한다.
-- (선택, 남은 결정) 별마다 추천 범위 칸: 지금은 stage로 정해서 3·4단계의 집 안 활동도 "집 앞"으로 분류됨 (고민기록 #28) → `ALTER TABLE stars ADD COLUMN scope VARCHAR(5) CHECK (scope IN ('home', 'near', 'out'));`
+- (선택, 남은 결정) 별마다 추천 범위 칸: 지금은 stage로 정해서 3·4단계의 집 안 활동도 "집 앞"으로 분류됨 (고민기록 #31) → `ALTER TABLE stars ADD COLUMN scope VARCHAR(5) CHECK (scope IN ('home', 'near', 'out'));`
 
 ## 실행 환경
 

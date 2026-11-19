@@ -1,0 +1,57 @@
+body:has(.panorama-shell) { background: #0d0820; }
+.panorama-shell {
+  width: 100%;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  background: #0d0820;
+}
+.panorama-background { position: fixed; inset: 0; z-index: 0; }
+.panorama-content { position: relative; z-index: 1; pointer-events: none; }
+.panorama-content > * { pointer-events: auto; }
+.panorama-content .night { pointer-events: none; }
+.panorama-content .night .stage,
+.panorama-content .night .night-toolbar,
+.panorama-content .night .pager,
+.panorama-content .night .sheet,
+.panorama-content .night .night-list { pointer-events: auto; }
+.panorama-content .intro h1,
+.panorama-content .intro p,
+.panorama-content .night-title,
+.panorama-content .night-hint { text-shadow: 0 2px 12px #08051c, 0 1px 4px #08051c; }
+.panorama-surface {
+  position: relative;
+  width: min(100%, 600px);
+  height: 100dvh;
+  overflow: hidden;
+  isolation: isolate;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  background: linear-gradient(#10081f 0%, #302052 64%, #ba8ee5 94%);
+}
+.panorama-surface:active { cursor: grabbing; }
+.panorama-surface:focus-visible { outline: 2px solid #d5b8ff; outline-offset: -3px; }
+.panorama-canvas, .panorama-hills, .panorama-grass, .panorama-person {
+  position: absolute;
+  pointer-events: none;
+}
+.panorama-canvas { inset: 0; width: 100%; height: 96%; }
+.panorama-hills {
+  inset: auto 0 4% 0;
+  height: 10%;
+  background: url('/sky-preview/hills.svg') repeat-x bottom left / 200% 100%;
+}
+.panorama-grass {
+  inset: auto 0 0;
+  height: 5%;
+  background: linear-gradient(#0f0c1a, #090713);
+}
+.panorama-person {
+  bottom: 4%;
+  left: 50%;
+  width: max(100%, 54dvh);
+  height: 36dvh;
+  transform: translateX(-50%);
+  background: url('/sky-preview/foreground.webp') no-repeat center bottom / auto 100%;
+}
