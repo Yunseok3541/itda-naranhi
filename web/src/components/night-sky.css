@@ -375,8 +375,3 @@ html.sky-fading .panorama-canvas, html.sky-fading .sky-anchors { opacity: 0; }
   border-radius: 999px; border: 1px solid var(--star-gold-soft); background: rgba(246, 207, 125, .12);
   color: #ffe3a3; font-size: .875rem; font-weight: 650;
 }
-
-/* 모든 별 보기 목록의 "완성한 별자리" 칸 */
-.night-list-done { margin-top: 18px; padding-top: 6px; border-top: 1px solid var(--glass-line); }
-.night-list-done > h3:first-child { color: var(--star-gold); }
-.panorama-content .night .night-title .recent-pill { pointer-events: auto; margin-top: 10px; }

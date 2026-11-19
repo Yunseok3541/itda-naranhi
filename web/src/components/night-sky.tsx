@@ -94,9 +94,6 @@ function placeLabels(items: { x: number; y: number; text: string }[], width: num
   });
 }
 
-/** 별자리의 별을 모두 땄는지 (완성한 별자리는 하늘에서 빼고 목록에만) */
-const isComplete = (g: Group) => g.stars.length > 0 && g.stars.every(s => s.status === 'bright');
-
 /** 가장 최근에 별을 기록한(따거나 손을 뻗은) 별자리 번호. 기록이 없으면 -1 */
 function latestGroupIndex(groups: Group[]) {
   let best = -1, bestKey = '';
@@ -123,10 +120,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   /** 메인은 한 화면에 고정이라 페이지 아래 안내(footer)를 "모든 별 목록" 창 맨 아래에 둔다 */
   footer?: ReactNode;
 }) {
-  // 모든 별을 딴(완성한) 별자리는 메인 하늘에 띄우지 않음 → groups는 하늘에 보이는 별자리만, allGroups는 목록용 전체
-  const allGroups = useMemo(() => groupStars(stars), [stars]);
-  const groups = useMemo(() => allGroups.filter(g => !isComplete(g)), [allGroups]);
-  const completed = useMemo(() => allGroups.filter(isComplete), [allGroups]);
+  const groups = useMemo(() => groupStars(stars), [stars]);
   const skies = useMemo(() => groups.map(g => skyConstellation(g.id, g.stars.length)), [groups]);
   const centers = useMemo(() => skies.map(s => {
     const sum: Vec3 = [0, 0, 0];
@@ -136,7 +130,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   }), [skies]);
   // 처음에는 가장 최근에 기록한 별자리, 기록이 없으면 아직 다 따지 않은 첫 별자리
   const [index, setIndex] = useState(() => {
-    const all = groupStars(stars).filter(g => !isComplete(g));
+    const all = groupStars(stars);
     const recent = latestGroupIndex(all);
     if (recent >= 0) return recent;
     const i = all.findIndex(g => g.stars.some(s => s.status !== 'bright'));
@@ -314,9 +308,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
         <button type="button" className="pager-arrow" onClick={() => step(1)} aria-label="다음 별자리">›</button>
       </div>}
       <p className="night-hint">별을 누르면 기억이 떠올라요 · 하늘은 끌어서 둘러봐요</p>
-    </> : completed.length > 0
-      ? <div className="night-title"><h1 className="complete">모든 별자리를 완성했어요</h1><p>완성한 별자리는 도감과 ‘모든 별 보기’에서 다시 볼 수 있어요.</p><Link className="recent-pill" href="/catalog">도감 보기 →</Link></div>
-      : <div className="night-title"><h1>아직 하늘이 비어 있어요</h1><p>밤하늘을 다시 불러와 주세요.</p></div>}
+    </> : <div className="night-title"><h1>아직 하늘이 비어 있어요</h1><p>밤하늘을 다시 불러와 주세요.</p></div>}
 
     {/* 모든 별 목록: 안내 문구 아래 작은 버튼 → 아래에서 올라오는 창 (캔버스를 못 쓰는 사람도 모든 별을 고를 수 있게) */}
       <div className="night-actions">
@@ -335,17 +327,6 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
                 <span>{s.title}<small>{labels[s.status]}</small></span>
               </button>)}
             </div>)}
-            {/* 완성한 별자리: 하늘에서는 빠지지만 기억은 여기서 볼 수 있음 */}
-            {completed.length > 0 && <div className="night-list-done">
-              <h3>완성한 별자리 <span aria-hidden="true">✦</span></h3>
-              {completed.map(g => <div key={g.id}>
-                <h3>{g.name}</h3>
-                {g.stars.map(s => <button key={s.starId} type="button" className="night-row" onClick={() => { onSelect(s); closeList(); }}>
-                  <span className={`dot ${s.status}`} aria-hidden="true" />
-                  <span>{s.title}<small>{labels[s.status]}</small></span>
-                </button>)}
-              </div>)}
-            </div>}
             <button type="button" className="ghost" disabled={busy} onClick={onReload}>밤하늘 다시 불러오기</button>
             <button type="button" className="ghost" onClick={closeList}>닫기</button>
             {footer}
