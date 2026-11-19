@@ -54,14 +54,14 @@ export async function getDemoUserId(): Promise<number | null> {
   return session.status === "ok" ? session.userId : null;
 }
 
-/** 세션이 없을 때 사용자별 API가 돌려줄 401 응답 (extra 로 필드를 덧붙일 수 있음) */
+/**
+ * 세션이 없을 때 사용자별 API가 돌려줄 401 응답 (docs/API명세.md 공통 규칙과 같은 형식)
+ *   { "error": "데모를 다시 시작해 주세요.", "code": "NO_SESSION", "help": null }
+ * extra 로 필드를 덧붙이거나 help 를 채울 수 있다 (위기 표현이면 401에도 help)
+ */
 export function demoSessionRequired(extra?: Record<string, unknown>): Response {
   return Response.json(
-    {
-      error: "데모 세션이 없어요. 데모 시작 화면에서 다시 시작해 주세요.",
-      code: "DEMO_SESSION_REQUIRED",
-      ...extra,
-    },
+    { error: "데모를 다시 시작해 주세요.", code: "NO_SESSION", help: null, ...extra },
     { status: 401 },
   );
 }

@@ -42,8 +42,8 @@ await fetch("/api/checkin", {
   body: JSON.stringify({ text: "오늘 좀 무기력해요", todayChoice: "home" }),
 });
 
-// 3) 401 { code: "DEMO_SESSION_REQUIRED" } 이면 → 1)을 다시 호출하거나 데모 시작 화면으로
-//    단, 체크인의 401에 help 가 들어 있으면 위기 안내를 먼저 보여 준다
+// 3) 401 { code: "NO_SESSION" } 이면 → 입력은 지우지 말고 1)을 다시 호출하거나 데모 시작 화면으로
+//    help 가 null 이 아니면 상태 코드와 관계없이 위기 안내를 먼저 보여 준다 (docs/API명세.md 공통 규칙)
 ```
 
 - 실패 응답: `POST /api/demo/session` → 503 `{ "ready": false, "error": "..." }` (DB 장애). 잠시 후 재시도 안내
@@ -56,7 +56,7 @@ import { getDemoUserId, demoSessionRequired } from "@/lib/demo-session";
 
 export async function GET() {
   const userId = await getDemoUserId();          // Promise<number | null>
-  if (userId === null) return demoSessionRequired(); // 401 { error, code: "DEMO_SESSION_REQUIRED" }
+  if (userId === null) return demoSessionRequired(); // 401 { error, code: "NO_SESSION", help: null }
   // ... WHERE user_id = $1 로 내 데이터만 조회·수정
 }
 ```
@@ -64,13 +64,26 @@ export async function GET() {
 | export (`@/lib/demo-session`) | 용도 |
 | ----------------------------- | ---- |
 | `getDemoUserId(): Promise<number \| null>` | **기본.** 현재 사용자 id, 세션이 없거나 확인 실패면 `null` |
-| `demoSessionRequired(extra?)` | 401 응답 (`extra`로 필드 추가 가능) |
+| `demoSessionRequired(extra?)` | 401 `{ error: "데모를 다시 시작해 주세요.", code: "NO_SESSION", help: null }` (`extra`로 `help` 등 추가). API명세 공통 규칙과 같은 형식이라 `api/_lib/http.ts`의 `noSession()`과 바꿔 써도 된다 |
 | `lookupDemoSession()` | `{status:"ok",userId}` / `{status:"none"}` / `{status:"error"}`. DB 장애와 세션 없음을 구분해야 할 때 (체크인처럼 DB가 죽어도 위험 안내를 응답해야 하는 API) |
 
 규칙
 - **요청 본문·쿼리의 `userId`를 믿지 않는다.** 사용자별 테이블은 항상 `WHERE user_id = <getDemoUserId()>`로 조회·수정
 - 남의 기록이면 403 대신 **404**("찾을 수 없어요")로 존재 여부를 숨긴다
 - 별자리·별 같은 공용 콘텐츠 조회는 세션이 없어도 된다
+
+### 세션 없음·DB 장애 응답 예시
+
+| 상황 | API | 응답 |
+| ---- | --- | ---- |
+| 세션 쿠키 없음·만료·위조 | 사용자별 API 전부 | `401 { "error": "데모를 다시 시작해 주세요.", "code": "NO_SESSION", "help": null }` |
+| 〃 + 문장에 위기 표현 | 체크인·별 시도 | `401 { …, "code": "NO_SESSION", "risk": "danger", "help": { "title": "혼자 감당하지 않아도 돼요", "lines": [...] } }` (규칙만, 저장·AI 없음) |
+| DB 장애 | `POST /api/demo/session` | `503 { "ready": false, "error": "지금은 데모를 시작할 수 없어요. 잠시 후 다시 시도해 주세요." }` |
+| DB 장애 | `POST /api/checkin` | `200 { "checkinId": null, "weather": …, "risk": …, "help": …, "usedFallback": … }` — 저장만 건너뛰고 위기 안내는 그대로 |
+| DB 장애 | `PATCH /api/checkin/weather` | `500 { "error": "지금은 저장하지 못했어요." }` |
+| DB 장애 | `getDemoUserId()`를 쓰는 API | 세션을 확인할 수 없어 `null` → `401 NO_SESSION`. FE가 이어서 `/api/demo/session`을 부르면 `503`이 오므로 "잠시 후 다시" 안내 |
+
+FE 처리 순서: `help`가 있으면 먼저 안내 → `401`이면 세션 재발급 → `503`/`500`이면 입력을 지우지 않고 "잠시 후 다시".
 
 ### 새 사용자의 초기 상태
 
