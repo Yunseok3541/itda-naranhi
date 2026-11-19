@@ -234,8 +234,16 @@ try {
   console.log("문의 초안:", d1.status, JSON.stringify(d1.body));
   check(`초안 201, usedFallback=${expectFallback}`, d1.status === 201 && (d1.body as Body).usedFallback === expectFallback);
   check("초안에 입력에 없는 숫자 없음", !/\d/.test(String((d1.body as Body).draft)));
+  check("생성 직후 저장만 한 상태 (sent=false, sentAt=null)", (d1.body as Body).sent === false && (d1.body as Body).sentAt === null);
   const draftId = (d1.body as Body).draftId;
+  const editedDraft = "안녕하세요. 처음 방문하려는데 예약 없이 가도 될까요?";
+  const u1 = await updateDraft(A, String(draftId), { draft: editedDraft }, client);
+  const relisted = ((await listDrafts(A, "9001", client)).body as Body).drafts.find((x: Body) => x.draftId === draftId);
+  check("수정 → 재조회에 고친 문장, 여전히 sent=false", u1.status === 200 && relisted?.draft === editedDraft && relisted?.sent === false);
+  const u2 = await updateDraft(A, String(draftId), { sent: true }, client);
+  check("문의해 봤어요 → sent=true + sentAt 날짜, 문장 유지", (u2.body as Body).sent === true && /^\d{4}-\d{2}-\d{2}$/.test((u2.body as Body).sentAt) && (u2.body as Body).draft === editedDraft);
   check("남의 초안 목록에 안 보임 / 남의 초안 수정 404", ((await listDrafts(B, null, client)).body as Body).drafts.length === 0 && (await updateDraft(B, String(draftId), { sent: true }, client)).status === 404);
+  check("초안 수정 저장 실패 → 500 SAVE_FAILED", (await updateDraft(A, String(draftId), { draft: "고친 문장" }, brokenDb(client, false))).body.code === "SAVE_FAILED");
   check("초안 저장 실패 → 500 + 초안 유지", (await createDraft(A, { centerId: 9001, question: "처음인데 괜찮을까요?" }, brokenDb(client, true))).body.draft !== undefined);
 } finally {
   await client.query("ROLLBACK");
