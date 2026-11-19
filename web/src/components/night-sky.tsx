@@ -5,16 +5,10 @@
 // - 별 상태: 아직 만나기 전(희미한 점) / 손을 뻗은 별(은은한 빛) / 딴 별(밝게 반짝임)
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { getActivityConstellation } from '@/lib/constellations';
 import type { Star } from '@/lib/mobile-data';
 
 const labels = { untried: '아직 만나기 전', dim: '손을 뻗은 별', bright: '딴 별' } as const;
-
-// 별자리 이름·테마 (예시 모드는 API 값이 없어 별 번호로 나눔: 1~5, 6~10, 11~)
-const CONSTELLATIONS: Record<number, { name: string; theme: string }> = {
-  1: { name: '카시오페이아자리', theme: '하루를 여는 작은 습관' },
-  2: { name: '돌고래자리', theme: '나를 돌보는 시간' },
-  3: { name: '거문고자리', theme: '현관 너머 한 걸음' },
-};
 
 type Shape = { points: [number, number][]; edges: [number, number][] };
 
@@ -64,12 +58,15 @@ function groupStars(stars: Star[]): Group[] {
     const id = s.constellationId ?? (s.starId <= 5 ? 1 : s.starId <= 10 ? 2 : 3);
     byId.set(id, [...(byId.get(id) ?? []), s]);
   }
-  return [...byId.entries()].map(([id, list]) => ({
-    id,
-    name: list[0].constellationName ?? CONSTELLATIONS[id]?.name ?? '이름 없는 별자리',
-    theme: CONSTELLATIONS[id]?.theme ?? '',
-    stars: [...list].sort((a, b) => (a.position ?? a.starId) - (b.position ?? b.starId)),
-  }));
+  return [...byId.entries()].map(([id, list]) => {
+    const constellation = getActivityConstellation(id);
+    return {
+      id,
+      name: list[0].constellationName ?? constellation?.name ?? '이름 없는 별자리',
+      theme: constellation?.theme ?? '',
+      stars: [...list].sort((a, b) => (a.position ?? a.starId) - (b.position ?? b.starId)),
+    };
+  });
 }
 
 export default function NightSky({ stars, selected, onSelect, busy, onReload }: {
@@ -127,9 +124,15 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload }: 
       <b className="shooting" />
     </div>
 
+    <div className="night-toolbar">
+      <p>내 밤하늘</p>
+      <Link className="catalog-link" href="/catalog">
+        <span aria-hidden="true">✧</span> 도감
+      </Link>
+    </div>
+
     {current ? <>
       <div className="night-title">
-        <p className="eyebrow">내 밤하늘</p>
         <h1 className={complete ? 'complete' : undefined}>{current.name}</h1>
         <p>{complete ? '별자리를 모두 이었어요' : current.theme}</p>
       </div>

@@ -6,6 +6,19 @@ body:has(.panorama-shell) { background: #0d0820; }
   place-items: center;
   background: #0d0820;
 }
+.panorama-background { position: fixed; inset: 0; z-index: 0; }
+.panorama-content { position: relative; z-index: 1; pointer-events: none; }
+.panorama-content > * { pointer-events: auto; }
+.panorama-content .night { pointer-events: none; }
+.panorama-content .night .stage,
+.panorama-content .night .night-toolbar,
+.panorama-content .night .pager,
+.panorama-content .night .sheet,
+.panorama-content .night .night-list { pointer-events: auto; }
+.panorama-content .intro h1,
+.panorama-content .intro p,
+.panorama-content .night-title,
+.panorama-content .night-hint { text-shadow: 0 2px 12px #08051c, 0 1px 4px #08051c; }
 .panorama-surface {
   position: relative;
   width: min(100%, 600px);

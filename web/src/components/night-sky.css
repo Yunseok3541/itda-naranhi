@@ -46,6 +46,7 @@ body:has(.sky-mode) {
 .sky-mode .onboarding label, .sky-mode .onboarding legend { color: var(--starlight); }
 
 /* 하단 메뉴: 어두운 유리 + 가운데 큰 "오늘의 별" 버튼 */
+.bottom-nav { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .bottom-nav a { gap: 0; line-height: 1.2; }
 .nav-icon { font-size: 1.1rem; }
 .sky-mode .bottom-nav { border-top: 0; background: linear-gradient(180deg, transparent, rgba(5, 6, 26, .92) 35%); padding-top: 18px; align-items: end; }
@@ -63,8 +64,16 @@ body:has(.sky-mode) {
 .night { position: relative; min-height: calc(100dvh - 96px); }
 .night-dust { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: -1; }
 .night-dust i { position: absolute; border-radius: 50%; background: var(--starlight); opacity: .25; }
+.night-toolbar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 44px; }
+.night-toolbar p { grid-column: 2; margin: 0; font-size: .75rem; letter-spacing: .24em; color: var(--starlight-dim); }
+.catalog-link {
+  justify-self: end; display: inline-flex; align-items: center; gap: 6px; min-height: 44px;
+  padding: 0 13px; border-radius: 999px; border: 1px solid var(--glass-line);
+  background: var(--glass); color: var(--starlight); font-size: .875rem; font-weight: 650;
+}
+.catalog-link span { color: var(--star-gold); }
+.catalog-link:hover { background: rgba(255, 255, 255, .14); }
 .night-title { text-align: center; margin-top: 6px; }
-.night-title .eyebrow { margin: 0; font-size: .75rem; letter-spacing: .3em; color: var(--starlight-dim); }
 .night-title h1 { margin: 4px 0 2px; font-size: clamp(1.6rem, 7vw, 2.1rem); font-weight: 700; letter-spacing: .02em; }
 .night-title h1.complete { color: var(--star-gold); text-shadow: 0 0 22px var(--star-gold-soft); }
 .night-title p { margin: 0; color: var(--starlight-dim); font-size: .9rem; }

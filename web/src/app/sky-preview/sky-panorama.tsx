@@ -9,7 +9,7 @@ function wrapped(value: number, period: number) {
   return ((value % period) + period) % period;
 }
 
-export default function SkyPanorama() {
+export default function SkyPanorama({ background = false }: { background?: boolean }) {
   const surface = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const hills = useRef<HTMLDivElement>(null);
@@ -87,7 +87,7 @@ export default function SkyPanorama() {
   }
 
   return (
-    <main className="panorama-shell">
+    <div className={background ? 'panorama-shell panorama-background' : 'panorama-shell'}>
       <div className="panorama-surface" ref={surface} tabIndex={0}
         role="region" aria-label="은하수 밤하늘. 좌우로 끌거나 방향키로 둘러보세요."
         onKeyDown={event => {
@@ -112,6 +112,6 @@ export default function SkyPanorama() {
         <div className="panorama-grass" aria-hidden="true" />
         <div className="panorama-person" aria-hidden="true" />
       </div>
-    </main>
+    </div>
   );
 }
