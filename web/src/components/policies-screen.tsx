@@ -45,7 +45,7 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
   return <>
     <h1>나에게 맞는 정책</h1>
     <p>내 속도에 맞는 지원을 천천히 살펴보세요.</p>
-    <Link className="text-button" href="/profile">내 정보에서 추천 기준 바꾸기</Link>
+    <Link className="text-button" href="/profile#settings">내 정보에서 추천 기준 바꾸기</Link>
     <div className="choices" aria-label="정책 보기 방식">
       <button className="secondary" aria-pressed={view === 'recommended'} onClick={() => setView('recommended')}>맞춤 추천</button>
       <button className="secondary" aria-pressed={view === 'all'} onClick={() => setView('all')}>모든 정책 보기</button>

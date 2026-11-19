@@ -26,9 +26,9 @@ function memoryDate(value: string) {
   return Number.isNaN(date.getTime()) ? value : koreanDate.format(date);
 }
 
-type Group = { id: number; name: string; theme: string; stars: Star[] };
+export type Group = { id: number; name: string; theme: string; stars: Star[] };
 
-function groupStars(stars: Star[]): Group[] {
+export function groupStars(stars: Star[]): Group[] {
   const byId = new Map<number, Star[]>();
   for (const s of stars) {
     const id = s.constellationId ?? (s.starId <= 5 ? 1 : s.starId <= 10 ? 2 : 3);
@@ -95,7 +95,7 @@ function placeLabels(items: { x: number; y: number; text: string }[], width: num
 }
 
 /** 가장 최근에 별을 기록한(따거나 손을 뻗은) 별자리 번호. 기록이 없으면 -1 */
-function latestGroupIndex(groups: Group[]) {
+export function latestGroupIndex(groups: Group[]) {
   let best = -1, bestKey = '';
   groups.forEach((g, gi) => g.stars.forEach(s => s.memories.forEach(m => {
     // 날짜가 같으면 나중에 저장된 기록(번호가 큰 것)이 최근
