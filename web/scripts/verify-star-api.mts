@@ -123,6 +123,17 @@ try {
   check("1단계 사용자의 집 안 후보 3개, 집 근처 6개", homeIds.length === 3 && nearIds.length === 6, { homeIds, nearIds });
   check("gps 별은 place_type 있음, 청년센터·봉사 별 포함",
     seed.every((s) => (s.verify_type === "gps") === (s.place_type !== null)) && seed.some((s) => s.category === "center") && seed.some((s) => s.category === "volunteer"));
+  const v4 = (
+    await client.query<{ sub_quests: number; sub_on_outside: number; center_gps: number; home_outside: number; photo: number }>(
+      `SELECT (SELECT count(*)::int FROM sub_quests) AS sub_quests,
+              (SELECT count(*)::int FROM sub_quests q JOIN stars s ON s.id = q.star_id WHERE s.is_outside) AS sub_on_outside,
+              (SELECT count(*)::int FROM stars WHERE place_type = 'youth_center' AND category = 'center' AND is_outside) AS center_gps,
+              (SELECT count(*)::int FROM stars s JOIN constellations c ON c.id = s.constellation_id WHERE c.stage = 1 AND s.is_outside) AS home_outside,
+              (SELECT count(*)::int FROM stars WHERE verify_type = 'photo') AS photo`,
+    )
+  ).rows[0];
+  check("v4 구조: 하위 퀘스트 8개(모두 바깥 별), 센터 앞 GPS 별 1개, 1단계는 집 안, 사진 확인 별 없음",
+    v4.sub_quests === 8 && v4.sub_on_outside === 8 && v4.center_gps === 1 && v4.home_outside === 0 && v4.photo === 0, v4);
   const checkin = async (user: number, choice: string | null) =>
     (
       await client.query<{ id: number }>(
@@ -274,19 +285,27 @@ try {
   const p1 = await brighten(h0);
   const p2 = await brighten(h0);
   check("같은 별 다시 완료 → 0점, 총점 그대로", p1.pointsEarned === 10 && p2.pointsEarned === 0 && p2.totalPoints === 10, [p1, p2]);
-  // AI가 쪼갠 별: 원래 별(h1)의 dim 시도 → 쪼갠 별 bright(원래 별이 밝아짐) → 원래 별을 다시 완료해도 중복 없음
-  const parent = await createAttempt(D, { starId: h1, status: "dim" }, client, emptyGen);
-  await client.query(
-    "INSERT INTO star_attempts (user_id, star_id, parent_attempt_id, custom_title, status) VALUES ($1, $2, $3, '물 반 잔 마시기', 'bright')",
-    [D, h1, parent.body.attemptId],
-  );
-  check("쪼갠 별로 원래 별이 밝아지면 원래 별 점수 1번", (await viewTotal()).total_points === 20);
-  const p3 = await brighten(h1);
-  check("쪼갠 별로 밝힌 별을 다시 완료 → 0점, 총점 20", p3.pointsEarned === 0 && p3.totalPoints === 20, p3);
+  await brighten(h1);
   const p4 = await brighten(h2);
   check("1단계 별자리 완성 = 30점", p4.totalPoints === 30, p4);
   const twoStage = [...byConst.values()].find((g) => g[0].stage === 2)!;
   const fourStage = [...byConst.values()].find((g) => g[0].stage === 4)!;
+  // 하위 퀘스트(더 작게 해 보기): 원래 별의 dim 시도 → 하위 퀘스트 bright(원래 별이 밝아짐) → 원래 별을 다시 완료해도 중복 없음
+  // 시도 저장 API가 아직 subQuestId를 받지 않아 DB에 직접 넣는다
+  const sq = (
+    await client.query<{ id: number; star_id: number; title: string }>(
+      "SELECT id, star_id, title FROM sub_quests WHERE star_id = ANY($1) ORDER BY id LIMIT 1",
+      [twoStage.map((x) => x.id)],
+    )
+  ).rows[0];
+  const parent = await createAttempt(D, { starId: sq.star_id, status: "dim" }, client, emptyGen);
+  await client.query(
+    "INSERT INTO star_attempts (user_id, star_id, parent_attempt_id, sub_quest_id, custom_title, status) VALUES ($1, $2, $3, $4, $5, 'bright')",
+    [D, sq.star_id, parent.body.attemptId, sq.id, sq.title],
+  );
+  check("하위 퀘스트로 원래 별이 밝아지면 원래 별 점수 1번", (await viewTotal()).total_points === 30 + pointsOf(sq.star_id));
+  const p3 = await brighten(sq.star_id);
+  check("하위 퀘스트로 밝힌 별을 다시 완료 → 0점", p3.pointsEarned === 0 && p3.totalPoints === 30 + pointsOf(sq.star_id), p3);
   for (const x of twoStage) await brighten(x.id);
   const afterTwo = (await viewTotal()).total_points;
   for (const x of fourStage) await brighten(x.id);
@@ -298,9 +317,9 @@ try {
   const skyD = (await getSky(D, client)).body as Body;
   console.log("포인트 D:", JSON.stringify({ earned, view: afterFour, sky: skyD.totalPoints }));
   check("3단계 별 dim → 0점, 밤하늘 점수 0", dim3.body.pointsEarned === 0 && skyD.stars.find((x: Body) => x.starId === threeStar).points === 0);
-  // 응답 적립 합에는 직접 넣은 쪼갠 별 시도(h1)의 점수가 빠져 있어 더해서 비교
+  // 응답 적립 합에는 직접 넣은 하위 퀘스트 시도의 점수가 빠져 있어 더해서 비교
   check("응답 적립 합 = 뷰 총점 = 밤하늘 총점 (230점, 밝힌 별 9개)",
-    earned.reduce((a, b) => a + b, 0) + pointsOf(h1) === 230 && afterFour.total_points === 230 && skyD.totalPoints === 230 && afterFour.bright_stars === 9 && dim3.body.totalPoints === 230);
+    earned.reduce((a, b) => a + b, 0) + pointsOf(sq.star_id) === 230 && afterFour.total_points === 230 && skyD.totalPoints === 230 && afterFour.bright_stars === 9 && dim3.body.totalPoints === 230);
   const failedBright = await createAttempt(D, { starId: threeStar, status: "bright" }, brokenDb(client, true), emptyGen);
   check("저장 실패 → pointsEarned 없음, 총점 그대로", failedBright.status === 500 && !("pointsEarned" in failedBright.body) && (await viewTotal()).total_points === 230);
 

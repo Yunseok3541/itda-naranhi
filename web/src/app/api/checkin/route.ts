@@ -61,7 +61,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "300자 이하 text가 필요해요." }, { status: 400 });
   }
 
-  const { data, usedFallback } = await generateJson<CheckinResult>({
+  const { data, usedFallback, modelVersion } = await generateJson<CheckinResult>({
     system: SYSTEM,
     prompt: `오늘의 한 줄: ${text}`,
     schema,
@@ -93,5 +93,6 @@ export async function POST(request: Request) {
     risk,
     help: risk === "normal" ? null : HELP_MESSAGE,
     usedFallback,
+    modelVersion,  // 실제로 응답한 모델 버전 (기본값을 썼으면 null). 검증 기록용, 화면에서 쓰지 않음
   });
 }
