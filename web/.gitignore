@@ -31,8 +31,9 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-.env*
-!.env.example
+.env* 
+!.env.example 
+#neon 주소 교체함 비밀번호 노출 문제 해결됨
 
 # vercel
 .vercel
