@@ -13,6 +13,8 @@ import { angleBetween, fitView, projector, RAD, skyView, toLonLat, unit, type Ve
 import { skyConstellation } from '@/lib/sky-constellations';
 
 const labels = { untried: '아직 만나기 전', dim: '손을 뻗은 별', bright: '딴 별' } as const;
+/** 캐릭터 말풍선 질문 (날마다 하나씩 돌아가며). 오늘의 별 체크인으로 이어짐 */
+const QUESTIONS = ['오늘 하루는 어땠어요?', '지금 마음은 어떤 날씨예요?', '오늘은 어떤 하루인가요?', '요즘 어떻게 지내요?'];
 /** 지금 별자리가 화면에서 이만큼(px, 대각선) 이상일 때만 퀘스트 이름표·큰 별 표시 */
 const DETAIL_SPAN = 170;
 
@@ -119,6 +121,9 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     return i < 0 ? 0 : i;
   });
   const [burst, setBurst] = useState<{ key: number; x: number; y: number } | null>(null);
+  // 캐릭터 말풍선: 누르면 열리고 다시 누르면 닫힘 (null = 닫힘, 문자열 = 오늘의 질문)
+  const [talk, setTalk] = useState<string | null>(null);
+  const toggleTalk = () => setTalk(t => (t ? null : QUESTIONS[Math.floor(Date.now() / 86_400_000) % QUESTIONS.length]));
   const sheet = useRef<HTMLElement>(null);
   const list = useRef<HTMLDetailsElement>(null);
   const burstCount = useRef(0);
@@ -285,6 +290,14 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
         </div>
       </details>
     <div className="night-space" aria-hidden="true" />
+
+    {/* 캐릭터(배경 인물) 위에 겹친 투명 단추 → 말풍선. 화면을 막지 않게 작게, 다시 누르면 닫힘 */}
+    <button type="button" className="char-hotspot" aria-label={talk ? '말풍선 닫기' : '캐릭터에게 말 걸기'} aria-expanded={!!talk} onClick={toggleTalk} />
+    {talk && <div className="char-bubble" role="status">
+      <p className="char-question">{talk}</p>
+      <p className="char-sub">한 줄로 들려주면 오늘의 별을 찾아 줄게요</p>
+      <Link className="char-link" href="/checkin">들려주기 →</Link>
+    </div>}
 
     {selected && <section ref={sheet} tabIndex={-1} className="sheet" aria-label="별의 기억">
       <div className="sheet-grip" aria-hidden="true" />

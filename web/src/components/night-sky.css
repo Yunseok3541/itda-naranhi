@@ -31,7 +31,7 @@ html.sky-night-page body {
 .sky-mode .help { background: rgba(246, 207, 125, .14); border: 1px solid var(--star-gold-soft); color: var(--starlight); }
 .sky-mode .error { background: rgba(255, 120, 150, .16); color: #ffd3dd; }
 .sky-mode footer { color: rgba(238, 233, 255, .45); }
-.sky-mode button:not(.nstar):not(.sky-pill):not(.text-button):not(.ghost):not(.pager-arrow):not(.night-row):not(.pager-dots button),
+.sky-mode button:not(.nstar):not(.sky-pill):not(.char-hotspot):not(.text-button):not(.ghost):not(.pager-arrow):not(.night-row):not(.pager-dots button),
 .sky-mode .primary { background: linear-gradient(180deg, #ffe3a3, var(--star-gold)); color: #24183f; box-shadow: 0 0 24px rgba(246, 207, 125, .35); }
 .sky-mode .ghost { background: transparent; color: var(--starlight-dim); border: 1px solid var(--glass-line); }
 .night-loading { margin-top: 40vh; text-align: center; color: var(--starlight-dim); }
@@ -268,3 +268,29 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .sky-locked > .help h2 { margin-top: 0; }
 .sky-locked > .help p { margin: 6px 0; }
 .sky-locked > .help .text-button { margin-top: 8px; }
+
+/* ───────── 캐릭터 말풍선 (메인) ─────────
+   배경 인물은 화면 아래 약 21%(손끝)부터 하단 버튼 위까지. 그 자리에 투명 단추를 겹침 */
+.char-hotspot {
+  position: fixed; z-index: 1; left: 50%; transform: translateX(-50%);
+  top: 77dvh; bottom: calc(88px + env(safe-area-inset-bottom)); width: 92px; min-height: 0; height: auto;
+  padding: 0; border-radius: 40px; background: transparent; pointer-events: auto; cursor: pointer;
+}
+.char-hotspot:focus-visible { outline: 2px dashed var(--star-gold-soft); outline-offset: 2px; }
+.char-bubble {
+  position: fixed; z-index: 3; left: 50%; transform: translateX(-42%); bottom: calc(24dvh + 6px);
+  width: max-content; max-width: min(250px, calc(100% - 48px)); padding: 10px 14px 9px;
+  border-radius: 16px; border: 1px solid rgba(190, 160, 255, .55); background: rgba(20, 14, 46, .82);
+  color: var(--starlight); box-shadow: 0 8px 24px rgba(0, 0, 0, .35); pointer-events: auto;
+}
+.char-bubble::after {
+  content: ""; position: absolute; left: 34%; bottom: -7px; width: 12px; height: 12px; transform: rotate(45deg);
+  background: rgba(20, 14, 46, .95); border-right: 1px solid rgba(190, 160, 255, .55); border-bottom: 1px solid rgba(190, 160, 255, .55);
+}
+.char-question { margin: 0; font-weight: 750; font-size: .95rem; }
+.char-sub { margin: 2px 0 6px; font-size: .78rem; color: var(--starlight-dim); }
+.char-link { display: inline-block; font-size: .82rem; font-weight: 750; color: var(--star-gold); }
+@media (prefers-reduced-motion: no-preference) {
+  .char-bubble { animation: bubble-in .22s ease-out; }
+  @keyframes bubble-in { from { opacity: 0; transform: translate(-42%, 6px); } }
+}
