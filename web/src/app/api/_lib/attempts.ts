@@ -70,21 +70,35 @@ export async function createAttempt(
   const r = await inspectReflection({ status, reflection, starTitle, stopReason }, generate);
 
   try {
-    const { rows } = await db.query<{ id: number; date: string }>(
-      `INSERT INTO star_attempts (user_id, star_id, status, verify_method, place_id, place_name, reflection, stop_reason, cheer)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING id, ${KST_DATE("created_at")} AS date`,
+    // 포인트(고민기록 #28): 이 별을 처음 밝혔을 때만 v_star_points 점수를 준다. dim·다시 완료는 0점
+    // 같은 문장의 CTE는 INSERT 전 상태를 보므로 prev = 이번 시도 전 기록. 총점의 기준은 뷰 v_user_points
+    const { rows } = await db.query<{ id: number; date: string; had_bright: boolean; total_before: number; star_points: number }>(
+      `WITH prev AS (
+         SELECT EXISTS (SELECT 1 FROM star_attempts WHERE user_id = $1 AND star_id = $2 AND status = 'bright') AS had_bright,
+                COALESCE((SELECT total_points FROM v_user_points WHERE user_id = $1), 0) AS total_before,
+                COALESCE((SELECT points FROM v_star_points WHERE star_id = $2), 0) AS star_points
+       ), ins AS (
+         INSERT INTO star_attempts (user_id, star_id, status, verify_method, place_id, place_name, reflection, stop_reason, cheer)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING id, created_at
+       )
+       SELECT ins.id, ${KST_DATE("ins.created_at")} AS date, prev.had_bright, prev.total_before, prev.star_points
+       FROM ins, prev`,
       [userId, starId, status, verifyMethod, placeId, placeName, reflection, stopReason, r.cheer],
     );
+    const row = rows[0];
+    const pointsEarned = status === "bright" && !row.had_bright ? Number(row.star_points) : 0;
     return ok(
       {
-        attemptId: rows[0].id,
+        attemptId: row.id,
         starId,
         status,
-        date: rows[0].date,
+        date: row.date,
         reflection,
         cheer: r.cheer,
         help: r.help,
+        pointsEarned,
+        totalPoints: Number(row.total_before) + pointsEarned,
         risk: r.risk,
         usedFallback: r.usedFallback,
         modelVersion: r.modelVersion,

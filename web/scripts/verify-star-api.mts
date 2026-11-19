@@ -47,10 +47,10 @@ const throwingGen = (async () => {
   throw new Error("simulated AI crash");
 }) as unknown as Gen;
 
-// 쿼리를 던지는 가짜 DB (insertOnly면 INSERT만 실패)
+// 쿼리를 던지는 가짜 DB (insertOnly면 INSERT가 들어간 문장만 실패. 시도 저장은 WITH ... INSERT 형태)
 const brokenDb = (real: Db, insertOnly: boolean): Db => ({
   query: (async (text: string, values?: unknown[]) => {
-    if (!insertOnly || /^\s*INSERT/i.test(text)) throw new Error("simulated db failure");
+    if (!insertOnly || /\bINSERT\s+INTO\b/i.test(text)) throw new Error("simulated db failure");
     return real.query(text, values);
   }) as Db["query"],
 });
@@ -87,16 +87,42 @@ check("검증 통과한 AI 응원은 그대로 사용", rGood.cheer === "우편�
 const client = await db.connect();
 try {
   await client.query("BEGIN");
-  const mk = async (nick: string) =>
+  const mk = async (nick: string, stage = 1) =>
     (
       await client.query<{ id: number }>(
-        `INSERT INTO users (nickname, start_answers, current_stage) VALUES ($1, '{"range":"near","burden":["people"],"with":"alone"}', 1) RETURNING id`,
-        [nick],
+        `INSERT INTO users (nickname, start_answers, current_stage) VALUES ($1, '{"range":"near","burden":["people"],"with":"alone"}', $2) RETURNING id`,
+        [nick, stage],
       )
     ).rows[0].id;
   const A = await mk("검증A");
   const B = await mk("검증B");
-  const C = await mk("검증C");
+  const C = await mk("검증C", 2); // 2단계 → 3단계 별(바깥 GPS 별)까지 후보
+
+  // ---------- 시드 (별 ID를 직접 적지 않고 추천 범위 규칙으로 구함: gps=바깥, stage 1=집 안, 그 외=집 근처) ----------
+  type SeedStar = { id: number; constellation_id: number; stage: number; star_count: number; title: string; verify_type: string; place_type: string | null; category: string; points: number };
+  const seed = (
+    await client.query<SeedStar>(
+      `SELECT s.id, s.constellation_id, c.stage, c.star_count, s.title, s.verify_type, s.place_type, s.category, p.points
+       FROM stars s JOIN constellations c ON c.id = s.constellation_id JOIN v_star_points p ON p.star_id = s.id
+       ORDER BY c.stage, s.constellation_id, s.position`,
+    )
+  ).rows;
+  const homeIds = seed.filter((s) => s.verify_type !== "gps" && s.stage === 1).map((s) => s.id);
+  const nearIds = seed.filter((s) => s.verify_type !== "gps" && s.stage === 2).map((s) => s.id); // 1단계 사용자에게 보이는 집 근처 별
+  const gpsId = seed.find((s) => s.verify_type === "gps")!.id; // 가장 낮은 단계의 바깥 별
+  const pointsOf = (id: number) => seed.find((s) => s.id === id)!.points;
+  const byConst = new Map<number, SeedStar[]>();
+  for (const s of seed) byConst.set(s.constellation_id, [...(byConst.get(s.constellation_id) ?? []), s]);
+  const stageCount = [1, 2, 3, 4].map((st) => [...byConst.values()].filter((g) => g[0].stage === st).length).join(",");
+  console.log(`시드: 별자리 ${byConst.size}개 · 별 ${seed.length}개 · 단계별 별자리 수 ${stageCount} · 집 안 ${homeIds} · 집 근처 ${nearIds} · 첫 바깥 별 ${gpsId}`);
+  check("별자리 10개, 난이도 1·2·3·4 = 1·3·3·3개", byConst.size === 10 && stageCount === "1,3,3,3", stageCount);
+  check("별 수 = 난이도 (1단계만 3개), star_count와 실제 별 수 일치",
+    [...byConst.values()].every((g) => g.length === g[0].star_count && g.length === (g[0].stage === 1 ? 3 : g[0].stage)));
+  check("별 30개, 제목 중복 없음", seed.length === 30 && new Set(seed.map((s) => s.title)).size === 30);
+  check("별 점수 = 난이도 × 10", seed.every((s) => s.points === s.stage * 10));
+  check("1단계 사용자의 집 안 후보 3개, 집 근처 6개", homeIds.length === 3 && nearIds.length === 6, { homeIds, nearIds });
+  check("gps 별은 place_type 있음, 청년센터·봉사 별 포함",
+    seed.every((s) => (s.verify_type === "gps") === (s.place_type !== null)) && seed.some((s) => s.category === "center") && seed.some((s) => s.category === "volunteer"));
   const checkin = async (user: number, choice: string | null) =>
     (
       await client.query<{ id: number }>(
@@ -114,8 +140,8 @@ try {
   console.log("추천 1차:", r1.status, `${Date.now() - t0}ms`, JSON.stringify(b1));
   check("정상 추천 200", r1.status === 200);
   check("1~3개", ids1.length >= 1 && ids1.length <= 3, ids1);
-  // near 후보 = 2단계 비GPS(11~15) → 1단계(1~10). 실제 시드 ID 범위 안
-  check("near 후보(1~15) 안의 실제 별", ids1.every((id: number) => id >= 1 && id <= 15), ids1);
+  // near 후보 = 2단계 비GPS → 1단계. 실제 시드 별 안
+  check("near 후보(집 근처·집 안) 안의 실제 별", ids1.every((id: number) => [...nearIds, ...homeIds].includes(id)), ids1);
   check("계약 필드 starId·title·reason", (b1.items ?? []).every((i: Body) => Number.isInteger(i.starId) && i.title && i.reason));
   check(`usedFallback=${expectFallback}`, b1.usedFallback === expectFallback, b1.usedFallback);
   check("reused=false, todayChoice=near", b1.reused === false && b1.todayChoice === "near");
@@ -123,7 +149,7 @@ try {
   // 같은 요청 반복 → 일관된 결과 (AI 다시 부르지 않음)
   const repeats: Body[] = [];
   for (let i = 0; i < 3; i++) {
-    const gen = fakeGen({ items: [{ starId: 1, reason: "다른 결과" }] });
+    const gen = fakeGen({ items: [{ starId: homeIds[0], reason: "다른 결과" }] });
     const r = await recommend(A, { checkinId: cA }, client, gen);
     repeats.push({ body: r.body, calls: gen.calls });
   }
@@ -132,7 +158,7 @@ try {
   check("반복 요청 usedFallback 유지", repeats.every((r) => r.body.usedFallback === b1.usedFallback));
 
   const cA2 = await checkin(A, "out");
-  const changedChoiceGen = fakeGen({ items: [{ starId: 16, reason: "바깥 별이에요." }] });
+  const changedChoiceGen = fakeGen({ items: [{ starId: gpsId, reason: "바깥 별이에요." }] });
   const r3 = await recommend(A, { checkinId: cA2 }, client, changedChoiceGen);
   const b3 = r3.body as Body;
   check("활동 범위가 넓어지면 범위에 맞는 기존 별 재사용", b3.reused === true && JSON.stringify(b3.items.map((i: Body) => i.starId)) === JSON.stringify(ids1));
@@ -140,7 +166,7 @@ try {
 
   // 쉬어 가기 → 빈 추천, AI 호출·저장 없음. 오늘 추천이 이미 있어도 빈 추천
   const cArest = await checkin(A, "rest");
-  const restGen = fakeGen({ items: [{ starId: 1, reason: "x" }] });
+  const restGen = fakeGen({ items: [{ starId: homeIds[0], reason: "x" }] });
   const rRestA = await recommend(A, { checkinId: cArest }, client, restGen);
   check("쉬어 가기(추천 있던 날) → items [] + AI 호출 0", (rRestA.body as Body).items.length === 0 && restGen.calls === 0);
   const cB = await checkin(B, "rest");
@@ -155,18 +181,18 @@ try {
   const homeGen = fakeGen({
     items: [
       { starId: 999, reason: "없는 별" },
-      { starId: 16, reason: "범위 밖 바깥 별" },
-      { starId: 2, reason: "반드시 해야 해요" },
-      { starId: 2, reason: "중복" },
-      { starId: 3, reason: "이불을 가볍게 정리해 보는 별이에요." },
+      { starId: nearIds[0], reason: "범위 밖 집 근처 별" },
+      { starId: homeIds[1], reason: "반드시 해야 해요" },
+      { starId: homeIds[1], reason: "중복" },
+      { starId: homeIds[2], reason: "몸을 천천히 늘려 보는 별이에요." },
     ],
   });
   const rHome = await recommend(B, { checkinId: cB2 }, client, homeGen);
   const bh = rHome.body as Body;
   console.log("가짜 AI(후보 밖 ID 섞임):", JSON.stringify(bh));
   check("쉬어 가기 뒤 집 안 → 새 추천 생성(AI 1회)", homeGen.calls === 1 && bh.reused === false);
-  check("후보 밖 ID(999, 집 안 범위 밖 GPS 16)·중복 제거", JSON.stringify(bh.items.map((i: Body) => i.starId)) === "[2,3]", bh.items);
-  check("금지 표현 이유만 기본 이유로 교체", !/반드시/.test(bh.items[0].reason) && bh.items[1].reason === "이불을 가볍게 정리해 보는 별이에요.");
+  check("후보 밖 ID(999, 집 안 범위 밖 집 근처 별)·중복 제거", JSON.stringify(bh.items.map((i: Body) => i.starId)) === JSON.stringify([homeIds[1], homeIds[2]]), bh.items);
+  check("금지 표현 이유만 기본 이유로 교체", !/반드시/.test(bh.items[0].reason) && bh.items[1].reason === "몸을 천천히 늘려 보는 별이에요.");
   check("일부라도 유효하면 usedFallback=false", bh.usedFallback === false);
 
   // 모든 ID가 후보 밖 / 형식 오류 → 유효한 기본 후보
@@ -175,7 +201,7 @@ try {
   const ba = rAllBad.body as Body;
   console.log("가짜 AI(모두 후보 밖):", JSON.stringify(ba.items.map((i: Body) => [i.starId, i.reason])));
   check("모두 후보 밖 → usedFallback + 실제 후보 3개", ba.usedFallback === true && ba.items.length === 3);
-  check("out 기본 후보는 바깥(GPS 16)부터", ba.items[0].starId === 16, ba.items[0]);
+  check(`out 기본 후보는 바깥(GPS ${gpsId})부터`, ba.items[0].starId === gpsId, ba.items[0]);
   await client.query("DELETE FROM daily_recommendations WHERE user_id = $1", [C]);
   const rInvalidRec = await recommend(C, { checkinId: cC }, client, invalidGen);
   check("형식 오류 → 같은 기본 후보", (rInvalidRec.body as Body).usedFallback === true && JSON.stringify((rInvalidRec.body as Body).items) === JSON.stringify(ba.items));
@@ -183,13 +209,13 @@ try {
   // 바깥 추천만 저장된 날 집 안으로 바꿔도 GPS 별을 보여주거나 Gemini를 재호출하지 않는다.
   await client.query("DELETE FROM daily_recommendations WHERE user_id = $1", [C]);
   const outdoor = await recommend(C, { checkinId: cC }, client, changedChoiceGen);
-  check("바깥 선택에 GPS 별만 저장", (outdoor.body as Body).items.map((i: Body) => i.starId).join(",") === "16");
+  check("바깥 선택에 GPS 별만 저장", (outdoor.body as Body).items.map((i: Body) => i.starId).join(",") === String(gpsId));
   const cHome = await checkin(C, "home");
   const noSecondCall = fakeGen({ items: [] });
   const narrowed = (await recommend(C, { checkinId: cHome }, client, noSecondCall)).body as Body;
   check("바깥 → 집 안: 집 안 기본 후보 최대 3개, AI 재호출 없음",
     narrowed.todayChoice === "home" && narrowed.reused && narrowed.usedFallback && noSecondCall.calls === 0
-    && narrowed.items.length === 3 && narrowed.items.every((i: Body) => i.starId >= 1 && i.starId <= 10), narrowed);
+    && narrowed.items.length === 3 && narrowed.items.every((i: Body) => homeIds.includes(i.starId)), narrowed);
 
   // 체크인 소유·입력
   const rOther = await recommend(B, { checkinId: cA }, client);
@@ -199,7 +225,7 @@ try {
   check("checkinId 문자열 → 400", (await recommend(A, { checkinId: "abc" }, client)).status === 400);
   check("DB 조회 실패 → 500 LOAD_FAILED", (await recommend(A, { checkinId: cA }, brokenDb(client, false))).body.code === "LOAD_FAILED");
   await client.query("DELETE FROM daily_recommendations WHERE user_id = $1", [C]);
-  const rSaveFail = await recommend(C, { checkinId: cC }, brokenDb(client, true), fakeGen({ items: [{ starId: 16, reason: "바깥 별이에요." }] }));
+  const rSaveFail = await recommend(C, { checkinId: cC }, brokenDb(client, true), fakeGen({ items: [{ starId: gpsId, reason: "바깥 별이에요." }] }));
   check("추천 저장 실패 → 추천은 200으로 응답", rSaveFail.status === 200 && (rSaveFail.body as Body).items.length === 1);
 
   // ---------- 시도 저장 (윤석 담당 범위, 기존 구현 회귀 확인) ----------
@@ -209,6 +235,8 @@ try {
   check("시도 저장 201 + attemptId·starId·status·cheer·help", a1.status === 201 && ["attemptId", "starId", "status", "cheer", "help"].every((k) => k in a1.body));
   const a2 = await createAttempt(A, { starId: star, status: "bright", reflection: "오늘은 5분을 채웠어요" }, client);
   check("같은 별 두 번째 시도(bright) 201", a2.status === 201);
+  check("dim은 0점, 처음 bright는 난이도×10", a1.body.pointsEarned === 0 && a1.body.totalPoints === 0
+    && a2.body.pointsEarned === pointsOf(star) && a2.body.totalPoints === pointsOf(star), [a1.body.pointsEarned, a2.body.pointsEarned, pointsOf(star)]);
   check("bright + stopReason → 400", (await createAttempt(A, { starId: star, status: "bright", stopReason: "tired" }, client)).status === 400);
   check("없는 별 → 404", (await createAttempt(A, { starId: 99999, status: "dim" }, client)).status === 404);
   const failed = await createAttempt(A, { starId: 2, status: "dim", reflection: "죽고 싶다는 생각이 들었어요" }, brokenDb(client, true));
@@ -226,6 +254,55 @@ try {
   check("기억에 회고 원문·날짜(YYYY-MM-DD)", s.memories[1].reflection === "현관문을 열고 잠깐 서 봤어요" && /^\d{4}-\d{2}-\d{2}$/.test(s.memories[1].date));
   check("새로고침(재조회) 결과 동일", JSON.stringify(sky1) === JSON.stringify(sky1Again));
   check("다른 사용자 밤하늘: 기록 섞이지 않음", ((await getSky(B, client)).body as Body).stars.every((x: Body) => x.status === "untried" && x.memories.length === 0));
+  check("밤하늘 totalPoints·별 points (밝힌 별만 점수, 나머지 0)", sky1.totalPoints === pointsOf(star) && s.points === pointsOf(star)
+    && sky1.stars.filter((x: Body) => x.starId !== star).every((x: Body) => x.points === 0), sky1.totalPoints);
+  check("다른 사용자 포인트 0", ((await getSky(B, client)).body as Body).totalPoints === 0);
+
+  // ---------- 포인트 (고민기록 #28): 별을 처음 밝힐 때만 난이도×10, 중복·dim 적립 없음 ----------
+  const D = await mk("검증D");
+  const earned: number[] = [];
+  const brighten = async (starId: number) => {
+    const r = await createAttempt(D, { starId, status: "bright" }, client, emptyGen);
+    earned.push(r.body.pointsEarned as number);
+    return r.body as Body;
+  };
+  const viewTotal = async () =>
+    (await client.query<{ total_points: number; bright_stars: number }>("SELECT total_points, bright_stars FROM v_user_points WHERE user_id = $1", [D])).rows[0];
+  const [h0, h1, h2] = homeIds;
+  const dimOnly = await createAttempt(D, { starId: h0, status: "dim", stopReason: "tired" }, client, emptyGen);
+  check("포인트 없는 사용자: dim → 0점, 뷰에 행 없음", dimOnly.body.pointsEarned === 0 && dimOnly.body.totalPoints === 0 && (await viewTotal()) === undefined);
+  const p1 = await brighten(h0);
+  const p2 = await brighten(h0);
+  check("같은 별 다시 완료 → 0점, 총점 그대로", p1.pointsEarned === 10 && p2.pointsEarned === 0 && p2.totalPoints === 10, [p1, p2]);
+  // AI가 쪼갠 별: 원래 별(h1)의 dim 시도 → 쪼갠 별 bright(원래 별이 밝아짐) → 원래 별을 다시 완료해도 중복 없음
+  const parent = await createAttempt(D, { starId: h1, status: "dim" }, client, emptyGen);
+  await client.query(
+    "INSERT INTO star_attempts (user_id, star_id, parent_attempt_id, custom_title, status) VALUES ($1, $2, $3, '물 반 잔 마시기', 'bright')",
+    [D, h1, parent.body.attemptId],
+  );
+  check("쪼갠 별로 원래 별이 밝아지면 원래 별 점수 1번", (await viewTotal()).total_points === 20);
+  const p3 = await brighten(h1);
+  check("쪼갠 별로 밝힌 별을 다시 완료 → 0점, 총점 20", p3.pointsEarned === 0 && p3.totalPoints === 20, p3);
+  const p4 = await brighten(h2);
+  check("1단계 별자리 완성 = 30점", p4.totalPoints === 30, p4);
+  const twoStage = [...byConst.values()].find((g) => g[0].stage === 2)!;
+  const fourStage = [...byConst.values()].find((g) => g[0].stage === 4)!;
+  for (const x of twoStage) await brighten(x.id);
+  const afterTwo = (await viewTotal()).total_points;
+  for (const x of fourStage) await brighten(x.id);
+  const afterFour = await viewTotal();
+  check("2단계 별자리 완성 = 10·2² = 40점", afterTwo - 30 === 40, afterTwo);
+  check("4단계 별자리 완성 = 10·4² = 160점", afterFour.total_points - afterTwo === 160, afterFour);
+  const threeStar = seed.find((x) => x.stage === 3)!.id;
+  const dim3 = await createAttempt(D, { starId: threeStar, status: "dim" }, client, emptyGen);
+  const skyD = (await getSky(D, client)).body as Body;
+  console.log("포인트 D:", JSON.stringify({ earned, view: afterFour, sky: skyD.totalPoints }));
+  check("3단계 별 dim → 0점, 밤하늘 점수 0", dim3.body.pointsEarned === 0 && skyD.stars.find((x: Body) => x.starId === threeStar).points === 0);
+  // 응답 적립 합에는 직접 넣은 쪼갠 별 시도(h1)의 점수가 빠져 있어 더해서 비교
+  check("응답 적립 합 = 뷰 총점 = 밤하늘 총점 (230점, 밝힌 별 9개)",
+    earned.reduce((a, b) => a + b, 0) + pointsOf(h1) === 230 && afterFour.total_points === 230 && skyD.totalPoints === 230 && afterFour.bright_stars === 9 && dim3.body.totalPoints === 230);
+  const failedBright = await createAttempt(D, { starId: threeStar, status: "bright" }, brokenDb(client, true), emptyGen);
+  check("저장 실패 → pointsEarned 없음, 총점 그대로", failedBright.status === 500 && !("pointsEarned" in failedBright.body) && (await viewTotal()).total_points === 230);
 
   // ---------- 센터·문의 초안 (후속) ----------
   check("센터 목록(마포 예시) / 빈 결과 / region 오류", (listCenters("11440").body as Body).centers.length === 1 && (listCenters("26110").body as Body).centers.length === 0 && listCenters("abc").status === 400);

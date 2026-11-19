@@ -101,6 +101,17 @@ try {
   await A.call("POST", "demo/session", {});
   const skyA3 = await A.call("GET", "sky");
   check("데모 시작 재호출 → 같은 사용자(기록 유지)", JSON.stringify(skyA3.data) === JSON.stringify(skyA2.data));
+
+  // 포인트 (고민기록 #28): dim은 0점, 처음 밝히면 난이도×10, 다시 밝히면 0점. 다른 세션 총점은 그대로
+  const br1 = await A.call("POST", "attempts", { starId, status: "bright" });
+  const br2 = await A.call("POST", "attempts", { starId, status: "bright" });
+  const skyA4 = await A.call("GET", "sky");
+  show("A 별 밝히기", br1);
+  check("dim 0점 → 처음 bright 10의 배수 → 다시 bright 0점",
+    at.data.pointsEarned === 0 && br1.status === 201 && br1.data.pointsEarned > 0 && br1.data.pointsEarned % 10 === 0 && br2.data.pointsEarned === 0,
+    [at.data.pointsEarned, br1.data.pointsEarned, br2.data.pointsEarned]);
+  check("밤하늘 totalPoints = 응답 totalPoints", skyA4.data.totalPoints === br1.data.totalPoints && br2.data.totalPoints === br1.data.totalPoints, skyA4.data.totalPoints);
+  check("다른 세션 총점 0", (await B.call("GET", "sky")).data.totalPoints === 0);
 } finally {
   const tokens = [A.token(), B.token()].filter((t): t is string => !!t);
   if (!keep && tokens.length && process.env.DATABASE_URL) {
