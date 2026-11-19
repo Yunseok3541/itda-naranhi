@@ -138,7 +138,7 @@
       // ↑ 계약 필드 starId·title·reason. 아래는 별 수행 화면용 추가 정보
       "description": "집 앞 분리수거장까지 다녀와요.",
       "constellationName": "거문고자리",
-      "verifyType": "photo"          // self | photo | gps (gps면 별 수행 화면에서 도착 확인 버튼)
+      "verifyType": "self"           // self | photo | gps (gps면 별 수행 화면에서 도착 확인 버튼)
     },
     {
       "starId": 13, "title": "우편함 확인하기", "reason": "우편함을 확인하며 가볍게 바깥 공기를 마셔볼 수 있어요.",
@@ -166,7 +166,7 @@
 {
   "items": [
     { "starId": 11, "title": "쓰레기 버리고 오기", "reason": "집 근처가 괜찮다고 해서 현관 가까이에서 해 볼 수 있는 별이에요.",
-      "description": "집 앞 분리수거장까지 다녀와요.", "constellationName": "거문고자리", "verifyType": "photo" },
+      "description": "집 앞 분리수거장까지 다녀와요.", "constellationName": "거문고자리", "verifyType": "self" },
     { "starId": 12, "title": "현관 앞 5분 서 있기", "reason": "집 근처가 괜찮다고 해서 현관 가까이에서 해 볼 수 있는 별이에요.",
       "description": "현관 밖에서 5분만 머물러요.", "constellationName": "거문고자리", "verifyType": "self" },
     { "starId": 13, "title": "우편함 확인하기", "reason": "집 근처가 괜찮다고 해서 현관 가까이에서 해 볼 수 있는 별이에요.",
@@ -325,10 +325,10 @@ const { cheer, help } = await processReflection({
 // 503 { "error": "지금은 밤하늘을 불러오지 못했어요.", "code": "LOAD_FAILED", "help": null }   // 세션 조회 DB 장애
 ```
 
-- 별 목록은 **시드의 모든 별**(현재 16개)을 별자리·순서대로 준다 (별자리 선택 API가 생기면 바꿈).
+- 별 목록은 **시드의 모든 별**(현재 17개)을 별자리·순서대로 준다 (별자리 선택 API가 생기면 바꿈).
 - `status`는 뷰 `v_user_star_status` 기준(최종 상태), `memories`는 개별 시도. 회고 없이 저장한 시도는 `reflection: null`.
 - 별 상세 화면 URL(예: `/stars/12`)로 바로 들어와도 이 응답에서 `starId`로 제목을 얻는다.
-- ⚠ 화면 예시 데이터의 별 17 "가상 청년센터 앞까지 가 보기"는 DB 시드에 없다. 실제 API 모드에서 이 별로 시도를 저장하면 404다 (센터 별 시드 필요).
+- 별 17 "청년센터 앞까지 가 보기"(GPS, `category: center`)는 변경 SQL `20261120_erd_v4_alignment.sql`로 시드에 들어갔다. 화면 예시 데이터의 별 17과 ID가 같다. GPS 확인이면 `placeId`에 `center:{centerId}`, `placeName`에 센터 이름을 보낸다.
 
 ### 5·6. 청년센터와 문의 초안 — 화면 연결 계약 (고은비 → 재희)
 
@@ -343,7 +343,7 @@ const { cheer, help } = await processReflection({
 | `starId` | `GET /api/sky`의 `stars[].starId` 또는 `POST /api/recommendations`의 `items[].starId` | 별 수행 `POST /api/attempts` |
 
 - 센터와 별은 연결돼 있지 않다. **센터 상세 응답에는 `starId`가 없다.**
-- "앞까지 가 보기"에 쓸 센터 별은 아직 DB 시드에 없다. 화면 예시의 별 17로 시도를 저장하면 404다. 센터 별이 시드에 들어가기 전까지 실제 API 모드에서는 이 버튼을 숨기거나 "준비 중"으로 둔다.
+- "앞까지 가 보기"는 별 17로 시도를 저장한다 (`POST /api/attempts`, `starId: 17`). 공용 DB에 변경 SQL을 적용하기 전에는 404다.
 - URL 경로의 `centerId`는 숫자다. 화면 주소 `/centers/demo`는 화면 쪽 이름이라 API에는 `9001`을 넘긴다.
 
 #### 정상 흐름 (요청 순서대로)
@@ -518,7 +518,7 @@ const { cheer, help } = await processReflection({
 | 별자리 선택 | 고른 별자리 저장 → 밤하늘 범위 | `user_constellations` |
 | 시도 후 다음 행동 (AI ①) | 이유 → 더 작게 / 다른 날 / 다른 별 / 마치기 제안, 사용자 선택 저장 | `stop_reason`, `next_action`. 11/21 |
 | 청년센터 실데이터 수집 | 온통청년 청년센터 API → 저장 | 인증키·DB 칸 필요 |
-| 센터 "앞까지 가 본 별" | 센터별 GPS·직접 도착 기록 별 | 별 시드 필요 (화면 예시의 별 17) |
+| 센터 행동 기록 | 상세 보기(`viewed`)·"참여했어요"(`joined`) 저장 | `center_events` (테이블 준비됨). 센터 "앞까지 가 본 별"은 별 17로 시드 완료 |
 | 주변 장소 | GPS 별의 목표 장소 (카카오 로컬) | 좌표 저장 안 함 |
 | 정책 추천 (AI ⑤) | 미리 분류해 둔 정책 조회 + 노출·클릭 기록 | `policies`, `policy_events` |
 
@@ -661,30 +661,28 @@ node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-ai-live.
 - 위험 신호가 있는 15건은 모두 응원 대신 기본 문구 + 안내가 나갔다.
 - 한계: 30문장, 같은 모델 하나. 판별 정확도가 아니라 "초기 테스트 결과"로 설명한다.
 
-## DB 변경 요청 (윤석 확인)
+## DB 변경 (반영: `db/migrations/20261120_erd_v4_alignment.sql`)
 
-기존 스키마로 지금 동작하게 만들었고, 아래는 정리용 요청이다. 공용 DB라 적용 시점을 팀에 알린 뒤 `db/init/01_schema.sql`, `db/erdcloud.sql`, `db/migrations/`, Neon에 함께 반영한다.
+아래 요청 1~3번과 ERD 점검 결과를 한 번에 반영했다. `db/init/01_schema.sql`, `02_seed.sql`, `db/erdcloud.sql`도 같은 내용이다. **공용 Neon 적용은 PR이 합쳐진 뒤 팀에 알리고 진행한다** (그 전까지 공용 DB에는 없음).
 
-```sql
--- 1. 별마다 다른 추천 이유 저장 (지금은 reason TEXT에 JSON 문자열: {"v":1,"items":[{"starId","reason"}],"usedFallback","todayChoice"})
-ALTER TABLE daily_recommendations ADD COLUMN items JSONB;
---    적용 후 API를 items 칸으로 옮기고, reason에는 대표 이유 한 줄만 남긴다
+| 변경 | 내용 | API에서 할 일 |
+| ---- | ---- | ------------- |
+| 요청 1 | `daily_recommendations.items JSONB` | 추천 API를 `items` 칸으로 옮기고 `reason`에는 대표 이유 한 줄 (아직 `reason`의 JSON 문자열을 씀, 그대로 동작) |
+| 요청 2 | `youth_centers`에 `hours`, `programs`, `source_name`, `source_url`, `basis_date`, `terms`, `is_sample` | 센터 실데이터 수집 때 사용 |
+| 요청 3 | `star_attempts.risk` | 회고 처리 결과의 위험도 저장 (선택) |
+| 센터 별 | 별 17 "청년센터 앞까지 가 보기" (거문고자리 7번째, GPS, `place_type: youth_center`) | 없음. 바로 시도 저장 가능 |
+| 바깥 별 | `stars.is_outside` — 1순위 지표 기준. 앱 안 센터 별(지도·홈페이지 보기)은 false | 없음 |
+| 센터 행동 | `center_events (user_id, center_id, event: viewed·joined)` | 상세 화면 열 때 `viewed`, "참여했어요" 누르면 `joined` 저장 (API 새로 필요) |
+| 하위 퀘스트 | `sub_quests` (별마다 더 작게 해 보기 목록, 예시 8개: 바깥 별 11~14·16·17) | AI ① 다음 행동 제안은 이 목록 안에서만 고름. 목록 없는 별에는 smaller를 제안하지 않음 |
+| 다음 행동 | dim 시도 줄에 `suggested_action`(AI 제안), `next_action`(선택), `next_sub_quest_id`(smaller 대상)·`next_star_id`(swap 대상) | 다음 행동 API(11/21): 제안·선택·대상을 dim 줄에 저장 → 다음에 앱을 열어도 "다음에 할 작은 별"이 남음 |
+| 이어진 시도 | `parent_attempt_id` = 원래 시도, 하위 퀘스트로 한 시도는 `sub_quest_id` + 이름 사본 `custom_title`. 자유 문장 `custom_title`·다른 별의 하위 퀘스트는 DB가 거절. 원래 시도를 지워도 남음(`ON DELETE SET NULL`) | `POST /api/attempts`에 `parentAttemptId`·`subQuestId` 받기, `risk` 저장 |
+| 사진 확인 | 3-1 "쓰레기 버리고 오기" `photo` → `self` (v4: 바깥은 GPS 기본, 사진은 선택) | 없음 |
+| 한국 날짜 | `rec_date` 기본값, `v_sky_today`를 `Asia/Seoul` 기준으로 | 없음 (API는 이미 한국 날짜를 직접 넣음) |
+| 지표 뷰 | `v_outside_attempt_rate` 정의 수정(분모 = 실제로 시작한 사용자), `v_split_success`는 하위 퀘스트만, `v_next_action_retry_rate`(AI 제안 따랐는지별)·`v_center_actions` 추가, v4에서 빠진 `v_center_quest_rate` 삭제 | 없음 |
+| 기록 삭제 | 체크인을 지워도 추천은 남음(`daily_recommendations.checkin_id ON DELETE SET NULL`) | 없음 |
 
--- 2. 청년센터 출처·기준일·이용 조건·예시 구분 + 상세 화면 값 (지금은 서버 코드 목록 centers-data.ts에서 읽음)
-ALTER TABLE youth_centers
-  ADD COLUMN source_name  VARCHAR(100),          -- 예: 한국고용정보원_온통청년_청년센터
-  ADD COLUMN source_url   TEXT,
-  ADD COLUMN basis_date   DATE,                  -- 데이터 기준일(수집일)
-  ADD COLUMN terms        TEXT,                  -- 이용 조건 (예: 이용허락범위 제한 없음)
-  ADD COLUMN is_sample    BOOLEAN NOT NULL DEFAULT false,
-  ADD COLUMN hours        TEXT,                  -- 확인된 값만, 없으면 NULL
-  ADD COLUMN programs     JSONB;                 -- [{ "title", "summary" }]
-
--- 3. (선택) 회고 위험도 기록: 안내가 몇 번 나갔는지 지표로 보려면
-ALTER TABLE star_attempts ADD COLUMN risk VARCHAR(10) CHECK (risk IN ('normal', 'caution', 'danger'));
-```
-
-- 공용 DB 날짜: 서버 시간대가 GMT라 `CURRENT_DATE`·`v_sky_today`는 한국 시간 오전 9시에 날짜가 바뀐다. 새 API는 `Asia/Seoul`로 직접 계산한다.
+- 남은 결정: 별 17이 거문고자리(2단계)에 속해 있어 1단계 사용자가 센터 앞에 가면 그 별자리의 별이 켜진다. 별자리 밖 센터 별로 빼려면 `constellation_id`를 비우고 밤하늘 API(`_lib/sky.ts`의 JOIN)도 바꿔야 해서 팀 결정으로 남김. 예시 센터를 `youth_centers`(`is_sample=true`)로 옮기면 `inquiry_drafts`·`center_events`의 `center_id`에 외래키를 걸 수 있다.
+- 검증 (2026-11-19, 로컬 Docker만): 이전 스키마 + 가상 기록에 변경 SQL을 두 번 적용 → 새로 만든 DB와 칸·인덱스·뷰·시드 일치, 기존 기록 유지 (옛 방식 쪼갠 별 기록이 있으면 새 제약은 새 행에만 적용). 목록 밖 하위 퀘스트·자유 문장 이름·행동과 대상 불일치 거절, 원래 시도·체크인 삭제 시 이어진 기록 유지 확인. 기존 API 검증 스크립트 `verify-star-api` 61/61, `verify-http` 14/14, `verify-inquiry-http` 25/25 (AI 키 없음), 별 17 시도 저장 성공.
 
 ## 실행 환경
 
