@@ -31,6 +31,10 @@ const CAUTION_PATTERNS = [
   /짐(이|만)\s*(되|된|돼)/,
   /태어나지\s*말/,
   /다\s*끝났/,
+  // 2026-11-19 가상 문장 검증에서 규칙이 놓친 간접 표현 (AI가 실패하면 안내가 빠지던 사례)
+  /없어도\s*아무도/,
+  /내일이\s*(안|오지\s*않)/,
+  /(다|모두)\s*놓아\s*버리고\s*싶/,
 ];
 
 // AI 호출이 실패했을 때만 쓰는 부정 감정 표현 → caution
@@ -72,6 +76,50 @@ export function assessRisk(text: string, aiRisk: Risk | null): Risk {
   if (aiRisk !== null) return mergeRisk(rule, aiRisk);
   const negative: Risk = NEGATIVE_PATTERNS.some((p) => p.test(text)) ? "caution" : "normal";
   return mergeRisk(rule, negative);
+}
+
+/** 위험도가 normal이 아니면 안내 문구, 아니면 null */
+export function helpFor(risk: Risk) {
+  return risk === "normal" ? null : HELP_MESSAGE;
+}
+
+/**
+ * AI 없이 규칙만으로 본 안내 (입력 오류·세션 없음·저장 실패처럼 AI를 부르지 않는 응답에도 help를 담기 위함).
+ * 문자열이 아니거나 비어 있으면 null
+ */
+export function ruleHelp(text: unknown) {
+  return typeof text === "string" && text.trim() ? helpFor(assessRisk(text, null)) : null;
+}
+
+// AI가 만든 문장(응원, 추천 이유, 문의 초안)에 들어가면 안 되는 표현
+// 지시·압박, 과장된 칭찬, 진단·치료처럼 들리는 말 (기획 6장 "톤·길이 제한, 금지 표현 필터")
+const AI_BANNED_PATTERNS = [
+  /반드시/,
+  /꼭\s*\S*\s*(해야|하세요|하셔야)/,
+  /해야\s*(해요|합니다|돼요|됩니다)/,
+  /하셔야/,
+  /완벽/,
+  /최고/,
+  /천재/,
+  /대단/,
+  /진단/,
+  /치료/,
+  /우울증/,
+  /장애/,
+  /병원에?\s*가/,
+  /약을?\s*(드|먹|복용)/,
+];
+
+/**
+ * AI가 만든 문장을 화면에 써도 되는지 검사한다.
+ * 위험 표현(규칙)이나 금지 표현이 있거나 길이가 맞지 않으면 false → 호출한 쪽에서 기본 문구로 바꾼다.
+ */
+export function isSafeAiText(text: unknown, maxLength: number): text is string {
+  if (typeof text !== "string") return false;
+  const t = text.trim();
+  if (t.length < 2 || t.length > maxLength) return false;
+  if (ruleRisk(t) !== "normal") return false;
+  return !AI_BANNED_PATTERNS.some((p) => p.test(t));
 }
 
 export const HELP_MESSAGE = {
