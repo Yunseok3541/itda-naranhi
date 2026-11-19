@@ -4,7 +4,7 @@
 INSERT INTO constellations (id, stage, name, theme, star_count) VALUES
   (1, 1, '카시오페이아자리', '하루를 여는 작은 습관', 5),
   (2, 1, '돌고래자리', '나를 돌보는 시간', 5),
-  (3, 2, '거문고자리', '현관 너머 한 걸음', 6);
+  (3, 2, '거문고자리', '현관 너머 한 걸음', 7);
 
 SELECT setval('constellations_id_seq', 3);
 
@@ -26,14 +26,22 @@ INSERT INTO stars (constellation_id, position, title, description, verify_type) 
   (3, 3, '우편함 확인하기', '우편함까지 다녀와요.', 'self'),
   (3, 4, '집 앞 계단 오르내리기', '계단을 한 층만 오르내려요.', 'self'),
   (3, 5, '청년센터 홈페이지에서 프로그램 둘러보기', '어떤 프로그램이 있는지 구경만 해요.', 'self'),
-  (3, 6, '편의점 다녀오기', '가까운 편의점에 들러요. 도착하면 별이 켜져요.', 'gps');
+  (3, 6, '편의점 다녀오기', '가까운 편의점에 들러요. 도착하면 별이 켜져요.', 'gps'),
+  -- 시연 중심 장면의 "앞까지 가 본 별" (아이디어_v4 4장). 들어가지 않아도 되고, 위치를 못 쓰면 직접 도착 기록
+  -- 원래 3단계 이상 활동이지만 MVP 별자리가 1·2단계뿐이라 2단계 별자리에 둠
+  (3, 7, '청년센터 앞까지 가 보기', '들어가지 않아도 괜찮아요. 센터 앞에 도착하면 별을 딸 수 있어요.', 'gps');
 
 -- GPS 별의 목표 장소 종류 (카카오 로컬로 가장 가까운 장소를 찾아 제안)
 UPDATE stars SET place_type = 'convenience' WHERE constellation_id = 3 AND position = 6;
+UPDATE stars SET place_type = 'youth_center' WHERE constellation_id = 3 AND position = 7;
 
 -- 청년센터 단계별 퀘스트 표시 (나머지는 기본값 daily)
 UPDATE stars SET category = 'center'
-WHERE (constellation_id, position) IN ((1, 5), (3, 5));
+WHERE (constellation_id, position) IN ((1, 5), (3, 5), (3, 7));
+
+-- 집 문 밖에서 하는 별 (1순위 지표 "앱 밖 활동"). 지도·홈페이지 보기(1-5, 3-5)는 앱 안이라 제외
+UPDATE stars SET is_outside = true
+WHERE (constellation_id, position) IN ((3, 1), (3, 2), (3, 3), (3, 4), (3, 6), (3, 7));
 
 -- 사용자는 시드로 만들지 않음 (users.id = 1 고정 사용 금지)
 -- 데모 사용자는 POST /api/demo/session 이 브라우저마다 새로 만든다 (web/src/lib/demo-session.ts)

@@ -66,6 +66,8 @@ CREATE TABLE stars (
   -- 퀘스트 종류: 일상 / 청년센터 단계별 퀘스트 / 봉사 (청년센터 퀘스트 완료율 지표용)
   category          VARCHAR(10) NOT NULL DEFAULT 'daily'
                     CHECK (category IN ('daily', 'center', 'volunteer')),
+  -- 집 문 밖에서 하는 활동인지 (1순위 지표 "앱 밖 활동"의 기준). 청년센터 별이어도 앱 안에서 하는 것(지도·홈페이지 보기)은 false
+  is_outside        BOOLEAN NOT NULL DEFAULT false,
   UNIQUE (constellation_id, position)
 );
 
@@ -83,8 +85,10 @@ CREATE TABLE user_constellations (
 );
 
 -- 별 시도 기록: 시도할 때마다 한 줄 (희미한 별 = dim, 밝은 별 = bright)
--- AI가 쪼갠 별: star_id는 원래 별, custom_title에 쪼갠 퀘스트, parent_attempt_id에 실패했던 시도
---   → 쪼갠 별을 완료하면 원래 별이 밝아짐
+-- parent_attempt_id: 손 뻗어 보기(dim) 뒤 고른 다음 행동으로 이어진 시도면 원래 시도 ID (보조 지표 "다시 시도한 비율")
+--   더 작게 해 보기(smaller): star_id는 원래 별, custom_title에 쪼갠 퀘스트 → 완료하면 원래 별이 밝아짐
+--   다른 날 그대로 하기(retry): 같은 별, custom_title 없음
+--   다른 별로 바꾸기(swap): star_id는 새 별, custom_title 없음
 CREATE TABLE star_attempts (
   id                 SERIAL PRIMARY KEY,
   user_id            INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -95,7 +99,7 @@ CREATE TABLE star_attempts (
   -- 실제로 확인한 방식 (GPS 별이어도 위치를 못 쓰면 self로 기록, 불이익 없음)
   verify_method      VARCHAR(10) NOT NULL DEFAULT 'self' CHECK (verify_method IN ('self', 'photo', 'gps')),
   -- GPS 도착 확인한 장소. 좌표·이동 경로는 저장하지 않음 (개인정보 원칙)
-  place_id           VARCHAR(30),       -- 카카오 장소 ID
+  place_id           VARCHAR(30),       -- 카카오 장소 ID. 청년센터 별이면 'center:{센터 ID}'
   place_name         VARCHAR(100),
   photo_path         TEXT,              -- 선택 (기록용)
   reflection         VARCHAR(300),      -- 회고 한 줄 (별을 누르면 날짜와 함께 "그날의 기억"으로 표시)
@@ -105,8 +109,10 @@ CREATE TABLE star_attempts (
   stop_reason        VARCHAR(20) CHECK (stop_reason IN ('crowded', 'weather', 'tired', 'no_time', 'not_for_me', 'cost', 'other')),
   next_action        VARCHAR(10) CHECK (next_action IN ('smaller', 'retry', 'swap', 'stop')),
   cheer              TEXT,              -- AI ④ 맞춤 응원
+  risk               VARCHAR(10) CHECK (risk IN ('normal', 'caution', 'danger')),  -- 회고 위험도 (AI ③, 안내가 나간 횟수 집계용)
   created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CHECK (parent_attempt_id IS NULL OR custom_title IS NOT NULL)
+  -- 쪼갠 퀘스트 이름은 이어진 시도에만 (smaller)
+  CONSTRAINT star_attempts_custom_title_needs_parent CHECK (custom_title IS NULL OR parent_attempt_id IS NOT NULL)
 );
 
 -- 데일리 체크인 (AI ② 마음 날씨, AI ③ 위험 감지)
@@ -124,11 +130,13 @@ CREATE TABLE checkins (
 
 -- AI ① 오늘의 별 추천 결과 (하루 한 번만 생성해 저장)
 -- 새로고침할 때마다 Gemini를 부르지 않게 해서 무료 등급 호출 제한을 아끼고, 추천이 바뀌지 않게 함
+-- 날짜는 한국 시간 기준 (DB 서버 시간대가 GMT라 CURRENT_DATE를 쓰면 오전 9시에 날짜가 바뀜)
 CREATE TABLE daily_recommendations (
   user_id     INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  rec_date    DATE NOT NULL DEFAULT CURRENT_DATE,
+  rec_date    DATE NOT NULL DEFAULT ((now() AT TIME ZONE 'Asia/Seoul')::date),
   star_ids    INT[] NOT NULL,
   reason      TEXT,                     -- 추천 이유 한 줄
+  items       JSONB,                    -- 별마다 다른 추천 이유 [{"starId","reason"}]
   checkin_id  INT REFERENCES checkins(id),
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, rec_date)
@@ -181,7 +189,26 @@ CREATE TABLE youth_centers (
   url          TEXT,
   region_code  CHAR(5),
   lat          DOUBLE PRECISION,        -- 카카오 주소 검색으로 한 번 변환해 저장
-  lng          DOUBLE PRECISION
+  lng          DOUBLE PRECISION,
+  hours        TEXT,                    -- 운영시간. 확인된 값만, 없으면 NULL (꾸며내지 않음)
+  programs     JSONB,                   -- [{"title","summary"}] (AI ⑤ 요약)
+  -- 출처 표시 (실데이터는 모두 채움)
+  source_name  VARCHAR(100),            -- 예: 한국고용정보원_온통청년_청년센터
+  source_url   TEXT,
+  basis_date   DATE,                    -- 데이터 기준일(수집일)
+  terms        TEXT,                    -- 이용 조건 (예: 이용허락범위 제한 없음)
+  is_sample    BOOLEAN NOT NULL DEFAULT false  -- 시연용 가상 센터 (화면에 "예시 데이터예요")
+);
+
+-- 청년센터 행동 기록 (보조 지표 "청년센터 행동별 기록 수", 1순위 지표의 참여 기록)
+-- 문의 문장 준비 = inquiry_drafts, 문의 기록 = inquiry_drafts.sent_at, 앞까지 가 본 별 = star_attempts
+-- 여기에는 상세 보기(viewed)와 사용자가 직접 남긴 "참여했어요"(joined)만 기록
+CREATE TABLE center_events (
+  id          SERIAL PRIMARY KEY,
+  user_id     INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  center_id   INT NOT NULL,             -- youth_centers.id (예시 센터 9000번대가 코드에 있어 외래키 없음, inquiry_drafts와 같음)
+  event       VARCHAR(10) NOT NULL CHECK (event IN ('viewed', 'joined')),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- 추천 정책 노출·원문 클릭 기록 ("추천 정책 원문 확인 비율" 지표용)
@@ -204,6 +231,9 @@ CREATE INDEX idx_checkins_user_time  ON checkins (user_id, created_at DESC);
 CREATE INDEX idx_policies_stage      ON policies (stage, region_code);
 CREATE INDEX idx_centers_region      ON youth_centers (region_code);
 CREATE INDEX idx_policy_events       ON policy_events (policy_id, event);
+CREATE INDEX idx_center_events       ON center_events (center_id, event);
+CREATE INDEX idx_center_events_user  ON center_events (user_id);
+CREATE INDEX idx_attempts_parent     ON star_attempts (parent_attempt_id) WHERE parent_attempt_id IS NOT NULL;
 
 ------------------------------------------------------------
 -- 6. 뷰 (화면과 발표 지표에서 바로 쓰는 조회)
@@ -218,7 +248,7 @@ SELECT user_id,
 FROM star_attempts
 GROUP BY user_id, star_id;
 
--- 같은 하늘의 별: 오늘 별마다 시도한 사람 수 (동의한 사용자만, 구 단위, 5명 미만은 숨김)
+-- 같은 하늘의 별: 오늘(한국 시간) 별마다 시도한 사람 수 (동의한 사용자만, 구 단위, 5명 미만은 숨김)
 CREATE VIEW v_sky_today AS
 SELECT u.region_code,
        a.star_id,
@@ -226,17 +256,40 @@ SELECT u.region_code,
 FROM star_attempts a
 JOIN users u ON u.id = a.user_id
 WHERE u.share_in_sky
-  AND a.created_at >= CURRENT_DATE
+  AND a.created_at >= (date_trunc('day', now() AT TIME ZONE 'Asia/Seoul') AT TIME ZONE 'Asia/Seoul')
 GROUP BY u.region_code, a.star_id
 HAVING count(DISTINCT a.user_id) >= 5;
 
--- 발표 지표: AI가 쪼갠 별의 완료율
+-- 발표 지표: AI가 쪼갠 별(더 작게 해 보기)의 완료율
 CREATE VIEW v_split_success AS
 SELECT count(*)                                   AS split_attempts,
        count(*) FILTER (WHERE status = 'bright')  AS split_bright,
        round(100.0 * count(*) FILTER (WHERE status = 'bright') / NULLIF(count(*), 0), 1) AS success_rate
 FROM star_attempts
-WHERE parent_attempt_id IS NOT NULL;
+WHERE parent_attempt_id IS NOT NULL
+  AND custom_title IS NOT NULL;
+
+-- 보조 지표 (AI 효과): 손 뻗어 보기 뒤 다음 행동을 고르고 다시 시도한 비율 (다음 행동별)
+-- 다시 시도 = 그 시도에서 이어진 시도(parent_attempt_id)가 있음. 다른 날 그대로 하기는 같은 별을 나중에 다시 시도한 것도 셈
+CREATE VIEW v_next_action_retry_rate AS
+SELECT a.next_action,
+       count(*) AS chosen,
+       count(*) FILTER (WHERE EXISTS (
+         SELECT 1 FROM star_attempts n
+         WHERE n.user_id = a.user_id
+           AND (n.parent_attempt_id = a.id
+                OR (a.next_action = 'retry' AND n.star_id = a.star_id AND n.created_at > a.created_at))
+       )) AS retried,
+       round(100.0 * count(*) FILTER (WHERE EXISTS (
+         SELECT 1 FROM star_attempts n
+         WHERE n.user_id = a.user_id
+           AND (n.parent_attempt_id = a.id
+                OR (a.next_action = 'retry' AND n.star_id = a.star_id AND n.created_at > a.created_at))
+       )) / NULLIF(count(*), 0), 1) AS retry_rate
+FROM star_attempts a
+WHERE a.status = 'dim'
+  AND a.next_action IN ('smaller', 'retry', 'swap')
+GROUP BY a.next_action;
 
 -- 발표 지표: 추천 정책 정보 확인 비율 (추천을 본 사용자 중 원문을 연 비율)
 -- ※ 원문을 열어 본 것이지 신청·참여한 것이 아님. 발표에서도 "정보 확인"으로만 설명
@@ -266,13 +319,33 @@ SELECT count(*)                                                       AS checkin
              / NULLIF(count(*), 0), 1)                                AS correction_rate
 FROM checkins;
 
--- 1순위 지표: 앱 밖 활동을 시도한 사용자 비율 (고민기록 #25)
--- 바깥 별(GPS 별) 또는 청년센터 별을 한 번이라도 시도한 사용자 / 전체 사용자. 손 뻗어 보기(dim)도 시도로 셈
--- ※ 문의·참여 직접 기록이 별이 아닌 형태로 추가되면 이 뷰에 함께 반영
+-- 1순위 지표: 앱 밖 활동을 시도한 사용자 비율 (아이디어_v4 8장, 고민기록 #25)
+-- 앱 밖 활동 = 바깥 별(is_outside, 센터 "앞까지 가 본 별" 포함) 시도 / 문의 기록(sent_at) / 참여 기록(joined)
+-- 손 뻗어 보기(dim)도 시도로 셈. 지도·홈페이지 보기 같은 앱 안 청년센터 별은 세지 않음
 CREATE VIEW v_outside_attempt_rate AS
-SELECT (SELECT count(*) FROM users)                                   AS users,
-       count(DISTINCT a.user_id)                                      AS tried_users,
-       round(100.0 * count(DISTINCT a.user_id) / NULLIF((SELECT count(*) FROM users), 0), 1) AS attempt_rate
-FROM star_attempts a
-JOIN stars s ON s.id = a.star_id
-WHERE s.verify_type = 'gps' OR s.category = 'center';
+WITH tried AS (
+  SELECT a.user_id FROM star_attempts a JOIN stars s ON s.id = a.star_id WHERE s.is_outside
+  UNION
+  SELECT user_id FROM inquiry_drafts WHERE sent_at IS NOT NULL
+  UNION
+  SELECT user_id FROM center_events WHERE event = 'joined'
+)
+SELECT (SELECT count(*) FROM users)                                    AS users,
+       (SELECT count(*) FROM tried)                                    AS tried_users,
+       round(100.0 * (SELECT count(*) FROM tried) / NULLIF((SELECT count(*) FROM users), 0), 1) AS attempt_rate;
+
+-- 보조 지표 (지원 연결): 청년센터 행동별 기록 수. 순서를 강제하지 않으므로 퍼널이 아니라 행동별로 집계
+-- viewed 상세 보기 / drafted 문의 문장 준비 / arrived 앞까지 가 본 별 / sent 문의 기록 / joined 참여 기록
+CREATE VIEW v_center_actions AS
+SELECT 'viewed' AS action, count(*) AS records, count(DISTINCT user_id) AS users
+FROM center_events WHERE event = 'viewed'
+UNION ALL
+SELECT 'drafted', count(*), count(DISTINCT user_id) FROM inquiry_drafts
+UNION ALL
+SELECT 'arrived', count(*), count(DISTINCT a.user_id)
+FROM star_attempts a JOIN stars s ON s.id = a.star_id
+WHERE s.category = 'center' AND s.is_outside AND a.status = 'bright'
+UNION ALL
+SELECT 'sent', count(*), count(DISTINCT user_id) FROM inquiry_drafts WHERE sent_at IS NOT NULL
+UNION ALL
+SELECT 'joined', count(*), count(DISTINCT user_id) FROM center_events WHERE event = 'joined';
