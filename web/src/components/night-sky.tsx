@@ -13,6 +13,8 @@ import { angleBetween, fitView, projector, RAD, skyView, toLonLat, unit, type Ve
 import { skyConstellation } from '@/lib/sky-constellations';
 
 const labels = { untried: '아직 만나기 전', dim: '손을 뻗은 별', bright: '딴 별' } as const;
+/** 지금 별자리가 화면에서 이만큼(px, 대각선) 이상일 때만 퀘스트 이름표·큰 별 표시 */
+const DETAIL_SPAN = 170;
 
 const koreanDate = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'long', day: 'numeric' });
 function memoryDate(value: string) {
@@ -194,18 +196,26 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     }));
   }, [skies, view, frame]);
 
+  // 지금 별자리가 화면에서 충분히 크게 보일 때만 퀘스트 이름·큰 별을 보여 줌 (축소하면 하늘만 감상)
+  const detailed = useMemo(() => {
+    const pts = (positions[safeIndex] ?? []).filter((p): p is NonNullable<typeof p> => !!p);
+    if (pts.length < 2) return false;
+    const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+    return Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) >= DETAIL_SPAN;
+  }, [positions, safeIndex]);
+
   // 지금 별자리 별 이름표 자리 (겹치면 숨김)
   const labelSpots = useMemo(() => {
     const g = groups[safeIndex];
     const pos = positions[safeIndex];
-    if (!g || !pos || !frame) return [];
+    if (!g || !pos || !frame || !detailed) return [];
     const shown = g.stars.map((s, i) => ({ s, p: pos[i] })).filter((x): x is { s: Star; p: NonNullable<typeof x.p> } => !!x.p);
     const spots = placeLabels(shown.map(({ s, p }) => ({ x: p.x, y: p.y, text: s.title })), frame.width, frame.height);
     return g.stars.map(s => {
       const k = shown.findIndex(x => x.s.starId === s.starId);
       return k < 0 ? null : spots[k];
     });
-  }, [groups, positions, safeIndex, frame]);
+  }, [groups, positions, safeIndex, frame, detailed]);
 
   return <section className="night" aria-label="내 밤하늘">
     <div className="night-dust" aria-hidden="true"><b className="shooting" /></div>
@@ -224,8 +234,9 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
         const p = positions[gi]?.[i];
         if (!p) return null;
         const isCurrent = gi === safeIndex;
+        const emphasis = isCurrent && detailed ? ' current' : isCurrent ? ' current far' : ' other';
         return <button key={s.starId} type="button"
-          className={`nstar ${s.status}${isCurrent ? ' current' : ' other'}${selected?.starId === s.starId ? ' active' : ''}`}
+          className={`nstar ${s.status}${emphasis}${selected?.starId === s.starId ? ' active' : ''}`}
           style={{ left: p.x, top: p.y, animationDelay: `${(i * 0.7) % 3}s` }}
           aria-label={`${g.name} ${s.title}, ${labels[s.status]}`}
           onClick={() => { if (!isCurrent) setIndex(gi); tap(s, p.x, p.y); }}>

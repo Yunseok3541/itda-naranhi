@@ -199,6 +199,8 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .sky-anchors .nstar.bright .core { width: 16px; height: 16px; }
 /* 다른 별자리 별: 작고 흐리게, 이름 없음 */
 .sky-anchors .nstar.other { opacity: .5; transform: translate(-50%, -50%) scale(.75); }
+/* 지금 별자리라도 축소해서 작게 보이면 이름 없이 작게 (night-sky.tsx DETAIL_SPAN) */
+.sky-anchors .nstar.far { opacity: .8; transform: translate(-50%, -50%) scale(.7); }
 /* 지금 별자리 별 이름 */
 /* 자리(left·top·width·정렬)는 night-sky.tsx의 placeLabels가 겹치지 않게 정함 */
 .nstar-label {
