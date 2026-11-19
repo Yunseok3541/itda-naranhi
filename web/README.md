@@ -79,7 +79,7 @@ export async function GET() {
 | 세션 쿠키 없음·만료·위조 | 사용자별 API 전부 | `401 { "error": "데모를 다시 시작해 주세요.", "code": "NO_SESSION", "help": null }` |
 | 〃 + 문장에 위기 표현 | 체크인·별 시도 | `401 { …, "code": "NO_SESSION", "risk": "danger", "help": { "title": "혼자 감당하지 않아도 돼요", "lines": [...] } }` (규칙만, 저장·AI 없음) |
 | DB 장애 | `POST /api/demo/session` | `503 { "ready": false, "error": "지금은 데모를 시작할 수 없어요. 잠시 후 다시 시도해 주세요." }` |
-| DB 장애 | `POST /api/checkin` | `200 { "checkinId": null, "weather": …, "risk": …, "help": …, "usedFallback": … }` — 저장만 건너뛰고 위기 안내는 그대로 |
+| DB 장애 | `POST /api/checkin` | `200 { "checkinId": null, "weather": …, "risk": …, "help": …, "usedFallback": …, "modelVersion": … }` — 저장만 건너뛰고 위기 안내는 그대로 |
 | DB 장애 | `PATCH /api/checkin/weather` | `500 { "error": "지금은 저장하지 못했어요." }` |
 | DB 장애 | `getDemoUserId()`를 쓰는 API | 세션을 확인할 수 없어 `null` → `401 NO_SESSION`. FE가 이어서 `/api/demo/session`을 부르면 `503`이 오므로 "잠시 후 다시" 안내 |
 
