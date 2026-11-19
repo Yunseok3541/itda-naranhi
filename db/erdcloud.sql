@@ -7,10 +7,11 @@
 CREATE TABLE users (
   id             INT          NOT NULL AUTO_INCREMENT COMMENT '사용자 ID',
   nickname       VARCHAR(30)  NOT NULL COMMENT '닉네임',
-  start_answers  JSON         NULL     COMMENT '시작 질문 답(활동 범위·부담 상황·혼자/함께)',
+  start_answers  JSON         NULL     COMMENT '시작 질문 답(활동 범위·부담 상황·혼자/함께·기댈 사람·생활 형태·필요한 것, 모두 선택)',
   current_stage  SMALLINT     NOT NULL DEFAULT 1 COMMENT '추천 기준 단계(1~6)',
   region_code    CHAR(5)      NULL     COMMENT '법정 시군구 코드',
-  birth_year     SMALLINT     NULL     COMMENT '출생연도',
+  birth_year     SMALLINT     NULL     COMMENT '출생연도(선택)',
+  policy_info    JSON         NULL     COMMENT '정책 신청 정보(취업·학력·결혼·연소득·해당 상황, 선택, AI 미전송)',
   share_in_sky   BOOLEAN      NOT NULL DEFAULT FALSE COMMENT '같은 하늘의 별 집계 동의',
   created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '가입 시각',
   PRIMARY KEY (id)

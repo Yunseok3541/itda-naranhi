@@ -1,18 +1,20 @@
 // 개인 맞춤 정책 추천 (AI ⑤ 추천 단계, 기획: docs/기획/정책추천.md, 명세: docs/API명세.md)
-// ① 규칙: 지역·나이·마감 거르기 → ② 참여 난이도: 내 단계 + 1까지 (후보가 적으면 넓힘)
+// ① 규칙: 지역·나이·마감·자격 조건(정책 신청 정보, docs/기획/프로필.md) 거르기 → ② 참여 난이도: 내 단계 + 1까지 (후보가 적으면 넓힘)
 // → ③ 점수: 관련도·부담 상황·혼자/함께·최근 멈춘 이유 → 상위 8개 → ④ AI가 그 안에서 3개 + 이유 (하루 한 번 저장)
-// AI에는 식별 정보 없이 선택값(부담 상황 등)과 후보 정책 요약만 보낸다
+// AI에는 식별 정보 없이 선택값(부담 상황·필요한 것)과 후보 정책 요약만 보낸다. 정책 신청 정보(취업·소득 등)는 보내지 않는다
 import { db as pool } from "@/lib/db";
 import { generateJson } from "@/lib/gemini";
 import { isSafeAiText } from "@/lib/safety";
 import { BURDEN_LABEL, type Burden } from "@/lib/policy-classify";
 import { DEMO_REGION, DEMO_REGION_NAME } from "@/lib/policy-sync";
+import { CONDITION_COLUMNS, checkEligibility, type PolicyConditions } from "@/lib/policy-eligibility";
+import { NEEDS, readPolicyInfo, readStartAnswers, type PolicyInfo, type StartAnswers } from "@/lib/profile";
 import { type ApiResult, type Db, fail, ok, todayKst, toId } from "../_lib/http";
 
 const MAX_ITEMS = 3;
 const MAX_CANDIDATES = 8;
 
-type PolicyRow = {
+type PolicyRow = PolicyConditions & {
   id: number;
   title: string;
   summary: string;
@@ -31,7 +33,8 @@ type UserRow = {
   current_stage: number;
   region_code: string | null;
   birth_year: number | null;
-  start_answers: { burden?: unknown; with?: unknown } | null;
+  start_answers: unknown;
+  policy_info: unknown;
 };
 
 export type Profile = {
@@ -41,12 +44,16 @@ export type Profile = {
   burdens: string[]; // 시작 질문 ② (people, unfamiliar, phone, morning)
   together: boolean | null; // 시작 질문 ③ (alone이면 false)
   costStops: number; // 손 뻗어 보기 이유 "돈이 들어서요" 횟수
+  needs: NonNullable<StartAnswers["needs"]>; // 시작 질문 ⑥ 요즘 도움이 필요한 것
+  support: StartAnswers["support"]; // 시작 질문 ④ 힘들 때 연락할 사람
+  living: StartAnswers["living"]; // 시작 질문 ⑤ 생활 형태
+  info: PolicyInfo; // 정책 신청 정보 (자격 규칙에만, AI에 보내지 않음)
 };
 
 const BURDEN_WORDS: Record<string, string> = { people: "사람 만나기", unfamiliar: "낯선 곳 가기", phone: "전화하거나 대화하기", morning: "아침에 일어나기" };
 
 const POLICY_COLUMNS = `p.id, p.title, p.summary, p.burden, p.stage, p.difficulty_note, p.relevance, p.tags, p.url,
-  to_char(p.apply_end, 'YYYY-MM-DD') AS apply_end, p.apply_always, p.region_code`;
+  to_char(p.apply_end, 'YYYY-MM-DD') AS apply_end, p.apply_always, p.region_code, ${CONDITION_COLUMNS}`;
 
 /** 사용자에게 열려 있는 정책 (분류됨, 신청 가능, 지역·나이 맞음). 순서는 난이도 → 관련도 */
 const OPEN_SQL = `
@@ -63,20 +70,23 @@ const errorCode = (error: unknown) => (error as { code?: string }).code ?? (erro
 
 export async function loadProfile(userId: number, db: Db, today: string): Promise<Profile> {
   const u = (
-    await db.query<UserRow>("SELECT current_stage, region_code, birth_year, start_answers FROM users WHERE id = $1", [userId])
+    await db.query<UserRow>("SELECT current_stage, region_code, birth_year, start_answers, policy_info FROM users WHERE id = $1", [userId])
   ).rows[0];
   const costStops = Number(
     (await db.query<{ n: string }>("SELECT count(*) AS n FROM star_attempts WHERE user_id = $1 AND stop_reason = 'cost'", [userId])).rows[0]?.n ?? 0,
   );
-  const burdens = Array.isArray(u?.start_answers?.burden) ? (u.start_answers.burden as unknown[]).filter((b): b is string => typeof b === "string") : [];
-  const withAnswer = u?.start_answers?.with;
+  const answers = readStartAnswers(u?.start_answers);
   return {
     level: Math.min(Math.max(u?.current_stage ?? 1, 1), 6),
     region: u?.region_code ?? DEMO_REGION,
     age: u?.birth_year ? Number(today.slice(0, 4)) - u.birth_year : null,
-    burdens,
-    together: withAnswer === "alone" ? false : withAnswer === "together" ? true : null,
+    burdens: answers.burden ?? [],
+    together: answers.with === "alone" ? false : answers.with === "together" ? true : null,
     costStops,
+    needs: answers.needs ?? [],
+    support: answers.support,
+    living: answers.living,
+    info: readPolicyInfo(u?.policy_info),
   };
 }
 
@@ -97,6 +107,14 @@ export function scorePolicy(p: PolicyRow, profile: Profile, today: string): numb
   if (profile.together === false && p.burden === "group") s -= 2;
   if (profile.together === true && p.tags?.includes("사람과 함께")) s += 1;
   if (profile.costStops > 0 && p.tags?.some((t) => t === "생활비" || t === "금융")) s += 2;
+  // 시작 질문 ④~⑥: 필요한 지원 방향 (유형 이름을 만들지 않고 답을 그대로 점수에 씀)
+  const has = (...t: string[]) => p.tags?.some((x) => t.includes(x)) ?? false;
+  if (profile.needs.includes("money_job") && has("생활비", "일자리", "주거", "금융")) s += 2;
+  if (profile.needs.includes("health") && has("마음건강", "건강")) s += 2;
+  if (profile.needs.includes("family") && /가족/.test(`${p.title} ${p.summary}`)) s += 2;
+  if (profile.needs.includes("people") && has("사람과 함께")) s += 1;
+  if (profile.support === "no" && has("마음건강")) s += 1; // 기댈 사람이 없다고 답함 → 상담·마음건강을 조금 앞으로
+  if (profile.living === "alone" && has("주거", "생활비")) s += 1; // 혼자 지냄 → 생활·주거
   if (p.apply_end) {
     const days = (Date.parse(p.apply_end) - Date.parse(today)) / 86_400_000;
     if (days <= 14) s += 1; // 곧 마감
@@ -117,7 +135,11 @@ export function templateReason(p: PolicyRow, profile: Profile): string {
   return parts.join(" · ");
 }
 
-function toItem(p: PolicyRow, reason: string) {
+/** 자격 조건: 확실히 안 맞는 것(mismatch)은 추천에서 빼고, 판단할 수 없는 것(toCheck)은 화면에 보여 준다 */
+const fits = (p: PolicyRow, profile: Profile) => checkEligibility(p, profile.info).mismatch.length === 0;
+
+function toItem(p: PolicyRow, reason: string, profile: Profile) {
+  const e = checkEligibility(p, profile.info);
   return {
     policyId: p.id,
     title: p.title,
@@ -135,6 +157,10 @@ function toItem(p: PolicyRow, reason: string) {
     url: p.url,
     // 전화·방문이 필요한 정책은 문의 문장 준비하기(AI ⑥)로 이어 준다
     needsInquiry: p.burden === "phone" || p.burden === "visit",
+    // 원문에서 확인할 자격 조건 (답하지 않은 칸, "기타", 중위소득 같은 문장 조건)
+    conditionsToCheck: e.toCheck,
+    // 내가 알려 준 정보와 맞지 않을 수 있는 조건 ("모든 정책 보기"에서만 생김. 원문 데이터가 틀릴 수 있어 숨기지 않음)
+    mayNotFit: e.mismatch,
   };
 }
 
@@ -187,7 +213,10 @@ export async function recommendPolicies(userId: number, db: Db = pool, generate:
     ).rows[0];
     if (saved) {
       const byId = new Map(open.map((p) => [p.id, p]));
-      const items = saved.items.filter((i) => byId.has(i.policyId)).map((i) => toItem(byId.get(i.policyId)!, i.reason));
+      // 오늘 정책 신청 정보를 바꿨다면 이제 맞지 않는 정책은 뺀다 (AI를 다시 부르지는 않음)
+      const items = saved.items
+        .filter((i) => byId.has(i.policyId) && fits(byId.get(i.policyId)!, profile))
+        .map((i) => toItem(byId.get(i.policyId)!, i.reason, profile));
       return ok({ items, usedFallback: saved.used_fallback, reused: true, basis: await basis(db) });
     }
   } catch (error) {
@@ -195,7 +224,7 @@ export async function recommendPolicies(userId: number, db: Db = pool, generate:
     return fail(500, "LOAD_FAILED", "지금은 정책을 불러오지 못했어요.");
   }
 
-  const { rows: allowed, maxDifficulty } = filterByDifficulty(open, profile.level);
+  const { rows: allowed, maxDifficulty } = filterByDifficulty(open.filter((p) => fits(p, profile)), profile.level);
   const candidates = allowed
     .map((p) => ({ p, s: scorePolicy(p, profile, today) }))
     .sort((a, b) => b.s - a.s || a.p.stage - b.p.stage || a.p.id - b.p.id)
@@ -209,6 +238,7 @@ export async function recommendPolicies(userId: number, db: Db = pool, generate:
       부담스러운_상황: profile.burdens.map((b) => BURDEN_WORDS[b] ?? b),
       함께하는_활동: profile.together === null ? "모름" : profile.together ? "함께하는 활동도 알아보고 싶음" : "혼자 하고 싶음",
       최근_돈_때문에_멈춘_적: profile.costStops > 0,
+      요즘_도움이_필요한_것: profile.needs.map((n) => NEEDS.find(([k]) => k === n)![1]),
     },
     후보: candidates.map((p) => ({ policyId: p.id, 이름: p.title, 요약: p.summary, 방식: BURDEN_LABEL[p.burden], 참여_난이도: p.stage, 분야: p.tags ?? [] })),
   });
@@ -244,7 +274,7 @@ export async function recommendPolicies(userId: number, db: Db = pool, generate:
   }
 
   return ok({
-    items: final.map((f) => toItem(byId.get(f.policyId)!, f.reason)),
+    items: final.map((f) => toItem(byId.get(f.policyId)!, f.reason, profile)),
     usedFallback,
     reused: false,
     maxDifficulty,
@@ -259,7 +289,7 @@ export async function listPolicies(userId: number, db: Db = pool): Promise<ApiRe
   try {
     const profile = await loadProfile(userId, db, today);
     const rows = (await db.query<PolicyRow>(OPEN_SQL, [today, profile.region, profile.age])).rows;
-    return ok({ items: rows.map((p) => toItem(p, templateReason(p, profile))), basis: await basis(db) });
+    return ok({ items: rows.map((p) => toItem(p, templateReason(p, profile), profile)), basis: await basis(db) });
   } catch (error) {
     console.error("[policies] 목록 실패", errorCode(error));
     return fail(500, "LOAD_FAILED", "지금은 정책을 불러오지 못했어요.");
