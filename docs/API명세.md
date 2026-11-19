@@ -138,7 +138,7 @@
       // ↑ 계약 필드 starId·title·reason. 아래는 별 수행 화면용 추가 정보
       "description": "집 앞 분리수거장까지 다녀와요.",
       "constellationName": "거문고자리",
-      "verifyType": "photo"          // self | photo | gps (gps면 별 수행 화면에서 도착 확인 버튼)
+      "verifyType": "self"           // self | photo | gps (gps면 별 수행 화면에서 도착 확인 버튼)
     },
     {
       "starId": 13, "title": "우편함 확인하기", "reason": "우편함을 확인하며 가볍게 바깥 공기를 마셔볼 수 있어요.",
@@ -166,7 +166,7 @@
 {
   "items": [
     { "starId": 11, "title": "쓰레기 버리고 오기", "reason": "집 근처가 괜찮다고 해서 현관 가까이에서 해 볼 수 있는 별이에요.",
-      "description": "집 앞 분리수거장까지 다녀와요.", "constellationName": "거문고자리", "verifyType": "photo" },
+      "description": "집 앞 분리수거장까지 다녀와요.", "constellationName": "거문고자리", "verifyType": "self" },
     { "starId": 12, "title": "현관 앞 5분 서 있기", "reason": "집 근처가 괜찮다고 해서 현관 가까이에서 해 볼 수 있는 별이에요.",
       "description": "현관 밖에서 5분만 머물러요.", "constellationName": "거문고자리", "verifyType": "self" },
     { "starId": 13, "title": "우편함 확인하기", "reason": "집 근처가 괜찮다고 해서 현관 가까이에서 해 볼 수 있는 별이에요.",
@@ -673,11 +673,16 @@ node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-ai-live.
 | 센터 별 | 별 17 "청년센터 앞까지 가 보기" (거문고자리 7번째, GPS, `place_type: youth_center`) | 없음. 바로 시도 저장 가능 |
 | 바깥 별 | `stars.is_outside` — 1순위 지표 기준. 앱 안 센터 별(지도·홈페이지 보기)은 false | 없음 |
 | 센터 행동 | `center_events (user_id, center_id, event: viewed·joined)` | 상세 화면 열 때 `viewed`, "참여했어요" 누르면 `joined` 저장 (API 새로 필요) |
-| 이어진 시도 | `parent_attempt_id` = 다음 행동(smaller·retry·swap)을 고른 원래 시도. `custom_title`은 이어진 시도에만 (제약 바꿈) | 다음 행동 API(11/21)에서 이어진 시도에 원래 시도 ID 저장 |
+| 하위 퀘스트 | `sub_quests` (별마다 더 작게 해 보기 목록, 예시 8개: 바깥 별 11~14·16·17) | AI ① 다음 행동 제안은 이 목록 안에서만 고름. 목록 없는 별에는 smaller를 제안하지 않음 |
+| 다음 행동 | dim 시도 줄에 `suggested_action`(AI 제안), `next_action`(선택), `next_sub_quest_id`(smaller 대상)·`next_star_id`(swap 대상) | 다음 행동 API(11/21): 제안·선택·대상을 dim 줄에 저장 → 다음에 앱을 열어도 "다음에 할 작은 별"이 남음 |
+| 이어진 시도 | `parent_attempt_id` = 원래 시도, 하위 퀘스트로 한 시도는 `sub_quest_id` + 이름 사본 `custom_title`. 자유 문장 `custom_title`·다른 별의 하위 퀘스트는 DB가 거절. 원래 시도를 지워도 남음(`ON DELETE SET NULL`) | `POST /api/attempts`에 `parentAttemptId`·`subQuestId` 받기, `risk` 저장 |
+| 사진 확인 | 3-1 "쓰레기 버리고 오기" `photo` → `self` (v4: 바깥은 GPS 기본, 사진은 선택) | 없음 |
 | 한국 날짜 | `rec_date` 기본값, `v_sky_today`를 `Asia/Seoul` 기준으로 | 없음 (API는 이미 한국 날짜를 직접 넣음) |
-| 지표 뷰 | `v_outside_attempt_rate` 정의 수정, `v_split_success`는 쪼갠 별만, `v_next_action_retry_rate`·`v_center_actions` 추가 | 없음 |
+| 지표 뷰 | `v_outside_attempt_rate` 정의 수정(분모 = 실제로 시작한 사용자), `v_split_success`는 하위 퀘스트만, `v_next_action_retry_rate`(AI 제안 따랐는지별)·`v_center_actions` 추가, v4에서 빠진 `v_center_quest_rate` 삭제 | 없음 |
+| 기록 삭제 | 체크인을 지워도 추천은 남음(`daily_recommendations.checkin_id ON DELETE SET NULL`) | 없음 |
 
-- 검증 (2026-11-19, 로컬 Docker만): 이전 스키마 + 가상 기록에 변경 SQL을 두 번 적용 → 새로 만든 DB와 칸·인덱스·뷰·시드 일치, 기존 기록 유지. 기존 API 검증 스크립트 `verify-star-api` 61/61, `verify-http` 14/14, `verify-inquiry-http` 25/25 (AI 키 없음), 별 17 시도 저장 성공.
+- 남은 결정: 별 17이 거문고자리(2단계)에 속해 있어 1단계 사용자가 센터 앞에 가면 그 별자리의 별이 켜진다. 별자리 밖 센터 별로 빼려면 `constellation_id`를 비우고 밤하늘 API(`_lib/sky.ts`의 JOIN)도 바꿔야 해서 팀 결정으로 남김. 예시 센터를 `youth_centers`(`is_sample=true`)로 옮기면 `inquiry_drafts`·`center_events`의 `center_id`에 외래키를 걸 수 있다.
+- 검증 (2026-11-19, 로컬 Docker만): 이전 스키마 + 가상 기록에 변경 SQL을 두 번 적용 → 새로 만든 DB와 칸·인덱스·뷰·시드 일치, 기존 기록 유지 (옛 방식 쪼갠 별 기록이 있으면 새 제약은 새 행에만 적용). 목록 밖 하위 퀘스트·자유 문장 이름·행동과 대상 불일치 거절, 원래 시도·체크인 삭제 시 이어진 기록 유지 확인. 기존 API 검증 스크립트 `verify-star-api` 61/61, `verify-http` 14/14, `verify-inquiry-http` 25/25 (AI 키 없음), 별 17 시도 저장 성공.
 
 ## 실행 환경
 

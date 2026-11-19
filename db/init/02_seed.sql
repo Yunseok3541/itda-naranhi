@@ -21,7 +21,7 @@ INSERT INTO stars (constellation_id, position, title, description, verify_type) 
   (2, 4, '따뜻한 물로 씻기', '샤워나 세수를 해요.', 'self'),
   (2, 5, '오늘 먹은 것 기록하기', '한 끼라도 괜찮아요.', 'self'),
 
-  (3, 1, '쓰레기 버리고 오기', '집 앞 분리수거장까지 다녀와요.', 'photo'),
+  (3, 1, '쓰레기 버리고 오기', '집 앞 분리수거장까지 다녀와요.', 'self'),
   (3, 2, '현관 앞 5분 서 있기', '현관 밖에서 5분만 머물러요.', 'self'),
   (3, 3, '우편함 확인하기', '우편함까지 다녀와요.', 'self'),
   (3, 4, '집 앞 계단 오르내리기', '계단을 한 층만 오르내려요.', 'self'),
@@ -42,6 +42,22 @@ WHERE (constellation_id, position) IN ((1, 5), (3, 5), (3, 7));
 -- 집 문 밖에서 하는 별 (1순위 지표 "앱 밖 활동"). 지도·홈페이지 보기(1-5, 3-5)는 앱 안이라 제외
 UPDATE stars SET is_outside = true
 WHERE (constellation_id, position) IN ((3, 1), (3, 2), (3, 3), (3, 4), (3, 6), (3, 7));
+
+-- 더 작게 해 보기용 하위 퀘스트 (예시. 바깥 별부터 채움, 집 안 별은 콘텐츠 확정 때 추가)
+-- AI ①은 이 목록 안에서만 고르고, 목록이 없는 별에는 더 작게 해 보기를 제안하지 않음
+INSERT INTO sub_quests (star_id, position, title)
+SELECT s.id, v.sub_position, v.title
+FROM (VALUES
+  (3, 1, 1, '쓰레기를 현관 앞까지만 옮겨 두기'),
+  (3, 2, 1, '현관문 열고 1분만 서 있기'),
+  (3, 3, 1, '현관문 열고 복도 끝까지만 가 보기'),
+  (3, 4, 1, '계단 세 칸만 내려갔다 오기'),
+  (3, 6, 1, '사람 적은 시간에 편의점 앞까지만 가 보기'),
+  (3, 6, 2, '편의점 가는 길 절반까지만 걸어 보기'),
+  (3, 7, 1, '센터 건물이 보이는 곳까지만 가 보기'),
+  (3, 7, 2, '지도에서 센터까지 가는 길 미리 보기')
+) AS v(constellation_id, star_position, sub_position, title)
+JOIN stars s ON s.constellation_id = v.constellation_id AND s.position = v.star_position;
 
 -- 사용자는 시드로 만들지 않음 (users.id = 1 고정 사용 금지)
 -- 데모 사용자는 POST /api/demo/session 이 브라우저마다 새로 만든다 (web/src/lib/demo-session.ts)

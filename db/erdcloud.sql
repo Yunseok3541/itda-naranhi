@@ -60,6 +60,17 @@ CREATE TABLE stars (
   FOREIGN KEY (constellation_id) REFERENCES constellations (id) ON DELETE CASCADE
 ) COMMENT '별(퀘스트)';
 
+CREATE TABLE sub_quests (
+  id        INT          NOT NULL AUTO_INCREMENT COMMENT '하위 퀘스트 ID',
+  star_id   INT          NOT NULL COMMENT '원래 별 ID',
+  position  SMALLINT     NOT NULL COMMENT '순서',
+  title     VARCHAR(100) NOT NULL COMMENT '더 작게 해 보기 퀘스트',
+  PRIMARY KEY (id),
+  UNIQUE (star_id, position),
+  UNIQUE (id, star_id),
+  FOREIGN KEY (star_id) REFERENCES stars (id) ON DELETE CASCADE
+) COMMENT '하위 퀘스트(더 작게 해 보기 목록)';
+
 CREATE TABLE user_constellations (
   user_id           INT      NOT NULL COMMENT '사용자 ID',
   constellation_id  INT      NOT NULL COMMENT '별자리 ID',
@@ -75,7 +86,8 @@ CREATE TABLE star_attempts (
   user_id            INT          NOT NULL COMMENT '사용자 ID',
   star_id            INT          NOT NULL COMMENT '별 ID',
   parent_attempt_id  INT          NULL     COMMENT '이어진 원래 시도 ID(더 작게·다른 날·다른 별)',
-  custom_title       VARCHAR(100) NULL     COMMENT '쪼갠 퀘스트 이름(더 작게 해 보기)',
+  sub_quest_id       INT          NULL     COMMENT '하위 퀘스트로 한 시도',
+  custom_title       VARCHAR(100) NULL     COMMENT '하위 퀘스트 이름 사본',
   status             VARCHAR(10)  NOT NULL COMMENT '상태(dim 희미한 별/bright 밝은 별)',
   verify_method      VARCHAR(10)  NOT NULL DEFAULT 'self' COMMENT '실제 확인 방식(self/photo/gps)',
   place_id           VARCHAR(30)  NULL     COMMENT '도착 확인 장소 ID(카카오, 센터는 center:ID)',
@@ -84,13 +96,19 @@ CREATE TABLE star_attempts (
   reflection         VARCHAR(300) NULL     COMMENT '회고 한 줄',
   cheer              TEXT         NULL     COMMENT 'AI 맞춤 응원',
   stop_reason        VARCHAR(20)  NULL     COMMENT '손 뻗어 보기 이유',
-  next_action        VARCHAR(10)  NULL     COMMENT '다음 행동(smaller/retry/swap/stop)',
+  next_action        VARCHAR(10)  NULL     COMMENT '사용자가 고른 다음 행동(smaller/retry/swap/stop)',
+  suggested_action   VARCHAR(10)  NULL     COMMENT 'AI가 제안한 다음 행동',
+  next_sub_quest_id  INT          NULL     COMMENT '더 작게 해 보기로 고른 하위 퀘스트',
+  next_star_id       INT          NULL     COMMENT '다른 별로 바꾸기로 고른 별',
   risk               VARCHAR(10)  NULL     COMMENT '회고 위험도(normal/caution/danger)',
   created_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '시도 시각',
   PRIMARY KEY (id),
   FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
   FOREIGN KEY (star_id) REFERENCES stars (id),
-  FOREIGN KEY (parent_attempt_id) REFERENCES star_attempts (id)
+  FOREIGN KEY (parent_attempt_id) REFERENCES star_attempts (id) ON DELETE SET NULL,
+  FOREIGN KEY (sub_quest_id, star_id) REFERENCES sub_quests (id, star_id),
+  FOREIGN KEY (next_sub_quest_id, star_id) REFERENCES sub_quests (id, star_id),
+  FOREIGN KEY (next_star_id) REFERENCES stars (id)
 ) COMMENT '별 시도 기록';
 
 CREATE TABLE checkins (
@@ -116,7 +134,7 @@ CREATE TABLE daily_recommendations (
   created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 시각',
   PRIMARY KEY (user_id, rec_date),
   FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
-  FOREIGN KEY (checkin_id) REFERENCES checkins (id)
+  FOREIGN KEY (checkin_id) REFERENCES checkins (id) ON DELETE SET NULL
 ) COMMENT '오늘의 별 추천';
 
 CREATE TABLE policies (
