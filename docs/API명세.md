@@ -2,7 +2,11 @@
 
 > API는 Next.js 앱(`web/src/app/api/`)의 Route Handler로 구현한다 (고민기록 #27).
 > 화면은 같은 앱에서 `fetch('/api/...')`로 호출한다. 화면 쪽 내용은 [화면설계.md](화면설계.md), 문구는 [기능 완료 기준](기획/기능완료기준과_콘텐츠.md), 세션 사용법은 [web/README.md](../web/README.md) "데모 세션"
-> 마지막 갱신: 2026-11-19 13시 (청년센터·문의 초안 화면 연결 계약, 초안 `sent` 칸, 문의 API 세션 장애 503, 실데이터 전환 계획, AI 실호출 기록. 담당 고은비)
+> 마지막 갱신: 2026-11-19 18시 (포인트: 시도 저장 `pointsEarned`·`totalPoints`, 밤하늘 `totalPoints`·별 `points`, 시드 별자리 10개·별 30개로 교체. 담당 고은비, 브랜치 `feat/points`)
+> 이전 갱신: 2026-11-19 13시 (청년센터·문의 초안 화면 연결 계약, 초안 `sent` 칸, 문의 API 세션 장애 503, 실데이터 전환 계획, AI 실호출 기록)
+>
+> ⚠ **`feat/points`부터 시드가 바뀌어 별 ID와 별자리가 달라졌다** (별 1~30, 고민기록 #28). 아래 응답 예시 중 "실제 응답"이라고 적힌 것은 이전 시드(별 16개)로 받은 기록이라 ID·별자리 이름이 지금과 다르다. 형식은 그대로다.
+> 화면(재희) 영향: `mobile-flow.tsx`가 `starId` 16·17을 GPS 별로 가정하는 부분은 새 시드에서 16 = '청년센터 홈페이지에서 프로그램 둘러보기'(self)다. 밤하늘 응답의 `verifyType === "gps"`로 판단하는 것을 권장한다. 예시 모드의 별 제목 17개도 새 시드와 다르다.
 
 ## 담당과 구현 위치
 
@@ -206,6 +210,8 @@
   | `out` 바깥 | 바깥(GPS) 별 → 집 앞 별 → 집 안 별 |
 
   - 집 안 = 1단계 별자리의 별, 집 앞 = 2단계 이상 별자리의 GPS가 아닌 별, 바깥 = GPS 별
+  - 새 시드 기준 (2026-11-19 `feat/points`): 집 안 = 독수리자리 별 1~3, 집 앞(1단계 사용자) = 2단계 별 4~9, 가장 낮은 바깥 별 = 11 (3단계 백조자리, 2단계 사용자부터 후보). 1단계 사용자가 바깥을 고르면 GPS 후보가 없어 집 앞 → 집 안 순서로 채운다
+  - ⚠ 3·4단계의 집 안 활동(청년센터 홈페이지 둘러보기, 온라인 강의 등)도 규칙상 "집 앞"으로 분류된다. 범위를 별마다 정하려면 `stars`에 범위 칸이 필요하다 (아래 DB 변경 요청 4)
   - 사용자 시작 단계 + 1단계(바로 위 단계)까지만 후보. 이미 딴 별(bright)은 뺀다 (다 땄으면 다시 포함). 모델에는 후보 최대 8개를 보낸다
 - AI가 후보에 없는 `starId`·중복을 내면 제거한다. 남는 게 없으면 기본 후보 + 기본 이유. 이유가 비었거나 80자를 넘거나 금지 표현이 있으면 그 별만 기본 이유로 바꾼다.
 - 추천 저장이 실패해도 추천은 200으로 돌려준다 (추천은 사용자가 쓴 글이 아니고, 다음 요청 때 다시 만들면 됨).
@@ -275,7 +281,19 @@ const { cheer, help } = await processReflection({
   "reflection": "현관문을 열고 잠깐 서 봤어요",
   "cheer": "현관문을 열고 서 있던 그 시도만으로도 충분히 의미가 있어요. 오늘은 마음과 몸을 편안하게 쉬어주세요.",
   "help": null,
+  "pointsEarned": 0, "totalPoints": 0,     // feat/points에서 추가. 아래 "포인트" 참고
   "risk": "normal", "usedFallback": false, "modelVersion": "gemini-3.5-flash-lite"
+}
+```
+
+```jsonc
+// 201 별을 처음 땄을 때 (2026-11-19 로컬 HTTP 검증 실제 응답, 새 시드 별 4 = 2단계)
+{
+  "attemptId": 18, "starId": 4, "status": "bright", "date": "2026-11-19", "reflection": null,
+  "cheer": "오늘 해낸 일을 이 별에 담았어요.", "help": null,
+  "pointsEarned": 20,       // 이번 시도로 얻은 포인트. 이 별을 처음 밝혔을 때만 난이도 × 10, 그 외 0
+  "totalPoints": 20,        // 이 시도까지 포함한 사용자 총 포인트
+  "risk": "normal", "usedFallback": true, "modelVersion": null
 }
 ```
 
@@ -296,28 +314,35 @@ const { cheer, help } = await processReflection({
 
 - 응원·위기 안내는 위 **회고 처리 함수** 결과를 쓴다. `help`는 400·401·404·500에도 담는다 (이때는 AI 없이 규칙만).
 - 같은 별을 여러 번 시도할 수 있다. 시도마다 한 줄씩 쌓인다.
+- **포인트 (고민기록 #28):** 별을 **처음** bright로 만든 시도만 `pointsEarned` = 별자리 난이도(`stage`) × 10 (10·20·30·40). dim, 이미 딴 별을 다시 딴 경우, AI가 쪼갠 별로 이미 밝아진 별은 0. 감점은 없다.
+  - 규칙은 뷰 `v_star_points` 한 곳, 총점의 기준은 뷰 `v_user_points` (별을 처음 밝힐 때만 더하므로 (사용자, 별)당 한 번만 셈). 적립 기록 테이블은 없다.
+  - 같은 별을 동시에 두 번 보내면 두 응답 모두 `pointsEarned`가 나올 수 있지만 총점(`v_user_points`, 밤하늘 `totalPoints`)은 한 번만 센다. 화면은 저장 중 버튼을 막는다.
+  - 저장 실패(500)에는 `pointsEarned`·`totalPoints`를 보내지 않는다.
+  - 화면 문구: 순위·비교·연속 기록 표현을 쓰지 않는다 ([기능 완료 기준](기획/기능완료기준과_콘텐츠.md) "포인트").
 - 프론트 처리: 저장 중 버튼 비활성화(중복 클릭 방지), 201 뒤에만 응원 표시 후 밤하늘로. 500이면 입력 유지 + 다시 저장하기, `help`가 있으면 같이 표시.
 - 다음 행동(`nextAction`: smaller·retry·swap·stop) 저장과 AI 제안은 후속 API로 분리한다 (11/21 예정, 아래 "만들 것").
 
 ### 4. 밤하늘 — `GET /api/sky` (윤석 담당 범위, 현재 구현은 고은비)
 
 ```jsonc
-// 200
+// 200 (새 시드 기준 예시)
 {
+  "totalPoints": 0,             // feat/points 추가. 밝힌 별 점수의 합 (= 뷰 v_user_points)
   "stars": [
     {
-      "starId": 12, "title": "현관 앞 5분 서 있기", "description": "현관 밖에서 5분만 머물러요.",
-      "constellationId": 3, "constellationName": "거문고자리", "position": 2, "verifyType": "self",
+      "starId": 9, "title": "현관 앞 5분 서 있기", "description": "현관 밖에서 5분만 머물러요. 힘들면 언제든 들어와도 돼요.",
+      "constellationId": 4, "constellationName": "북쪽왕관자리", "position": 2, "verifyType": "self",
       "status": "dim",          // untried | dim | bright. 한 번이라도 bright면 bright
       "attempts": 2,
+      "points": 0,              // feat/points 추가. bright면 이 별의 점수(난이도 × 10), 아니면 0 (따기 전에는 점수를 알려주지 않음)
       "memories": [             // 이 사용자의 시도만, 최신순. 시도마다 한 줄
         { "attemptId": 5, "date": "2026-11-20", "status": "dim", "reflection": "오늘은 문 앞까지만" },
         { "attemptId": 3, "date": "2026-11-19", "status": "dim", "reflection": "현관문을 열고 잠깐 서 봤어요" }
       ]
     },
-    { "starId": 1, "title": "창문 열고 하늘 보기", "description": "창문을 열고 하늘을 잠깐 바라봐요.",
-      "constellationId": 1, "constellationName": "카시오페이아자리", "position": 1, "verifyType": "self",
-      "status": "untried", "attempts": 0, "memories": [] }
+    { "starId": 1, "title": "창문 열고 하늘 보기", "description": "창문을 열고 하늘을 잠깐 바라봐요. 1분이면 충분해요.",
+      "constellationId": 1, "constellationName": "독수리자리", "position": 1, "verifyType": "self",
+      "status": "untried", "attempts": 0, "points": 0, "memories": [] }
   ]
 }
 // 401 { "error": "데모를 다시 시작해 주세요.", "code": "NO_SESSION", "help": null }
@@ -325,10 +350,11 @@ const { cheer, help } = await processReflection({
 // 503 { "error": "지금은 밤하늘을 불러오지 못했어요.", "code": "LOAD_FAILED", "help": null }   // 세션 조회 DB 장애
 ```
 
-- 별 목록은 **시드의 모든 별**(현재 16개)을 별자리·순서대로 준다 (별자리 선택 API가 생기면 바꿈).
+- 별 목록은 **시드의 모든 별**(현재 30개, 별자리 10개)을 단계·별자리·순서대로 준다 (별자리 선택 API가 생기면 바꿈).
+- `totalPoints`·`points`는 위 "3. 별 시도 저장"의 포인트 규칙과 같은 뷰로 계산한다. 별자리 하나를 다 따면 1단계 30, 2단계 40, 3단계 90, 4단계 160.
 - `status`는 뷰 `v_user_star_status` 기준(최종 상태), `memories`는 개별 시도. 회고 없이 저장한 시도는 `reflection: null`.
 - 별 상세 화면 URL(예: `/stars/12`)로 바로 들어와도 이 응답에서 `starId`로 제목을 얻는다.
-- ⚠ 화면 예시 데이터의 별 17 "가상 청년센터 앞까지 가 보기"는 DB 시드에 없다. 실제 API 모드에서 이 별로 시도를 저장하면 404다 (센터 별 시드 필요).
+- ⚠ 화면 예시 데이터의 별 17 "가상 청년센터 앞까지 가 보기"는 DB 시드에 없다. 새 시드의 별 17은 '동네 게시판·소식지 읽어 보기'이고, 센터 앞까지 가 보는 별은 20 '청년센터 앞까지 가 보기'(GPS 청년센터)다.
 
 ### 5·6. 청년센터와 문의 초안 — 화면 연결 계약 (고은비 → 재희)
 
@@ -608,6 +634,21 @@ node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-inquiry-
 node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-ai-live.mts --base=http://localhost:3107       # AI 실호출 기록 (공개 주소는 1번만)
 ```
 
+### 2026-11-19 포인트·새 시드 검증 (17:48~17:50 KST, 브랜치 `feat/points` = `master` d710e8b + 이번 변경)
+
+공용 Neon은 쓰지 않았다. 로컬 Docker `postgres:16` 두 개에 `DATABASE_URL`을 덮어써서 실행했다 (Gemini 호출 없음).
+
+| 실행 | 결과 | 비고 |
+| ---- | ---- | ---- |
+| 새 DB (`db/init` 새 스키마·시드) — `verify-star-api.mts --no-key` | **80 / 80 통과** | 시드 규칙, 추천 범위, 포인트 포함 |
+| 기존 DB 재현 (master `db/init` + 가상 시도 기록) → `20261119_points.sql` 2번 실행 → `verify-star-api.mts --no-key` | **80 / 80 통과** | 2번 실행해도 같은 결과. 사용자·체크인 유지, 시도·추천 비움. 새 DB와 별자리·별·점수 30행 동일, 뷰 정의 동일 |
+| HTTP + 실제 쿠키 세션 (`next dev`, 새 DB, 키 없음) — `verify-http.mts` | **17 / 17 통과** | dim 0점 → 처음 bright 20점 → 다시 bright 0점, 밤하늘 총점 일치, 다른 세션 0점 |
+| `eslint src scripts`, `tsc --noEmit` | 오류 없음 | |
+
+- 시드: 별자리 10개, 난이도 1·2·3·4 = 1·3·3·3개, 별 수 = 난이도(1단계 3개), `star_count` 일치, 별 30개 제목 중복 없음, 별 점수 = 난이도 × 10, GPS 별에만 `place_type`
+- 포인트: 포인트 없는 사용자는 뷰에 행 없음(0) / 같은 별 다시 완료 0점 / AI가 쪼갠 별로 밝아진 별은 1번만 / 별자리 완성 30·40·160점 / dim 0점 / 응답 적립 합 = 뷰 총점 = 밤하늘 총점 (230점, 9개) / 저장 실패 시 적립 없음
+- 추천: 1단계 사용자 집 안 후보 3개(별 1~3), 쉬어 가기 뒤 집 안, 후보 밖 ID 제거, 2단계 사용자 바깥 → GPS 별 11부터
+
 ### 2026-11-19 점심 추가 검증 (12:37~12:39 KST, 브랜치 `feat/center-inquiry` = `master` 1a541b3 + 이번 변경)
 
 | 실행 | 결과 | 비고 |
@@ -682,7 +723,14 @@ ALTER TABLE youth_centers
 
 -- 3. (선택) 회고 위험도 기록: 안내가 몇 번 나갔는지 지표로 보려면
 ALTER TABLE star_attempts ADD COLUMN risk VARCHAR(10) CHECK (risk IN ('normal', 'caution', 'danger'));
+
+-- 4. (선택) 별마다 추천 범위: 지금은 stage로 정해서 3·4단계의 집 안 활동도 "집 앞"으로 분류됨 (고민기록 #28)
+ALTER TABLE stars ADD COLUMN scope VARCHAR(5) CHECK (scope IN ('home', 'near', 'out'));
 ```
+
+- **포인트·새 시드 (`feat/points`, 적용 요청):** `db/migrations/20261119_points.sql`. 별자리 10개·별 30개로 교체하고 포인트 뷰 `v_star_points`·`v_user_points`를 만든다. 테이블 구조 변경은 없다.
+  - ⚠ 별 ID가 바뀌어 **`star_attempts`·`daily_recommendations`·`user_constellations`를 비운다** (데모 사용자의 시도·회고·오늘 추천이 사라짐. 사용자·체크인·문의 초안은 유지). 팀에 알린 뒤, 시연 직전이 아닐 때 적용한다.
+  - 적용 전까지 Neon에서는 새 코드의 시도 저장·밤하늘이 뷰가 없어 실패한다 → 이 브랜치를 배포하기 전에 적용해야 한다.
 
 - 공용 DB 날짜: 서버 시간대가 GMT라 `CURRENT_DATE`·`v_sky_today`는 한국 시간 오전 9시에 날짜가 바뀐다. 새 API는 `Asia/Seoul`로 직접 계산한다.
 
