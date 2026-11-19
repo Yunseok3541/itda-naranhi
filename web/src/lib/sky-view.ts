@@ -8,13 +8,15 @@ export type Frame = { left: number; top: number; width: number; height: number }
 
 export const RAD = Math.PI / 180;
 export const FOV_MIN = 6 * RAD;
-export const FOV_MAX = 120 * RAD;
+/** 최대 시야. 넓을수록 가장자리가 휘고 늘어나 멀미가 나서 80°로 제한 */
+export const FOV_MAX = 80 * RAD;
 const LAT_LIMIT = 85 * RAD;
 
-let view: SkyView = { lon: 15 * RAD, lat: 52 * RAD, fov: 110 * RAD };
+let view: SkyView = { lon: 15 * RAD, lat: 52 * RAD, fov: 80 * RAD };
 let frame: Frame | null = null;
 let version = 0;
 let anim = 0;
+let fadeTimer = 0;
 let flying = false;
 const listeners = new Set<() => void>();
 
@@ -50,12 +52,30 @@ export const skyView = {
     frame = next;
     emit();
   },
-  /** 목표 시점으로 부드럽게 이동. 움직임 줄이기 설정이면 바로 이동 */
-  flyTo(target: SkyView, ms = 900) {
+  /**
+   * 목표 시점으로 이동 (멀미를 줄이는 방식)
+   * - 가까운 곳(25° 이내): 짧게 이동 (기본 0.6초)
+   * - 먼 곳: 하늘을 크게 휩쓸며 돌리지 않고, 잠깐 어두워졌다(html.sky-fading) 그 자리에서 밝아짐
+   * - 움직임 줄이기 설정이면 바로 이동
+   */
+  flyTo(target: SkyView, ms = 600) {
     cancelAnimationFrame(anim);
+    clearTimeout(fadeTimer);
     const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     if (reduce || ms <= 0) { flying = false; view = clampView(target); emit(); return; }
     const from = view;
+    const distance = angleBetween(unit(from.lon / RAD, from.lat / RAD), unit(target.lon / RAD, target.lat / RAD));
+    if (distance > 25 * RAD) {
+      const root = document.documentElement;
+      flying = true;
+      root.classList.add('sky-fading');
+      fadeTimer = window.setTimeout(() => {
+        view = clampView(target);
+        emit();
+        requestAnimationFrame(() => { root.classList.remove('sky-fading'); flying = false; });
+      }, 200);
+      return;
+    }
     let dLon = wrap(target.lon - from.lon);
     if (dLon > Math.PI) dLon -= 2 * Math.PI; // 짧은 쪽으로 돌기
     const start = performance.now();

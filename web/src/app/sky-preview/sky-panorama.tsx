@@ -36,10 +36,6 @@ function starColor(bv100: number) {
   return '255, 198, 156';
 }
 
-function wrapped(value: number, period: number) {
-  return ((value % period) + period) % period;
-}
-
 export default function SkyPanorama({ background = false }: { background?: boolean }) {
   const surface = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -112,7 +108,7 @@ export default function SkyPanorama({ background = false }: { background?: boole
         context.fill();
       }
       context.globalAlpha = 1;
-      if (hills.current) hills.current.style.backgroundPositionX = `${wrapped(view.lon / (2 * Math.PI) * host.clientWidth * 2, host.clientWidth * 2)}px`;
+      // 언덕은 움직이지 않음: 하늘과 반대로 미끄러지면 움직임이 엇갈려 멀미가 남
     }
     function schedule() {
       if (!requested) requested = requestAnimationFrame(draw);

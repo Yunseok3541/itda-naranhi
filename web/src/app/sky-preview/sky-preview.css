@@ -14,7 +14,8 @@ body:has(.panorama-shell:not(.panorama-background)) { background: #0d0820; }
 .panorama-content .night .night-toolbar,
 .panorama-content .night .pager,
 .panorama-content .night .sheet,
-.panorama-content .night .night-list { pointer-events: auto; }
+.panorama-content .night .night-list,
+.panorama-content .night .recent-pill { pointer-events: auto; }
 .panorama-content .intro h1,
 .panorama-content .intro p,
 .panorama-content .night-title,

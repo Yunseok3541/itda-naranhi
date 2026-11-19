@@ -94,6 +94,17 @@ function placeLabels(items: { x: number; y: number; text: string }[], width: num
   });
 }
 
+/** 가장 최근에 별을 기록한(따거나 손을 뻗은) 별자리 번호. 기록이 없으면 -1 */
+function latestGroupIndex(groups: Group[]) {
+  let best = -1, bestKey = '';
+  groups.forEach((g, gi) => g.stars.forEach(s => s.memories.forEach(m => {
+    // 날짜가 같으면 나중에 저장된 기록(번호가 큰 것)이 최근
+    const key = `${m.date}|${String(m.attemptId).padStart(16, '0')}`;
+    if (key > bestKey) { bestKey = key; best = gi; }
+  })));
+  return best;
+}
+
 /** 지금 화면(배경 캔버스) 크기. 아직 모르면 창 크기 */
 function frameSize() {
   const f = skyView.frame();
@@ -117,11 +128,15 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     const c = toLonLat(sum);
     return unit(c.lon / RAD, c.lat / RAD);
   }), [skies]);
-  // 처음에는 아직 다 따지 않은 첫 별자리를 보여 줌
+  // 처음에는 가장 최근에 기록한 별자리, 기록이 없으면 아직 다 따지 않은 첫 별자리
   const [index, setIndex] = useState(() => {
-    const i = groupStars(stars).findIndex(g => g.stars.some(s => s.status !== 'bright'));
+    const all = groupStars(stars);
+    const recent = latestGroupIndex(all);
+    if (recent >= 0) return recent;
+    const i = all.findIndex(g => g.stars.some(s => s.status !== 'bright'));
     return i < 0 ? 0 : i;
   });
+  const recent = useMemo(() => latestGroupIndex(groups), [groups]);
   const [burst, setBurst] = useState<{ key: number; x: number; y: number } | null>(null);
   // 캐릭터 말풍선: 누르면 열리고 다시 누르면 닫힘 (null = 닫힘, 문자열 = 오늘의 질문)
   const [talk, setTalk] = useState<string | null>(null);
@@ -141,7 +156,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   const complete = !!current && current.stars.length > 0 && current.stars.every(s => s.status === 'bright');
 
   /** i번째 별자리로 하늘을 옮기고 알맞게 확대 */
-  function flyToGroup(i: number, ms = 900) {
+  function flyToGroup(i: number, ms = 600) {
     const sky = skies[i];
     if (!sky) return;
     const { width, height } = frameSize();
@@ -188,7 +203,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   /** 별자리를 눌렀을 때: 지금 별자리로 정하고 그곳으로 이동하며 확대 */
   function focusGroup(i: number) {
     setIndex(i);
-    flyToGroup(i, 700);
+    flyToGroup(i);
     onSelect(null);
   }
   function jump(i: number) {
@@ -296,22 +311,28 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     </> : <div className="night-title"><h1>아직 하늘이 비어 있어요</h1><p>밤하늘을 다시 불러와 주세요.</p></div>}
 
     {/* 모든 별 목록: 안내 문구 아래 작은 버튼 → 아래에서 올라오는 창 (캔버스를 못 쓰는 사람도 모든 별을 고를 수 있게) */}
-      <details className="night-list" ref={list}>
-        <summary>모든 별 보기</summary>
-        <div className="night-list-body" role="dialog" aria-label="모든 별 목록">
-          <div className="sheet-grip" aria-hidden="true" />
-          {groups.map((g, gi) => <div key={g.id}>
-            <h3>{g.name}</h3>
-            {g.stars.map(s => <button key={s.starId} type="button" className="night-row" onClick={() => { setIndex(gi); flyToGroup(gi); onSelect(s); closeList(); }}>
-              <span className={`dot ${s.status}`} aria-hidden="true" />
-              <span>{s.title}<small>{labels[s.status]}</small></span>
-            </button>)}
-          </div>)}
-          <button type="button" className="ghost" disabled={busy} onClick={onReload}>밤하늘 다시 불러오기</button>
-          <button type="button" className="ghost" onClick={closeList}>닫기</button>
-          {footer}
-        </div>
-      </details>
+      <div className="night-actions">
+        {/* 다른 별자리를 보고 있을 때만: 가장 최근에 기록한 별자리로 돌아가기 */}
+        {recent >= 0 && recent !== safeIndex && <button type="button" className="recent-pill" onClick={() => jump(recent)}>
+          <span aria-hidden="true">↺</span> 최근 별자리
+        </button>}
+        <details className="night-list" ref={list}>
+          <summary>모든 별 보기</summary>
+          <div className="night-list-body" role="dialog" aria-label="모든 별 목록">
+            <div className="sheet-grip" aria-hidden="true" />
+            {groups.map((g, gi) => <div key={g.id}>
+              <h3>{g.name}</h3>
+              {g.stars.map(s => <button key={s.starId} type="button" className="night-row" onClick={() => { setIndex(gi); flyToGroup(gi); onSelect(s); closeList(); }}>
+                <span className={`dot ${s.status}`} aria-hidden="true" />
+                <span>{s.title}<small>{labels[s.status]}</small></span>
+              </button>)}
+            </div>)}
+            <button type="button" className="ghost" disabled={busy} onClick={onReload}>밤하늘 다시 불러오기</button>
+            <button type="button" className="ghost" onClick={closeList}>닫기</button>
+            {footer}
+          </div>
+        </details>
+      </div>
     <div className="night-space" aria-hidden="true" />
 
     {/* 캐릭터(배경 인물) 위에 겹친 투명 단추 → 말풍선. 화면을 막지 않게 작게, 다시 누르면 닫힘 */}

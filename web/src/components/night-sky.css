@@ -37,7 +37,7 @@ html.sky-night-page body {
 .sky-mode .help { background: rgba(246, 207, 125, .14); border: 1px solid var(--star-gold-soft); color: var(--starlight); }
 .sky-mode .error { background: rgba(255, 120, 150, .16); color: #ffd3dd; }
 .sky-mode footer { color: rgba(238, 233, 255, .45); }
-.sky-mode button:not(.nstar):not(.sky-pill):not(.char-hotspot):not(.text-button):not(.ghost):not(.pager-arrow):not(.night-row):not(.pager-dots button),
+.sky-mode button:not(.nstar):not(.sky-pill):not(.char-hotspot):not(.recent-pill):not(.text-button):not(.ghost):not(.pager-arrow):not(.night-row):not(.pager-dots button),
 .sky-mode .primary { background: linear-gradient(180deg, #ffe3a3, var(--star-gold)); color: #24183f; box-shadow: 0 0 24px rgba(246, 207, 125, .35); }
 .sky-mode .ghost { background: transparent; color: var(--starlight-dim); border: 1px solid var(--glass-line); }
 .night-loading { margin-top: 40vh; text-align: center; color: var(--starlight-dim); }
@@ -143,7 +143,8 @@ html.sky-night-page body {
 .sheet-actions { display: grid; gap: 8px; margin-top: 12px; }
 
 /* 접근성용 전체 목록: 위쪽 왼편 버튼 → 아래에서 올라오는 창 */
-.night-list { align-self: center; margin-top: 8px; position: relative; z-index: 1; }
+.night-actions { align-self: center; display: flex; align-items: center; gap: 8px; margin-top: 8px; position: relative; z-index: 1; }
+.night-list { position: relative; }
 .night-list summary {
   list-style: none; display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; cursor: pointer;
   border-radius: 999px; border: 1px solid var(--glass-line); background: var(--glass);
@@ -363,3 +364,14 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 /* 멀리서 볼 때 별자리 선을 눌러도 확대되도록 보이지 않는 굵은 선 (night-sky.tsx edge-hit) */
 .sky-anchors svg .edge-hit { stroke: transparent; stroke-width: 28; stroke-linecap: round; pointer-events: stroke; cursor: zoom-in; }
 .sky-anchors .nstar.far, .sky-anchors .nstar.other { cursor: zoom-in; }
+
+/* 먼 별자리로 갈 때 하늘을 휩쓸며 돌리지 않고 잠깐 어두워졌다 밝아짐 (lib/sky-view.ts flyTo) */
+.panorama-canvas, .sky-anchors { transition: opacity .2s ease; }
+html.sky-fading .panorama-canvas, html.sky-fading .sky-anchors { opacity: 0; }
+
+/* 최근 별자리로 돌아가기 (모든 별 보기 옆) */
+.recent-pill {
+  display: inline-flex; align-items: center; gap: 5px; width: auto; min-height: 36px; padding: 0 14px;
+  border-radius: 999px; border: 1px solid var(--star-gold-soft); background: rgba(246, 207, 125, .12);
+  color: #ffe3a3; font-size: .875rem; font-weight: 650;
+}
