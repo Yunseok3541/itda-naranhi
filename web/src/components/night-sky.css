@@ -359,3 +359,7 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .night-ui .help { background: rgba(246, 207, 125, .12); border: 1px solid var(--star-gold-soft); color: var(--starlight); }
 .night-ui .error { background: rgba(255, 120, 150, .16); color: #ffd3dd; }
 .night-ui > p[role="status"] { color: var(--starlight); }
+
+/* 멀리서 볼 때 별자리 선을 눌러도 확대되도록 보이지 않는 굵은 선 (night-sky.tsx edge-hit) */
+.sky-anchors svg .edge-hit { stroke: transparent; stroke-width: 28; stroke-linecap: round; pointer-events: stroke; cursor: zoom-in; }
+.sky-anchors .nstar.far, .sky-anchors .nstar.other { cursor: zoom-in; }

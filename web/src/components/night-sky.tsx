@@ -185,6 +185,12 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     flyToGroup(next);
     onSelect(null);
   }
+  /** 별자리를 눌렀을 때: 지금 별자리로 정하고 그곳으로 이동하며 확대 */
+  function focusGroup(i: number) {
+    setIndex(i);
+    flyToGroup(i, 700);
+    onSelect(null);
+  }
   function jump(i: number) {
     setIndex(i);
     flyToGroup(i);
@@ -240,8 +246,12 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
           const p = positions[gi]?.[a], q = positions[gi]?.[b];
           if (!p || !q) return null;
           const lit = tried(g.stars[a]) && tried(g.stars[b]);
-          return <line key={`${g.id}-${a}-${b}`} x1={p.x} y1={p.y} x2={q.x} y2={q.y}
-            className={`edge${lit ? ' lit' : ''}${gi === safeIndex ? ' current' : ''}`} />;
+          const near = gi === safeIndex && detailed;
+          return <g key={`${g.id}-${a}-${b}`}>
+            <line x1={p.x} y1={p.y} x2={q.x} y2={q.y} className={`edge${lit ? ' lit' : ''}${gi === safeIndex ? ' current' : ''}`} />
+            {/* 멀리서 볼 때는 선 주변(손가락 굵기)을 눌러도 그 별자리로 가까이 감 */}
+            {!near && <line x1={p.x} y1={p.y} x2={q.x} y2={q.y} className="edge-hit" onClick={() => focusGroup(gi)} />}
+          </g>;
         }))}
       </svg>
       {groups.map((g, gi) => g.stars.map((s, i) => {
@@ -252,8 +262,12 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
         return <button key={s.starId} type="button"
           className={`nstar ${s.status}${emphasis}${selected?.starId === s.starId ? ' active' : ''}`}
           style={{ left: p.x, top: p.y, animationDelay: `${(i * 0.7) % 3}s` }}
-          aria-label={`${g.name} ${s.title}, ${labels[s.status]}`}
-          onClick={() => { if (!isCurrent) setIndex(gi); tap(s, p.x, p.y); }}>
+          aria-label={isCurrent && detailed ? `${g.name} ${s.title}, ${labels[s.status]}` : `${g.name}로 가까이 가기`}
+          onClick={() => {
+            // 멀리서 보고 있으면(축소했거나 다른 별자리) 먼저 그 별자리로 이동·확대, 크게 보고 있는 별자리면 기억 창
+            if (!isCurrent || !detailed) { focusGroup(gi); return; }
+            tap(s, p.x, p.y);
+          }}>
           <span className="glow" aria-hidden="true" />
           <span className="core" aria-hidden="true" />
           {isCurrent && labelSpots[i] && <span className="nstar-label" aria-hidden="true"

@@ -140,6 +140,14 @@ export default function SkyPanorama({ background = false }: { background?: boole
     }
 
     const unsubscribe = skyView.subscribe(schedule);
+    // 메인(배경 모드)에서는 별·이름표 위에서 휠을 돌려도 하늘이 확대·축소되게 창 전체에서 받음
+    // 단, 스크롤되는 창(목록·기억·도움 안내) 안에서는 원래대로 스크롤
+    const onWindowWheel = (event: WheelEvent) => {
+      if (!document.documentElement.classList.contains('sky-locked-page')) return;
+      if ((event.target as Element | null)?.closest?.('.night-list-body, .sheet, .help, .char-bubble')) return;
+      skyView.set({ fov: skyView.get().fov * Math.exp(event.deltaY * 0.0015) });
+    };
+    if (background) window.addEventListener('wheel', onWindowWheel, { passive: true });
     loadCelestial().then(data => {
       if (!alive) return;
       raw = data;
@@ -153,11 +161,12 @@ export default function SkyPanorama({ background = false }: { background?: boole
     return () => {
       alive = false;
       unsubscribe();
+      window.removeEventListener('wheel', onWindowWheel);
       observer.disconnect();
       window.removeEventListener('resize', resize);
       cancelAnimationFrame(requested);
     };
-  }, []);
+  }, [background]);
 
   /** 끈 만큼 하늘을 돌림 (화면 가운데 기준 1px ≈ 같은 각도) */
   function turn(dx: number, dy: number) {
@@ -191,7 +200,7 @@ export default function SkyPanorama({ background = false }: { background?: boole
           event.preventDefault();
           run();
         }}
-        onWheel={event => zoom(Math.exp(event.deltaY * 0.0015))}
+        onWheel={event => { if (!background) zoom(Math.exp(event.deltaY * 0.0015)); }}
         onPointerDown={event => {
           if (event.pointerType === 'mouse' && event.button !== 0) return;
           pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
