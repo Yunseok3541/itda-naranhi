@@ -1,4 +1,4 @@
-// AI 제공자 전환 검증 (고민기록 #41) — 실제 OpenAI·GMS·Gemini를 부르지 않는다
+// AI 제공자 전환 검증 (고민기록 #42) — 실제 OpenAI·GMS·Gemini를 부르지 않는다
 // 로컬에 가짜 OpenAI 호환 서버를 띄우고 AI_PROVIDER=openai로 generateJson을 부른다
 // 실행 (web/에서): node node_modules/tsx/dist/cli.mjs scripts/verify-ai-provider.mts
 import { createServer } from "node:http";

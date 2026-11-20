@@ -1,4 +1,4 @@
-// AI 호출 공통 (모든 AI 기능이 generateJson 하나만 거친다). 제공자는 AI_PROVIDER로 고른다 (고민기록 #41)
+// AI 호출 공통 (모든 AI 기능이 generateJson 하나만 거친다). 제공자는 AI_PROVIDER로 고른다 (고민기록 #42)
 //   gemini (기본) — 배포용. 무료 등급 Gemini
 //   openai        — 개발·시연용. OpenAI 호환 주소(예: SSAFY GMS, 기간 제한 있는 키)로 gpt-4o-mini
 // 호출하는 쪽은 제공자를 몰라도 된다. 키가 없거나 실패하면 언제나 fallback (앱 흐름이 끊기지 않게)
