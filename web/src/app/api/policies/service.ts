@@ -107,6 +107,39 @@ const OPEN_SQL = `
 
 const errorCode = (error: unknown) => (error as { code?: string }).code ?? (error instanceof Error ? error.message : "unknown");
 
+// 정책 화면 상단의 보기 전환: 맞춤 추천(recommended, 기본) / 모든 정책(all) (docs/API명세.md 7장 "보기 전환")
+export const POLICY_VIEWS = ["recommended", "all"] as const;
+export type PolicyView = (typeof POLICY_VIEWS)[number];
+/** ?view= 값 → 보기. 없으면 맞춤 추천, 모르는 값이면 null (라우트가 400) */
+export function parseView(v: string | null): PolicyView | null {
+  if (v === null || v === "") return "recommended";
+  return (POLICY_VIEWS as readonly string[]).includes(v) ? (v as PolicyView) : null;
+}
+
+type SavedRecommendation = { items: { policyId: number; reason: string }[]; used_fallback: boolean };
+
+async function loadSaved(db: Db, userId: number, today: string): Promise<SavedRecommendation | undefined> {
+  return (
+    await db.query<SavedRecommendation>(
+      "SELECT items, used_fallback FROM policy_recommendations WHERE user_id = $1 AND rec_date = $2::date",
+      [userId, today],
+    )
+  ).rows[0];
+}
+
+/** "나랑 안 맞아요"로 알려 준 정책 ID (이 사용자 추천에서만 뺌. 모든 정책 보기에서는 그대로 보임) */
+async function loadExcluded(db: Db, userId: number): Promise<Set<number>> {
+  return new Set((await db.query<{ policy_id: number }>("SELECT policy_id FROM policy_feedback WHERE user_id = $1", [userId])).rows.map((r) => r.policy_id));
+}
+
+/** 오늘 저장된 추천 중 지금도 보여 줄 수 있는 것 (마감·피드백으로 빠진 정책, 오늘 바꾼 정보와 맞지 않게 된 정책 제외) */
+function savedPicks(saved: SavedRecommendation, open: PolicyRow[], excluded: Set<number>, profile: Profile) {
+  const byId = new Map(open.filter((p) => !excluded.has(p.id)).map((p) => [p.id, p]));
+  return saved.items
+    .filter((i) => byId.has(i.policyId) && fits(byId.get(i.policyId)!, profile))
+    .map((i) => ({ policy: byId.get(i.policyId)!, reason: i.reason }));
+}
+
 export async function loadProfile(userId: number, db: Db, today: string): Promise<Profile> {
   const u = (
     await db.query<UserRow>("SELECT current_stage, region_code, birth_year, start_answers, policy_info FROM users WHERE id = $1", [userId])
@@ -241,34 +274,36 @@ const SYSTEM = `너는 사회적으로 고립된 청년을 돕는 앱에서 정�
 
 /**
  * 오늘의 정책 추천. userId는 반드시 세션에서 구한 값
- * 200 { items, usedFallback, reused, maxDifficulty, basis, modelVersion? }
+ * 200 { view: "recommended", items, counts, usedFallback, reused, maxDifficulty?, basis, modelVersion? }
+ * counts = { recommended: 이 응답의 추천 수, all: 모든 정책 보기의 정책 수 } (상단 보기 전환 버튼에 표시)
  */
 export async function recommendPolicies(userId: number, db: Db = pool, generate: typeof generateJson = generateJson): Promise<ApiResult> {
   const today = todayKst();
   let profile: Profile;
+  let all: PolicyRow[];
   let open: PolicyRow[];
+  let excluded: Set<number>;
+  // 하루 한 번 저장한 추천으로 응답 (마감·피드백으로 빠진 정책, 오늘 바꾼 정보와 맞지 않게 된 정책은 뺌. AI를 다시 부르지 않음)
+  const reusedResponse = async (saved: SavedRecommendation) => {
+    const picks = savedPicks(saved, all, excluded, profile);
+    return ok({
+      view: "recommended",
+      items: picks.map((x) => toItem(x.policy, x.reason, profile)),
+      counts: { recommended: picks.length, all: all.length },
+      usedFallback: saved.used_fallback,
+      reused: true,
+      basis: await basis(db),
+    });
+  };
   try {
     profile = await loadProfile(userId, db, today);
-    open = (await db.query<PolicyRow>(OPEN_SQL, [today, profile.region, profile.age])).rows;
+    all = (await db.query<PolicyRow>(OPEN_SQL, [today, profile.region, profile.age])).rows;
     // "나랑 안 맞아요"로 알려 준 정책은 이 사용자에게 다시 추천하지 않음 (오늘 저장된 추천에서도 바로 빠짐)
-    const excluded = new Set((await db.query<{ policy_id: number }>("SELECT policy_id FROM policy_feedback WHERE user_id = $1", [userId])).rows.map((r) => r.policy_id));
-    if (excluded.size) open = open.filter((p) => !excluded.has(p.id));
+    excluded = await loadExcluded(db, userId);
+    open = excluded.size ? all.filter((p) => !excluded.has(p.id)) : all;
 
-    // 하루 한 번 저장한 추천이 있으면 그대로 (마감된 정책은 빠짐)
-    const saved = (
-      await db.query<{ items: { policyId: number; reason: string }[]; used_fallback: boolean }>(
-        "SELECT items, used_fallback FROM policy_recommendations WHERE user_id = $1 AND rec_date = $2::date",
-        [userId, today],
-      )
-    ).rows[0];
-    if (saved) {
-      const byId = new Map(open.map((p) => [p.id, p]));
-      // 오늘 정책 신청 정보를 바꿨다면 이제 맞지 않는 정책은 뺀다 (AI를 다시 부르지는 않음)
-      const items = saved.items
-        .filter((i) => byId.has(i.policyId) && fits(byId.get(i.policyId)!, profile))
-        .map((i) => toItem(byId.get(i.policyId)!, i.reason, profile));
-      return ok({ items, usedFallback: saved.used_fallback, reused: true, basis: await basis(db) });
-    }
+    const saved = await loadSaved(db, userId, today);
+    if (saved) return await reusedResponse(saved);
   } catch (error) {
     console.error("[policies] 조회 실패", errorCode(error));
     return fail(500, "LOAD_FAILED", "지금은 정책을 불러오지 못했어요.");
@@ -280,7 +315,9 @@ export async function recommendPolicies(userId: number, db: Db = pool, generate:
     .sort((a, b) => b.s - a.s || a.p.stage - b.p.stage || a.p.id - b.p.id)
     .map((x) => x.p);
   const candidates = diversify(sorted, MAX_CANDIDATES); // 후보부터 분야가 섞이게
-  if (candidates.length === 0) return ok({ items: [], usedFallback: true, reused: false, maxDifficulty, basis: await basis(db) });
+  if (candidates.length === 0) {
+    return ok({ view: "recommended", items: [], counts: { recommended: 0, all: all.length }, usedFallback: true, reused: false, maxDifficulty, basis: await basis(db) });
+  }
 
   const prompt = JSON.stringify({
     사용자: {
@@ -330,13 +367,20 @@ export async function recommendPolicies(userId: number, db: Db = pool, generate:
         "INSERT INTO policy_events (user_id, policy_id, event) SELECT $1, unnest($2::int[]), 'shown'",
         [userId, final.map((f) => f.policyId)],
       );
+    } else {
+      // 같은 사용자의 다른 요청(예: 추천을 만드는 동안 보기를 바꿨다가 돌아옴)이 먼저 저장함
+      // → 방금 만든 추천 대신 저장된 추천을 돌려줘서 오늘의 추천이 화면마다 달라지지 않게 한다
+      const first = await loadSaved(db, userId, today);
+      if (first) return await reusedResponse(first);
     }
   } catch (error) {
     console.error("[policies] 추천 저장 실패, 응답은 계속", errorCode(error));
   }
 
   return ok({
+    view: "recommended",
     items: final.map((f) => toItem(byId.get(f.policyId)!, f.reason, profile)),
+    counts: { recommended: final.length, all: all.length },
     usedFallback,
     reused: false,
     maxDifficulty,
@@ -345,13 +389,23 @@ export async function recommendPolicies(userId: number, db: Db = pool, generate:
   });
 }
 
-/** 모든 정책 보기 (AI 없음, 난이도 거르지 않음 — 정책은 단계와 관계없이 언제든 열람) */
+/**
+ * 모든 정책 보기 (AI 없음, 난이도 거르지 않음 — 정책은 단계와 관계없이 언제든 열람)
+ * 200 { view: "all", items, counts, basis }. counts.recommended = 오늘 저장된 맞춤 추천 수, 아직 만들지 않았으면 null (여기서 AI를 부르지 않음)
+ */
 export async function listPolicies(userId: number, db: Db = pool): Promise<ApiResult> {
   const today = todayKst();
   try {
     const profile = await loadProfile(userId, db, today);
     const rows = (await db.query<PolicyRow>(OPEN_SQL, [today, profile.region, profile.age])).rows;
-    return ok({ items: rows.map((p) => toItem(p, templateReason(p, profile), profile)), basis: await basis(db) });
+    const saved = await loadSaved(db, userId, today);
+    const recommended = saved ? savedPicks(saved, rows, await loadExcluded(db, userId), profile).length : null;
+    return ok({
+      view: "all",
+      items: rows.map((p) => toItem(p, templateReason(p, profile), profile)),
+      counts: { recommended, all: rows.length },
+      basis: await basis(db),
+    });
   } catch (error) {
     console.error("[policies] 목록 실패", errorCode(error));
     return fail(500, "LOAD_FAILED", "지금은 정책을 불러오지 못했어요.");
