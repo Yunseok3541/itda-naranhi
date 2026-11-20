@@ -122,7 +122,7 @@ try {
     && (await client.query("SELECT policy_info FROM users WHERE id = $1", [userId])).rows[0].policy_info === null);
   check("없는 사용자 → 404", (await saveProfile(2_000_000_000, { birthYear: null }, client)).status === 404);
 
-  // ---------- 데모 시작 질문 ①~③ (질문별 페이지 화면, 고민기록 #33) ----------
+  // ---------- 데모 시작 질문 ①~③ (질문별 페이지 화면, 고민기록 #40) ----------
   // 화면은 세션이 생기기 전에 답을 모으고, "데모 시작" 뒤 PUT /api/profile { startAnswers } 한 번으로 저장한다 (단계별 임시 저장 없음)
   const newUser = async () => (await client.query<{ id: number }>("INSERT INTO users (nickname, region_code) VALUES ('가상 온보딩', '11440') RETURNING id")).rows[0].id;
   const stageOf: Record<string, number> = { home: 1, near: 2, out: 3, people: 4 };

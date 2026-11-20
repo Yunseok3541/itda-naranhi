@@ -1,4 +1,4 @@
-// 프로필 이미지 검증: 획득한 별자리 목록, 획득한 별자리만 고를 수 있음, 미획득·없는 별자리 거절 (고민기록 #33)
+// 프로필 이미지 검증: 획득한 별자리 목록, 획득한 별자리만 고를 수 있음, 미획득·없는 별자리 거절 (고민기록 #40)
 // 가상 사용자로 트랜잭션 안에서 실행하고 롤백 → 공용 DB에 남지 않음 (ID 시퀀스 값만 올라감)
 // 실행 (web/에서, db/migrations/20261121_profile_avatar.sql이 적용된 DB):
 //   node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-avatar.mts

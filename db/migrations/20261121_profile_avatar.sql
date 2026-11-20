@@ -1,4 +1,4 @@
--- 변경 SQL: 프로필 이미지(획득한 별자리의 캐릭터) 저장 칸 + 획득 별자리 뷰 (feat/profile-avatar, 고민기록 #33)
+-- 변경 SQL: 프로필 이미지(획득한 별자리의 캐릭터) 저장 칸 + 획득 별자리 뷰 (feat/profile-avatar, 고민기록 #40)
 -- 대상: 이미 운영 중인 DB (팀 공용 Neon). 새로 만드는 DB는 db/init/01_schema.sql에 이미 포함되어 있음
 -- 순서: 다른 변경 SQL과 상관없음 (users·constellations·stars·star_attempts만 씀)
 -- ✅ 기록을 지우지 않음: users에 칸 1개(NULL = 기본 캐릭터) + 외래키, 뷰 1개 추가

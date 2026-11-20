@@ -22,7 +22,7 @@ CREATE TABLE users (
   policy_info    JSONB,
   share_in_sky   BOOLEAN NOT NULL DEFAULT false,                   -- 같은 하늘의 별 집계 포함 동의
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-  -- 프로필 이미지 = 획득한(별을 모두 딴) 별자리의 도감 캐릭터. NULL = 기본 캐릭터 (고민기록 #33)
+  -- 프로필 이미지 = 획득한(별을 모두 딴) 별자리의 도감 캐릭터. NULL = 기본 캐릭터 (고민기록 #40)
   -- 외래키는 constellations를 만든 뒤 아래에서 건다. 획득 여부는 API가 v_user_acquired_constellations로 확인
   avatar_constellation_id INT
 );
@@ -434,7 +434,7 @@ SELECT COALESCE(s.user_id, e.user_id)                                           
 FROM star s
 FULL JOIN ev e ON e.user_id = s.user_id;
 
--- 사용자가 획득한 별자리: 그 별자리의 별을 모두 한 번 이상 땄음(bright) (도감·프로필 이미지, 고민기록 #33)
+-- 사용자가 획득한 별자리: 그 별자리의 별을 모두 한 번 이상 땄음(bright) (도감·프로필 이미지, 고민기록 #40)
 -- 화면 lib/constellations.ts의 getCompletedConstellationIds와 같은 기준. 별 수는 star_count가 아니라 실제 stars 행으로 센다
 -- acquired_at = 마지막 별을 처음 딴 시각 (= 별자리를 완성한 순간). 다시 따거나 dim은 영향 없음
 CREATE VIEW v_user_acquired_constellations AS

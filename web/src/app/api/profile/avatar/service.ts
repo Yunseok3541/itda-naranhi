@@ -1,4 +1,4 @@
-// 프로필 이미지: 획득한 별자리의 도감 캐릭터 중에서 고른다 (docs/API명세.md "8-1. 프로필 이미지", 고민기록 #33)
+// 프로필 이미지: 획득한 별자리의 도감 캐릭터 중에서 고른다 (docs/API명세.md "8-1. 프로필 이미지", 고민기록 #40)
 // 획득 = 그 별자리의 별을 모두 한 번 이상 땄음 (뷰 v_user_acquired_constellations, 도감 화면과 같은 기준)
 // 저장값은 별자리 ID (users.avatar_constellation_id). NULL = 기본 캐릭터. 캐릭터 그림은 화면이 catalog/characters.ts의 constellationId로 찾는다
 import { db as pool } from "@/lib/db";

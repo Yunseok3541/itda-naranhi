@@ -678,7 +678,7 @@ const { cheer, help } = await processReflection({
 - DB: `users.policy_info JSONB` 추가 (`db/migrations/20261120_profile.sql`, 여러 번 실행 안전). ④~⑥은 기존 `start_answers`에 키만 늘어남. **공용 Neon 적용은 PR이 합쳐진 뒤 팀에 알리고 진행**
 - 검증: `web/scripts/verify-profile.mts` 40/40 (로컬 DB, 트랜잭션 롤백, 가짜 AI). `verify-policies.mts` 39/39 그대로
 
-#### 데모 시작 질문을 질문별 페이지로 바꿀 때 (2026-11-20 확인, 고민기록 #33)
+#### 데모 시작 질문을 질문별 페이지로 바꿀 때 (2026-11-20 확인, 고민기록 #40)
 
 **결론: 기존 `PUT /api/profile`을 그대로 쓴다. 서버 단계별 임시 저장 API는 만들지 않는다.**
 
@@ -700,7 +700,7 @@ const { cheer, help } = await processReflection({
 - ⚠ `startAnswers`는 **통째로 바뀐다** (빠진 키 = 답하지 않음). 이미 "내 정보"에서 ④~⑥을 답한 사용자가 첫 화면 질문을 다시 거쳐 ①~③만 보내면 ④~⑥이 지워진다. 지금은 브라우저에 모드가 남아 있으면 첫 화면을 건너뛰어서 거의 일어나지 않지만, 화면에서 막으려면 데모 시작 뒤 `GET /api/profile`의 `startAnswers`가 `null`일 때만 저장하거나, 받은 값에 ①~③을 덮어 보낸다.
 - 검증: `verify-profile.mts`에 위 경우 10개 추가 → **50 / 50**
 
-### 8-1. 프로필 이미지 — `GET /api/profile/avatar`, `PUT /api/profile/avatar` (고은비, 고민기록 #33)
+### 8-1. 프로필 이미지 — `GET /api/profile/avatar`, `PUT /api/profile/avatar` (고은비, 고민기록 #40)
 
 프로필 이미지 = **획득한 별자리의 도감 캐릭터** 또는 기본 캐릭터. 획득 = 그 별자리의 별을 **모두 한 번 이상 땄음**(bright). 도감 화면(`lib/constellations.ts`의 `getCompletedConstellationIds`)과 같은 기준이고, DB 뷰 `v_user_acquired_constellations`로 계산한다. 저장값은 별자리 ID(`users.avatar_constellation_id`), `null` = 기본 캐릭터.
 
