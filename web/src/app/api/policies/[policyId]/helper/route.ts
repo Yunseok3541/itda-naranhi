@@ -12,5 +12,5 @@ export async function POST(request: Request, ctx: RouteContext<"/api/policies/[p
   if (session.status === "none") return demoSessionRequired({ help });
   if (session.status === "error") return toResponse(fail(503, "LOAD_FAILED", "지금은 도와드리기 어려워요. 잠시 후 다시 시도해 주세요.", { help }));
   const { policyId } = await ctx.params;
-  return toResponse(await applyHelper(policyId, body));
+  return toResponse(await applyHelper(policyId, body, undefined, undefined, session.userId));
 }

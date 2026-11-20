@@ -84,12 +84,12 @@ export function checkByRules(p: PolicyContext, j: Judgement): { ok: boolean; not
     : /^\d{1,2}$/.test(value);
   if (!formatOk) return { ok: false, note: `값 형식이 맞지 않음: ${field}=${value}`, field };
   if (value === (p.current[field] ?? "")) return { ok: false, note: "지금 값과 같음", field };
-  // 나이: 원문의 나이 칸(숫자)과 직접 비교. 원문 나이는 "39" 같은 숫자뿐이라 근거 구절(4자 이상) 검사로는 맞는 수정도 막힘 (고민기록 #43)
+  // 나이: 원문의 나이 칸(숫자)과 직접 비교. 원문 나이는 "39" 같은 숫자뿐이라 근거 구절(4자 이상) 검사로는 맞는 수정도 막힘 (고민기록 #49)
   if (field === "age_min" || field === "age_max") {
     const rawAge = p.raw[field === "age_min" ? "sprtTrgtMinAge" : "sprtTrgtMaxAge"];
     if (p.raw.sprtTrgtAgeLmtYn === "Y" && rawAge && rawAge !== "0" && String(Number(rawAge)) === value) return { ok: true, note: "규칙 검증 통과 (원문 나이 칸과 일치)", field };
   }
-  // AI가 입력 JSON 조각(등록_기관":"서울특별시)을 그대로 옮기는 경우가 있어 앞의 칸 이름·따옴표만 걷어냄. 나머지는 여전히 원문에 있어야 통과 (고민기록 #43)
+  // AI가 입력 JSON 조각(등록_기관":"서울특별시)을 그대로 옮기는 경우가 있어 앞의 칸 이름·따옴표만 걷어냄. 나머지는 여전히 원문에 있어야 통과 (고민기록 #49)
   const evidence = squash((j.evidence ?? "").replace(/^[\p{L}\p{N}_]+["']?\s*:\s*/u, "").replace(/["']/g, ""));
   if (evidence.length < 4) return { ok: false, note: "근거 구절이 없음", field };
   if (!sourceText(p).includes(evidence)) return { ok: false, note: "근거 구절이 원문에 없음", field };

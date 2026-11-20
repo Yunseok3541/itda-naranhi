@@ -153,3 +153,29 @@
 }
 .apply-helper .bubble ol { list-style: decimal; }
 .apply-helper .bubble ul { list-style: disc; }
+
+/* 신청 도우미 자유 대화 (고민기록 #43): 아래 칩 + 입력창을 한 묶음으로 */
+.apply-helper-foot { padding: 8px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid rgba(255, 255, 255, .1); }
+.apply-helper-foot .apply-helper-menu { flex-wrap: nowrap; overflow-x: auto; padding: 0 0 8px; border-top: 0; scrollbar-width: none; }
+.apply-helper-foot .apply-helper-menu::-webkit-scrollbar { display: none; }
+.apply-helper-foot .apply-helper-menu button { flex: 0 0 auto; white-space: nowrap; }
+.apply-helper-foot .apply-helper-input { padding: 0; border-top: 0; }
+.apply-helper .apply-helper-more { margin-top: 8px; }
+.apply-helper .apply-helper-more summary { min-height: 40px; display: flex; align-items: center; color: var(--star-gold, #f6cf7d); font-size: .875rem; font-weight: 650; cursor: pointer; }
+
+/* 신청 도우미 대화 이어 보기·지우기 (고민기록 #44) */
+.apply-helper-head-actions { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.apply-helper .apply-helper-clear {
+  width: auto; min-height: 44px; margin: 0; padding: 0 10px; border: 0 !important; border-radius: 12px;
+  background: none !important; box-shadow: none !important; color: var(--starlight-dim, #b9b0d6) !important; font-size: .8125rem; text-decoration: underline;
+}
+.apply-helper .apply-helper-privacy { margin-top: 6px; color: var(--starlight-dim, #b9b0d6); line-height: 1.5; }
+.apply-helper .apply-helper-privacy b { color: inherit; font-weight: 700; }
+.apply-helper-restored { align-self: center; margin: 0; color: var(--starlight-dim, #b9b0d6); }
+
+/* 폰 키보드가 올라오면 --kb(가려진 높이)만큼 창을 올리고 줄임 (apply-helper.tsx가 visualViewport로 계산) */
+.apply-helper { margin-bottom: var(--kb, 0px); height: var(--dh, min(88dvh, 760px)); max-height: calc(100dvh - var(--kb, 0px) - 8px); }
+
+/* AI 답 안전 안내 (고민기록 #46): 첫 말풍선 강조 + 입력창 아래 항상 보이는 한 줄 */
+.apply-helper .apply-helper-safety { margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: rgba(246, 207, 125, .08); color: #ffe9bf; line-height: 1.5; }
+.apply-helper .apply-helper-disclaimer { margin: 6px 0 0; font-size: .75rem; line-height: 1.4; color: var(--starlight-dim, #b9b0d6); text-align: center; }
