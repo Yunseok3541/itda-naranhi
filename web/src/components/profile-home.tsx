@@ -3,19 +3,18 @@
 // 원칙에 맞춰 바꾼 것 (고민기록 #1·#3, 메인 캐릭터 교체와 같은 방향)
 // - 레벨(Lv.) 대신 "지금 걷는 별자리"
 // - 숫자는 해낸 것만 세지 않고 "손을 뻗은 별"도 함께
-// - 프로필 사진은 성별이 드러나지 않는 메인 캐릭터 또는 도감 캐릭터 중에서 고름 (이 브라우저에만 저장)
+// - 프로필 사진은 기본 캐릭터 또는 획득한 도감 캐릭터 중에서 고름
 // - 시작 질문·정책 신청 정보 입력은 설정(⚙) 안으로 (주소 끝 #settings로 바로 열 수 있음)
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { characters } from '@/app/catalog/characters';
-import { client, type Mode, type Star } from '@/lib/mobile-data';
+import { client, type Mode, type ProfileAvatar, type Star } from '@/lib/mobile-data';
 import { evaluate, NO_FACTS, type MilestoneFacts } from '@/lib/milestones';
 import { groupStars, latestGroupIndex } from './night-sky';
 import { ProfileScreen } from './profile-form';
 import { Avatar, Hero, ScreenBar, Section, Summary } from './screen-kit';
 import './profile-home.css';
 
-const AVATAR_KEY = 'naranhi-avatar';
 const DEFAULT_AVATAR = 'person';
 
 const shortDate = (value: string) => {
@@ -30,9 +29,10 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
   const [settings, setSettings] = useState(() => typeof window !== 'undefined' && window.location.hash === '#settings');
   const [stars, setStars] = useState<Star[] | null>(null);
   const [facts, setFacts] = useState<MilestoneFacts>(NO_FACTS);
-  const [avatar, setAvatar] = useState(() => {
-    try { return (typeof window !== 'undefined' && localStorage.getItem(AVATAR_KEY)) || DEFAULT_AVATAR; } catch { return DEFAULT_AVATAR; }
-  });
+  const [avatarChoices, setAvatarChoices] = useState<ProfileAvatar | null>(null);
+  const [avatarError, setAvatarError] = useState('');
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const avatar = characters.find(character => character.constellationId === avatarChoices?.avatarConstellationId)?.id ?? DEFAULT_AVATAR;
   const [picking, setPicking] = useState(false);
   const [error, setError] = useState('');
 
@@ -40,13 +40,20 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
     let active = true;
     client(mode).sky().then(r => { if (active) setStars(r.stars); }).catch(e => { if (active) setError(e instanceof Error ? e.message : '기록을 불러오지 못했어요.'); });
     client(mode).milestones().then(f => { if (active) setFacts(f); }).catch(() => { /* 배지를 못 불러와도 나머지는 보여 줌 */ });
+    client(mode).avatar().then(r => { if (active) setAvatarChoices(r); }).catch(e => { if (active) setAvatarError(e instanceof Error ? e.message : '프로필 그림을 불러오지 못했어요.'); });
     return () => { active = false; };
   }, [mode]);
 
-  function chooseAvatar(id: string) {
-    setAvatar(id);
-    setPicking(false);
-    try { localStorage.setItem(AVATAR_KEY, id); } catch { /* 저장 못 해도 지금 화면에는 반영 */ }
+  async function updateAvatar(id?: number | null) {
+    if (avatarBusy) return;
+    setAvatarBusy(true);
+    setAvatarError('');
+    try {
+      setAvatarChoices(await (id === undefined ? client(mode).avatar() : client(mode).saveAvatar(id)));
+      if (id !== undefined) setPicking(false);
+    } catch (error) {
+      setAvatarError(error instanceof Error ? error.message : '프로필 그림을 저장하지 못했어요.');
+    } finally { setAvatarBusy(false); }
   }
 
   const groups = useMemo(() => groupStars(stars ?? []), [stars]);
@@ -90,16 +97,22 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
 
     {picking && <section className="card avatar-picker" aria-label="프로필 그림 고르기">
       <h3>프로필 그림 고르기</h3>
+      {avatarError && <p role="alert">{avatarError}</p>}
+      {!avatarChoices && (avatarError
+        ? <button type="button" disabled={avatarBusy} onClick={() => void updateAvatar()}>다시 불러오기</button>
+        : <p role="status">프로필 그림을 불러오고 있어요.</p>)}
+      {avatarChoices && <>
       <div className="avatar-grid">
-        {[DEFAULT_AVATAR, ...characters.map(c => c.id)].map(id => <button key={id} type="button"
-          className={`avatar-option${id === avatar ? ' chosen' : ''}`} aria-pressed={id === avatar}
-          aria-label={id === DEFAULT_AVATAR ? '기본 캐릭터' : characters.find(c => c.id === id)?.nickname}
-          onClick={() => chooseAvatar(id)}>
-          <Avatar id={id} size={56} />
-          <small>{id === DEFAULT_AVATAR ? '기본' : characters.find(c => c.id === id)?.nickname}</small>
+        {[{ id: DEFAULT_AVATAR, constellationId: null, nickname: '기본' }, ...characters].map(choice => <button key={choice.id} type="button"
+          className={`avatar-option${choice.id === avatar ? ' chosen' : ''}`} aria-pressed={choice.id === avatar}
+          disabled={avatarBusy || (choice.constellationId !== null && !avatarChoices.constellations.some(item => item.constellationId === choice.constellationId && item.acquired))}
+          onClick={() => void updateAvatar(choice.constellationId)}>
+          <Avatar id={choice.id} size={56} />
+          <small>{choice.nickname}</small>
         </button>)}
       </div>
-      <p className="small">이 브라우저에만 저장돼요.</p>
+      <p className="small">별자리를 완성하면 그 캐릭터를 고를 수 있어요.</p>
+      </>}
     </section>}
 
     {error && <p className="error" role="alert">{error}</p>}

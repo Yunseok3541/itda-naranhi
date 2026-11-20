@@ -51,6 +51,7 @@ export default function QuestScreen({ mode, busy, run, onHelp, onError }: {
 
     {check && <section className="card">
       <div className="card-tags"><span>{mode === 'example' ? '예시 날씨' : check.usedFallback ? '기본 날씨' : 'AI가 고른 날씨'}</span></div>
+      {check.pointsEarned === 100 && <p className="checkin-reward" role="status">+100 포인트</p>}
       <h2>마음 날씨 · {weather}</h2>
       <p className="small">진단이 아닌 참고 기록이에요.</p>
       {check.checkinId !== null && <>

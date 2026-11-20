@@ -16,6 +16,8 @@ import { skyConstellation } from '@/lib/sky-constellations';
 import SkyMinimap from './sky-minimap';
 import ConstellationCelebration from './constellation-celebration';
 import { useSkyTour } from './use-sky-tour';
+import MeteorRewards from './meteor-rewards';
+import type { Mode } from '@/lib/mobile-data';
 
 const labels = { untried: '아직 만나기 전', dim: '손을 뻗은 별', bright: '딴 별' } as const;
 /** 캐릭터 말풍선 질문 (날마다 하나씩 돌아가며). 오늘의 별 체크인으로 이어짐 */
@@ -126,7 +128,7 @@ function freeBand() {
   return frame && top !== undefined ? { top: top + 12 - frame.top, bottom: frame.height * 0.76 } : undefined;
 }
 
-export default function NightSky({ stars, selected, onSelect, busy, onReload, footer, nextLink, completedId }: {
+export default function NightSky({ stars, selected, onSelect, busy, onReload, footer, nextLink, completedId, mode, totalPoints }: {
   stars: Star[];
   selected: Star | null;
   onSelect: (star: Star | null) => void;
@@ -136,6 +138,8 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   footer?: ReactNode;
   nextLink?: ReactNode;
   completedId?: number;
+  mode: Mode;
+  totalPoints?: number;
 }) {
   const starLight = useId();
   const groups = useMemo(() => groupStars(stars), [stars]);
@@ -297,7 +301,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   }, [groups, positions, safeIndex, frame, detailed]);
 
   return <section className="night" aria-label="내 밤하늘">
-    <div className="night-dust" aria-hidden="true"><b className="shooting" /></div>
+    <MeteorRewards key={mode} mode={mode} skyTotal={totalPoints} />
 
     {frame && <div className="sky-anchors" style={{ left: frame.left, top: frame.top, width: frame.width, height: frame.height }}>
       <div className="sky-companion-layer">
