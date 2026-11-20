@@ -2,7 +2,13 @@
 
 > API는 Next.js 앱(`web/src/app/api/`)의 Route Handler로 구현한다 (고민기록 #27).
 > 화면은 같은 앱에서 `fetch('/api/...')`로 호출한다. 화면 쪽 내용은 [화면설계.md](화면설계.md), 문구는 [기능 완료 기준](기획/기능완료기준과_콘텐츠.md), 세션 사용법은 [web/README.md](../web/README.md) "데모 세션"
-> 마지막 갱신: 2026-11-19 13시 (청년센터·문의 초안 화면 연결 계약, 초안 `sent` 칸, 문의 API 세션 장애 503, 실데이터 전환 계획, AI 실호출 기록. 담당 고은비)
+> 마지막 갱신: 2026-11-20 오후 (별자리를 도감 캐릭터 10개로 맞춤, Neon 동기화 SQL `20261121_quests_sync.sql`. 담당 고은비, 브랜치 `feat/points`)
+> 이전 갱신: 2026-11-19 18시 (포인트: 시도 저장 `pointsEarned`·`totalPoints`, 밤하늘 `totalPoints`·별 `points`, 시드를 루트 `quests.json` 기준 별자리 12개·별 40개로 교체, 별 `focus`·`tags` 칸. 담당 고은비, 브랜치 `feat/points`)
+> 이전 갱신: 2026-11-19 13시 (청년센터·문의 초안 화면 연결 계약, 초안 `sent` 칸, 문의 API 세션 장애 503, 실데이터 전환 계획, AI 실호출 기록)
+>
+> ⚠ **`feat/points`부터 시드가 바뀌어 별 ID와 별자리가 달라졌다** (별 1~40 = `quests.json`의 quest id, **별자리 1~10 = 도감 캐릭터 순서**, 고민기록 #31). 아래 응답 예시 중 "실제 응답"이라고 적힌 것은 이전 시드(별 16개)로 받은 기록이라 ID·별자리 이름이 지금과 다르다. 형식은 그대로다.
+> 화면 영향: `mobile-flow.tsx`의 GPS(도착 확인) 안내는 별 ID 대신 밤하늘 응답의 `verifyType === "gps"`로 판단한다 (`lib/mobile-data.ts`의 `isGpsStar`, 예시 모드만 예시 목록의 16·17). 새 시드의 GPS 별은 6·8·10·11·17·33. 예시 모드의 별 제목 17개는 새 콘텐츠와 다르다.
+> 화면 담당이 맞출 것 (별자리 = 도감 10개): DB 별자리 ID 1~10이 `catalog/characters.ts` 순서·이름·테마와 같다. ① `lib/constellations.ts`의 `activityConstellations`를 1~10으로 늘리기(이름·테마는 characters.ts와 같음) ② `characters.ts`의 `hasActivity`를 10명 모두 true ③ `lib/sky-constellations.ts`의 하늘 모양을 별 수에 맞춰 추가 — 1 카시오페이아 5·2 돌고래 5는 지금 모양 그대로 맞음, 3 거문고 4·4 작은곰 3·5 토끼 3·6 여우 4·7 카멜레온 3·8 백조 5·9 독수리 3·10 화가 5. 모양이 없으면 기본 호 모양으로 그려져 깨지지는 않는다.
 
 ## 담당과 구현 위치
 
@@ -207,6 +213,8 @@
   | `out` 바깥 | 바깥(GPS) 별 → 집 앞 별 → 집 안 별 |
 
   - 집 안 = 1단계 별자리의 별, 집 앞 = 2단계 이상 별자리의 GPS가 아닌 별, 바깥 = GPS 별
+  - 새 시드 기준 (`quests.json`, `feat/points`): 1단계 사용자에게 집 안 = 1단계 별 10개, 집 앞 = 2단계의 GPS가 아닌 별 7개, 바깥 = 2단계 GPS 별 4개(8 공원·6 편의점·10 카페·11 도서관). 1단계의 '쓰레기 버리고 오기'(집 밖)도 규칙상 집 안으로 분류된다
+  - ⚠ 3·4단계의 집 안 활동(청년센터 홈페이지 둘러보기, 온라인 강의 등)도 규칙상 "집 앞"으로 분류된다. 범위를 별마다 정하려면 `stars`에 범위 칸이 필요하다 (아래 "DB 변경 — 포인트·새 시드"의 선택 항목)
   - 사용자 시작 단계 + 1단계(바로 위 단계)까지만 후보. 이미 딴 별(bright)은 뺀다 (다 땄으면 다시 포함). 모델에는 후보 최대 8개를 보낸다
 - AI가 후보에 없는 `starId`·중복을 내면 제거한다. 남는 게 없으면 기본 후보 + 기본 이유. 이유가 비었거나 80자를 넘거나 금지 표현이 있으면 그 별만 기본 이유로 바꾼다.
 - 추천 저장이 실패해도 추천은 200으로 돌려준다 (추천은 사용자가 쓴 글이 아니고, 다음 요청 때 다시 만들면 됨).
@@ -276,7 +284,19 @@ const { cheer, help } = await processReflection({
   "reflection": "현관문을 열고 잠깐 서 봤어요",
   "cheer": "현관문을 열고 서 있던 그 시도만으로도 충분히 의미가 있어요. 오늘은 마음과 몸을 편안하게 쉬어주세요.",
   "help": null,
+  "pointsEarned": 0, "totalPoints": 0,     // feat/points에서 추가. 아래 "포인트" 참고
   "risk": "normal", "usedFallback": false, "modelVersion": "gemini-3.5-flash-lite"
+}
+```
+
+```jsonc
+// 201 별을 처음 땄을 때 (2026-11-19 로컬 HTTP 검증 실제 응답. 그때의 더미 시드 별 4 = 2단계라 20점. 지금 시드의 별 4는 1단계라 10점)
+{
+  "attemptId": 18, "starId": 4, "status": "bright", "date": "2026-11-19", "reflection": null,
+  "cheer": "오늘 해낸 일을 이 별에 담았어요.", "help": null,
+  "pointsEarned": 20,       // 이번 시도로 얻은 포인트. 이 별을 처음 밝혔을 때만 난이도 × 10, 그 외 0
+  "totalPoints": 20,        // 이 시도까지 포함한 사용자 총 포인트
+  "risk": "normal", "usedFallback": true, "modelVersion": null
 }
 ```
 
@@ -297,28 +317,35 @@ const { cheer, help } = await processReflection({
 
 - 응원·위기 안내는 위 **회고 처리 함수** 결과를 쓴다. `help`는 400·401·404·500에도 담는다 (이때는 AI 없이 규칙만).
 - 같은 별을 여러 번 시도할 수 있다. 시도마다 한 줄씩 쌓인다.
+- **포인트 (고민기록 #31):** 별을 **처음** bright로 만든 시도만 `pointsEarned` = 별자리 난이도(`stage`) × 10 (10·20·30·40). dim, 이미 딴 별을 다시 딴 경우, 하위 퀘스트(더 작게 해 보기)로 이미 밝아진 별은 0. 감점은 없다.
+  - 규칙은 뷰 `v_star_points` 한 곳, 총점의 기준은 뷰 `v_user_points` (별을 처음 밝힐 때만 더하므로 (사용자, 별)당 한 번만 셈). 적립 기록 테이블은 없다.
+  - 같은 별을 동시에 두 번 보내면 두 응답 모두 `pointsEarned`가 나올 수 있지만 총점(`v_user_points`, 밤하늘 `totalPoints`)은 한 번만 센다. 화면은 저장 중 버튼을 막는다.
+  - 저장 실패(500)에는 `pointsEarned`·`totalPoints`를 보내지 않는다.
+  - 화면 문구: 순위·비교·연속 기록 표현을 쓰지 않는다 ([기능 완료 기준](기획/기능완료기준과_콘텐츠.md) "포인트").
 - 프론트 처리: 저장 중 버튼 비활성화(중복 클릭 방지), 201 뒤에만 응원 표시 후 밤하늘로. 500이면 입력 유지 + 다시 저장하기, `help`가 있으면 같이 표시.
 - 다음 행동(`nextAction`: smaller·retry·swap·stop) 저장과 AI 제안은 후속 API로 분리한다 (11/21 예정, 아래 "만들 것").
 
 ### 4. 밤하늘 — `GET /api/sky` (윤석 담당 범위, 현재 구현은 고은비)
 
 ```jsonc
-// 200
+// 200 (새 시드 기준 예시)
 {
+  "totalPoints": 0,             // feat/points 추가. 밝힌 별 점수의 합 (= 뷰 v_user_points)
   "stars": [
     {
-      "starId": 12, "title": "현관 앞 5분 서 있기", "description": "현관 밖에서 5분만 머물러요.",
-      "constellationId": 3, "constellationName": "거문고자리", "position": 2, "verifyType": "self",
+      "starId": 28, "title": "집 근처 산책로 한 바퀴 돌기", "description": "집 근처 산책로를 천천히 한 바퀴 걸어요. 중간에 돌아와도 괜찮아요.",
+      "constellationId": 6, "constellationName": "여우자리", "position": 2, "verifyType": "self",
       "status": "dim",          // untried | dim | bright. 한 번이라도 bright면 bright
       "attempts": 2,
+      "points": 0,              // feat/points 추가. bright면 이 별의 점수(난이도 × 10), 아니면 0 (따기 전에는 점수를 알려주지 않음)
       "memories": [             // 이 사용자의 시도만, 최신순. 시도마다 한 줄
-        { "attemptId": 5, "date": "2026-11-20", "status": "dim", "reflection": "오늘은 문 앞까지만" },
+        { "attemptId": 5, "date": "2026-11-20", "status": "dim", "reflection": "오늘은 산책로 입구까지만" },
         { "attemptId": 3, "date": "2026-11-19", "status": "dim", "reflection": "현관문을 열고 잠깐 서 봤어요" }
       ]
     },
-    { "starId": 1, "title": "창문 열고 하늘 보기", "description": "창문을 열고 하늘을 잠깐 바라봐요.",
+    { "starId": 1, "title": "창문 열고 5분 바깥 공기 쐬기", "description": "창문을 열고 바깥 공기를 5분 느껴 봐요. 나가지 않아도 괜찮아요.",
       "constellationId": 1, "constellationName": "카시오페이아자리", "position": 1, "verifyType": "self",
-      "status": "untried", "attempts": 0, "memories": [] }
+      "status": "untried", "attempts": 0, "points": 0, "memories": [] }
   ]
 }
 // 401 { "error": "데모를 다시 시작해 주세요.", "code": "NO_SESSION", "help": null }
@@ -326,10 +353,11 @@ const { cheer, help } = await processReflection({
 // 503 { "error": "지금은 밤하늘을 불러오지 못했어요.", "code": "LOAD_FAILED", "help": null }   // 세션 조회 DB 장애
 ```
 
-- 별 목록은 **시드의 모든 별**(현재 17개)을 별자리·순서대로 준다 (별자리 선택 API가 생기면 바꿈).
+- 별 목록은 **시드의 모든 별**(현재 40개, 별자리 10개)을 단계·별자리·순서대로 준다. 별자리 ID·이름은 도감(`catalog/characters.ts`)과 같다 (별자리 선택 API가 생기면 바꿈).
+- `totalPoints`·`points`는 위 "3. 별 시도 저장"의 포인트 규칙과 같은 뷰로 계산한다. 별자리 하나를 다 따면 1단계 30, 2단계 40, 3단계 90, 4단계 160.
 - `status`는 뷰 `v_user_star_status` 기준(최종 상태), `memories`는 개별 시도. 회고 없이 저장한 시도는 `reflection: null`.
 - 별 상세 화면 URL(예: `/stars/12`)로 바로 들어와도 이 응답에서 `starId`로 제목을 얻는다.
-- 별 17 "청년센터 앞까지 가 보기"(GPS, `category: center`)는 변경 SQL `20261120_erd_v4_alignment.sql`로 시드에 들어갔다. 화면 예시 데이터의 별 17과 ID가 같다. GPS 확인이면 `placeId`에 `center:{centerId}`, `placeName`에 센터 이름을 보낸다.
+- 센터 "앞까지 가 본 별"은 새 시드에서 **별 17 "청년센터 방문해서 둘러보기"**(4단계 작은곰자리 1번째, GPS, `category: center`)다. v4 시드와 ID가 같아 화면의 `/stars/17` 링크는 그대로 맞는다 (제목·별자리는 바뀜). GPS 확인이면 `placeId`에 `center:{centerId}`, `placeName`에 센터 이름을 보낸다.
 
 ### 5·6. 청년센터와 문의 초안 — 화면 연결 계약 (고은비 → 재희)
 
@@ -344,7 +372,7 @@ const { cheer, help } = await processReflection({
 | `starId` | `GET /api/sky`의 `stars[].starId` 또는 `POST /api/recommendations`의 `items[].starId` | 별 수행 `POST /api/attempts` |
 
 - 센터와 별은 연결돼 있지 않다. **센터 상세 응답에는 `starId`가 없다.**
-- "앞까지 가 보기"는 별 17로 시도를 저장한다 (`POST /api/attempts`, `starId: 17`). 공용 DB에 변경 SQL을 적용하기 전에는 404다.
+- "앞까지 가 보기"는 별 17로 시도를 저장한다 (`POST /api/attempts`, `starId: 17`. 새 시드에서는 '청년센터 방문해서 둘러보기'). 공용 DB에 변경 SQL을 적용하기 전에는 404다.
 - URL 경로의 `centerId`는 숫자다. 화면 주소 `/centers/demo`는 화면 쪽 이름이라 API에는 `9001`을 넘긴다.
 
 #### 정상 흐름 (요청 순서대로)
@@ -607,7 +635,7 @@ const { cheer, help } = await processReflection({
 | 별자리 선택 | 고른 별자리 저장 → 밤하늘 범위 | `user_constellations` |
 | 시도 후 다음 행동 (AI ①) | 이유 → 더 작게 / 다른 날 / 다른 별 / 마치기 제안, 사용자 선택 저장 | `stop_reason`, `next_action`. 11/21 |
 | 청년센터 실데이터 수집 | 온통청년 청년센터 API → 저장 | 인증키·DB 칸 필요 |
-| 센터 행동 기록 | 상세 보기(`viewed`)·"참여했어요"(`joined`) 저장 | `center_events` (테이블 준비됨). 센터 "앞까지 가 본 별"은 별 17로 시드 완료 |
+| 센터 행동 기록 | 상세 보기(`viewed`)·"참여했어요"(`joined`) 저장 | `center_events` (테이블 준비됨). 센터 "앞까지 가 본 별"은 별 17로 시드 완료 (새 시드에서도 17) |
 | 주변 장소 | GPS 별의 목표 장소 (카카오 로컬) | 좌표 저장 안 함 |
 | 정책 추천 화면 연결 | 위 7번 API → 청년센터·바깥 지도 화면 "나에게 맞는 정책" | API 완료 (`feat/policy-recommend`). 예약 수집은 추후 |
 
@@ -687,6 +715,7 @@ AI 출력 검사 (`lib/safety.ts`의 `isSafeAiText`): 위험 표현, 지시·과
 ### 실행 방법 (web/에서)
 
 ```bash
+node node_modules/tsx/dist/cli.mjs scripts/gen-quest-seed.mts --check   # quests.json과 시드·Neon 동기화 SQL이 같은지 (고친 뒤에는 --check 없이 실행해 다시 생성)
 node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-star-api.mts --no-key   # 키 없음
 node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-star-api.mts --ai-fail  # 잘못된 키
 GEMINI_MODEL=gemini-3.5-flash-lite node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-star-api.mts
@@ -696,6 +725,55 @@ node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-http.mts
 node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-inquiry-http.mts --base=http://localhost:3107   # 센터·문의 초안
 node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-ai-live.mts --base=http://localhost:3107       # AI 실호출 기록 (공개 주소는 1번만)
 ```
+
+### 2026-11-20 오후 별자리를 도감 10개로 맞춘 뒤 재검증 (브랜치 `feat/points`, 로컬 Docker만, 키 없음)
+
+| 실행 | 결과 | 비고 |
+| ---- | ---- | ---- |
+| 동기화 SQL `20261121_quests_sync.sql` — 지금 Neon과 같은 DB(최신 master + points + survey)에 시도·설문·하위 퀘스트 시도·옛 별자리 기록을 넣고 2번 실행 | 에러 없음, **시도 기록 그대로** | 포인트 70점 그대로, 오늘의 추천·체크인 그대로. 지운 것은 옛 별자리 11번을 가리키던 `user_constellations` 1줄뿐 |
+| 새 DB / master + points + 동기화 / Neon과 같은 DB + 동기화 | 별자리 10개·별 40행·하위 퀘스트 같음, 번호 10/40/40 | 스키마는 새 DB = master + points + 동기화 (설문 칸은 #21에서) |
+| `verify-star-api.mts --no-key` | **81 / 81** | 새 검사: 별자리 = 도감 캐릭터 10명(순서·이름·테마) |
+| `verify-profile` / `verify-policies` | **40 / 40**, **41 / 41** | |
+| `npm run build` → `next start` HTTP — `verify-http` / `verify-inquiry-http` | **20 / 20**, **25 / 25** | 밤하늘 API: 별자리 10개, 별 수 5·5·4·3·3·4·3·5·3·5 |
+| `eslint`, `tsc` (`next typegen` 뒤) | 오류 없음 | |
+
+ (브랜치 `feat/points`, 로컬 Docker만, 키 없음)
+
+| 실행 | 결과 | 비고 |
+| ---- | ---- | ---- |
+| `gen-quest-seed.mts --check` | 통과 | 시드·변경 SQL이 `quests.json`과 같음. 제목 중복 JSON으로 실패하는 것도 확인 |
+| 새 DB / 최신 master `db/init` + 포인트(2번) / 옛 `db/init` → 변경 SQL 4개(이름 순서, 포인트 2번) | 콘텐츠(별 40행·하위 퀘스트 40개)·스키마 3개 모두 같음 | 시도·추천 비움, 사용자·체크인·초안 유지. 별·하위 퀘스트 번호는 41부터 |
+| `verify-star-api.mts --no-key` ×3 | **80 / 80 통과** | 별자리·별·하위 퀘스트를 `quests.json`과 직접 비교. 포인트: 별자리 합계 = 난이도 × 10 × 별 수, 총점 240점·11개 |
+| `verify-policies` / `verify-profile` | **41 / 41**, **40 / 40** | |
+| HTTP `verify-http` / `verify-inquiry-http` | **20 / 20**, **25 / 25** | |
+| `eslint`, `tsc --noEmit` | 오류 없음 | |
+
+### 2026-11-20 master(PR #9~#17: ERD v4, 정책·프로필·카탈로그) 합친 뒤 재검증 (브랜치 `feat/points`, 로컬 Docker만)
+
+| 실행 | 결과 | 비고 |
+| ---- | ---- | ---- |
+| A. 새 DB (합친 `db/init`) — `verify-star-api.mts --no-key` | **81 / 81 통과** | v4 구조 검사 추가: 하위 퀘스트 8개 모두 바깥 별, 센터 앞 GPS 별 1개, 1단계 집 안, 사진 확인 별 없음 |
+| B. master `db/init` + 가상 기록(하위 퀘스트 시도·센터 기록 포함) → `20261120_points.sql` 2번 | **81 / 81 통과** | 콘텐츠·스키마 A와 같음. 시도·추천 비움, 사용자·체크인·초안·센터 기록 유지 |
+| C. Neon 경로: 옛 `db/init` + 가상 기록 → `20261120_erd_v4_alignment.sql` → `20261120_points.sql` 2번 | **81 / 81 통과** | 콘텐츠 A와 같음, 스키마는 칸 순서만 다름(v4의 `ADD COLUMN`) |
+| D. 순서 오류: 옛 `db/init` → `20261120_points.sql`만 | 의도대로 실패 | "v4를 먼저 적용해 주세요"로 멈추고 아무것도 바뀌지 않음 |
+| HTTP (`next dev`, A, 키 없음) — `verify-http.mts` / `verify-inquiry-http.mts` | **20 / 20**, **25 / 25 통과** | master가 추가한 바깥 → 집 안 범위 케이스 포함 |
+| `eslint src scripts`, `tsc --noEmit` | 오류 없음 | |
+| PR #13~#17까지 합친 뒤: 새 DB / 최신 master `db/init` + 포인트 / 옛 `db/init` → 변경 SQL 4개(이름 순서, 포인트 2번) | 콘텐츠·스키마 3개 모두 같음, `verify-star-api` **81 / 81** ×3 | 정책 `verify-policies` **41 / 41**, `verify-profile` **40 / 40**, HTTP **20 / 20**·**25 / 25**. `tsc`는 `next typegen`으로 라우트 타입을 다시 만든 뒤 통과 |
+
+### 2026-11-19 포인트·새 시드 검증 (17:48~17:50 KST, 브랜치 `feat/points` = `master` d710e8b + 이번 변경)
+
+공용 Neon은 쓰지 않았다. 로컬 Docker `postgres:16` 두 개에 `DATABASE_URL`을 덮어써서 실행했다 (Gemini 호출 없음).
+
+| 실행 | 결과 | 비고 |
+| ---- | ---- | ---- |
+| 새 DB (`db/init` 새 스키마·시드) — `verify-star-api.mts --no-key` | **80 / 80 통과** | 시드 규칙, 추천 범위, 포인트 포함 |
+| 기존 DB 재현 (master `db/init` + 가상 시도 기록) → `20261119_points.sql(현재 이름 20261120_points.sql)` 2번 실행 → `verify-star-api.mts --no-key` | **80 / 80 통과** | 2번 실행해도 같은 결과. 사용자·체크인 유지, 시도·추천 비움. 새 DB와 별자리·별·점수 30행 동일, 뷰 정의 동일 |
+| HTTP + 실제 쿠키 세션 (`next dev`, 새 DB, 키 없음) — `verify-http.mts` | **17 / 17 통과** | dim 0점 → 처음 bright 20점 → 다시 bright 0점, 밤하늘 총점 일치, 다른 세션 0점 |
+| `eslint src scripts`, `tsc --noEmit` | 오류 없음 | |
+
+- 시드: 별자리 10개, 난이도 1·2·3·4 = 1·3·3·3개, 별 수 = 난이도(1단계 3개), `star_count` 일치, 별 30개 제목 중복 없음, 별 점수 = 난이도 × 10, GPS 별에만 `place_type`
+- 포인트: 포인트 없는 사용자는 뷰에 행 없음(0) / 같은 별 다시 완료 0점 / 하위 퀘스트로 밝아진 별은 1번만 / 별자리 완성 30·40·160점 / dim 0점 / 응답 적립 합 = 뷰 총점 = 밤하늘 총점 (230점, 9개) / 저장 실패 시 적립 없음
+- 추천: 1단계 사용자 집 안 후보 3개(별 1~3), 쉬어 가기 뒤 집 안, 후보 밖 ID 제거, 2단계 사용자 바깥 → GPS 별 11부터
 
 ### 2026-11-19 점심 추가 검증 (12:37~12:39 KST, 브랜치 `feat/center-inquiry` = `master` 1a541b3 + 이번 변경)
 
@@ -770,8 +848,38 @@ node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-ai-live.
 | 지표 뷰 | `v_outside_attempt_rate` 정의 수정(분모 = 실제로 시작한 사용자), `v_split_success`는 하위 퀘스트만, `v_next_action_retry_rate`(AI 제안 따랐는지별)·`v_center_actions` 추가, v4에서 빠진 `v_center_quest_rate` 삭제 | 없음 |
 | 기록 삭제 | 체크인을 지워도 추천은 남음(`daily_recommendations.checkin_id ON DELETE SET NULL`) | 없음 |
 
-- 남은 결정: 별 17이 거문고자리(2단계)에 속해 있어 1단계 사용자가 센터 앞에 가면 그 별자리의 별이 켜진다. 별자리 밖 센터 별로 빼려면 `constellation_id`를 비우고 밤하늘 API(`_lib/sky.ts`의 JOIN)도 바꿔야 해서 팀 결정으로 남김. 예시 센터를 `youth_centers`(`is_sample=true`)로 옮기면 `inquiry_drafts`·`center_events`의 `center_id`에 외래키를 걸 수 있다.
+- 남은 결정: 별 17이 거문고자리(2단계)에 속해 있어 1단계 사용자가 센터 앞에 가면 그 별자리의 별이 켜진다. 별자리 밖 센터 별로 빼려면 `constellation_id`를 비우고 밤하늘 API(`_lib/sky.ts`의 JOIN)도 바꿔야 해서 팀 결정으로 남김. 예시 센터를 `youth_centers`(`is_sample=true`)로 옮기면 `inquiry_drafts`·`center_events`의 `center_id`에 외래키를 걸 수 있다. (→ 포인트 변경 뒤에는 센터 별이 별 20, 4단계 거문고자리)
 - 검증 (2026-11-19, 로컬 Docker만): 이전 스키마 + 가상 기록에 변경 SQL을 두 번 적용 → 새로 만든 DB와 칸·인덱스·뷰·시드 일치, 기존 기록 유지 (옛 방식 쪼갠 별 기록이 있으면 새 제약은 새 행에만 적용). 목록 밖 하위 퀘스트·자유 문장 이름·행동과 대상 불일치 거절, 원래 시도·체크인 삭제 시 이어진 기록 유지 확인. 기존 API 검증 스크립트 `verify-star-api` 61/61, `verify-http` 14/14, `verify-inquiry-http` 25/25 (AI 키 없음), 별 17 시도 저장 성공.
+
+## DB 변경 — 포인트·새 시드 (`feat/points`, `db/migrations/20261120_points.sql`)
+
+**`20261120_erd_v4_alignment.sql`을 먼저 적용한 뒤에** 실행한다 (v4가 없으면 SQL이 처음에 멈추고 아무것도 바꾸지 않음). 내용은 `db/init/01_schema.sql`·`02_seed.sql`과 같다.
+
+| 변경 | 내용 | API에서 할 일 |
+| ---- | ---- | ------------- |
+| 콘텐츠 교체 | 원본 루트 `quests.json`. 이 파일 적용 당시는 별자리 12개(단계마다 3개)·별 40개였고, 지금은 아래 동기화 SQL로 별자리 10개(도감)로 바뀜. 별 ID = quest id. `is_outside`·`category`·`verify_type`·`place_type`·`description`도 JSON에 있음 | 별 ID를 코드에 직접 적지 않기. 문구를 고치면 JSON만 고치고 스크립트 실행 (`--check`로 어긋남 확인) |
+| 하위 퀘스트 | 별마다 `easier_title` 1개 → `sub_quests` 40개 (하위 퀘스트 ID = 별 ID) | 없음 |
+| 별 칸 추가 | `stars.focus`(daily·outing·relation·work), `stars.tags`(TEXT[], outdoor·social·career·learning·rest) | 아직 API에서 안 씀. 정책 추천·추천 이유에 쓸 수 있음 |
+| 포인트 뷰 | `v_star_points`(별 점수 = 난이도 × 10), `v_user_points`(처음 밝힌 별만 합산). 테이블 구조 변경 없음 | 시도 저장·밤하늘 응답에 반영 완료 |
+
+- ⚠ 별 ID가 바뀌어 **`star_attempts`·`daily_recommendations`·`user_constellations`·`sub_quests`를 비우고 다시 넣는다** (데모 사용자의 시도·회고·오늘 추천이 사라짐. 사용자·체크인·문의 초안·센터 기록은 유지). 팀에 알린 뒤, 시연 직전이 아닐 때 적용한다.
+- 적용 전까지 Neon에서는 새 코드의 시도 저장·밤하늘이 뷰가 없어 실패한다 → 이 브랜치를 배포하기 전에 적용해야 한다.
+- (선택, 남은 결정) 별마다 추천 범위 칸: 지금은 stage로 정해서 3·4단계의 집 안 활동도 "집 앞"으로 분류됨 (고민기록 #31) → `ALTER TABLE stars ADD COLUMN scope VARCHAR(5) CHECK (scope IN ('home', 'near', 'out'));`
+
+## DB 변경 — 별자리를 도감 10개로 (`feat/points`, `db/migrations/20261121_quests_sync.sql`, 기록 유지)
+
+`20261120_points.sql` 다음에 실행한다 (없으면 처음에 멈추고 아무것도 바꾸지 않음). **기록을 지우지 않는다.** `web/scripts/gen-quest-seed.mts`가 `quests.json`으로 만드는 파일이라, 문구를 고칠 때마다 다시 만들어 실행하면 된다. 여러 번 실행해도 결과가 같다.
+
+| 변경 | 내용 | API에서 할 일 |
+| ---- | ---- | ------------- |
+| 별자리 | 12개 → **10개 = 도감 캐릭터** (ID 1 카시오페이아 · 2 돌고래 · 3 거문고 · 4 작은곰 · 5 토끼 · 6 여우 · 7 카멜레온 · 8 백조 · 9 독수리 · 10 화가). 단계별 2·3·2·3개 | 없음 (API는 DB를 읽음) |
+| 별 | 소속 별자리·순서만 바뀜. 별 ID·단계·문구는 그대로 → 포인트도 그대로 | 없음 |
+| 하위 퀘스트 | 문구 덮어쓰기 (ID = 별 ID 그대로) | 없음 |
+| 지우는 것 | 별이 없는 옛 별자리 11·12번, 그 별자리를 가리키는 `user_constellations` 줄 | 없음 |
+
+- 폐기한 별자리 6개(안드로메다·북쪽왕관·페가수스·목동·오리온·큰곰)와 그전 12개 묶음은 루트 `quests.retired.json`에 보관 (DB·스크립트는 읽지 않음).
+- `quests.json`에 없는 별이 DB에 있으면 멈춘다 (별을 지우면 시도 기록이 깨지므로 자동으로 지우지 않음).
+- 확인: `SELECT id, stage, name, star_count FROM constellations ORDER BY id;` → 10줄, `SELECT count(*) FROM stars;` → 40
 
 ## 실행 환경
 

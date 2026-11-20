@@ -5,7 +5,7 @@
 // - 부가 기능: 위치로 도착 확인(바깥 별)은 접어 둠
 import Link from 'next/link';
 import { useState } from 'react';
-import { client, type Help, type Mode, type Star } from '@/lib/mobile-data';
+import { client, isGpsStar, type Help, type Mode, type Star } from '@/lib/mobile-data';
 import { getActivityConstellation } from '@/lib/constellations';
 import { Hero, HeroIcon, ScreenBar, Section } from './screen-kit';
 
@@ -37,7 +37,8 @@ export default function StarScreen({ mode, star, busy, run, onHelp, onSaved }: {
     <section className="card"><Link className="secondary" href="/sky">밤하늘로 돌아가기</Link><button disabled={busy} onClick={() => run(onSaved)}>다시 불러오기</button></section>
   </>;
 
-  const outside = star.verifyType === 'gps' || star.starId === 16 || star.starId === 17;
+  // GPS(도착 확인) 별: 실제 API는 verifyType, 예시 모드만 예시 목록의 16·17 (별 ID는 시드마다 바뀜)
+  const outside = isGpsStar(star);
   return <>
     <ScreenBar title="별 기록" />
     <Hero

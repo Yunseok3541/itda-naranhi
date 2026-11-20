@@ -8,6 +8,12 @@ export type Help = { title: string; lines: string[] } | null;
 export type Status = 'untried' | 'dim' | 'bright';
 // constellationId 등은 실제 API(/api/sky)에만 있음. 예시 모드는 별 번호로 별자리를 나눔 (night-sky.tsx)
 export type Star = { starId: number; title: string; status: Status; memories: { attemptId: number; date: string; reflection: string | null; status?: 'dim' | 'bright' }[]; description?: string | null; constellationId?: number; constellationName?: string; position?: number; verifyType?: string };
+// GPS(도착 확인) 별인지: 실제 API는 /api/sky의 verifyType으로 판단 (별 ID는 시드마다 바뀜)
+// 예시 모드 저장 데이터에는 verifyType이 없어 예시 목록의 GPS 별(16 편의점, 17 가상 청년센터)로 판단
+const exampleGpsIds = new Set([16, 17]);
+export function isGpsStar(star: Pick<Star, 'starId' | 'verifyType'>): boolean {
+  return star.verifyType ? star.verifyType === 'gps' : exampleGpsIds.has(star.starId);
+}
 export type Checkin = { checkinId: number | null; weather: string; help: Help; usedFallback: boolean };
 export type Recommendation = { starId: number; title: string; reason: string };
 export const weatherNames: Record<string, string> = { sunny: '맑음', partly_cloudy: '구름 조금', cloudy: '흐림', rainy: '비', foggy: '안개' };
