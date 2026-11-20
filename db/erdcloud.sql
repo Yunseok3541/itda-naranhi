@@ -56,6 +56,8 @@ CREATE TABLE stars (
   place_type        VARCHAR(20)  NULL     COMMENT 'GPS 목표 장소 종류',
   category          VARCHAR(10)  NOT NULL DEFAULT 'daily' COMMENT '퀘스트 종류(daily/center/volunteer)',
   is_outside        BOOLEAN      NOT NULL DEFAULT FALSE COMMENT '집 밖 활동 여부(1순위 지표 기준)',
+  focus             VARCHAR(10)  NOT NULL DEFAULT 'daily' COMMENT '회복 방향(daily/outing/relation/work)',
+  tags              JSON         NOT NULL COMMENT '활동 성향 태그(outdoor/social/career/learning/rest)',
   PRIMARY KEY (id),
   UNIQUE (constellation_id, position),
   FOREIGN KEY (constellation_id) REFERENCES constellations (id) ON DELETE CASCADE

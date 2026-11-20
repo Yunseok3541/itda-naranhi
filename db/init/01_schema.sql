@@ -74,6 +74,11 @@ CREATE TABLE stars (
                     CHECK (category IN ('daily', 'center', 'volunteer')),
   -- 집 문 밖에서 하는 활동인지 (1순위 지표 "앱 밖 활동"의 기준). 청년센터 별이어도 앱 안에서 하는 것(지도·홈페이지 보기)은 false
   is_outside        BOOLEAN NOT NULL DEFAULT false,
+  -- 회복 방향과 활동 성향 (원본: 루트 quests.json의 focuses·tags, 고민기록 #31). 정책 추천·추천 이유에 쓸 수 있음
+  focus             VARCHAR(10) NOT NULL DEFAULT 'daily'
+                    CHECK (focus IN ('daily', 'outing', 'relation', 'work')),
+  tags              TEXT[] NOT NULL DEFAULT '{}'
+                    CHECK (tags <@ ARRAY['outdoor', 'social', 'career', 'learning', 'rest']::text[]),
   UNIQUE (constellation_id, position)
 );
 
