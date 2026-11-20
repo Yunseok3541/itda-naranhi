@@ -1,42 +1,19 @@
-// AI ② 체크인 → 마음 날씨 갱신 + AI ③ 위험 신호 감지
+// AI ② 체크인 → 마음 날씨 갱신 + AI ③ 위험 신호 감지 + 오늘 필요한 것(정책 추천 참고, 고민기록 #47)
 // 다른 AI 기능(별 추천, 회고 응원)도 이 파일과 같은 구조로 만들면 됨:
 //   입력 검증 → (규칙) → generateJson(스키마 + 기본값) → DB 저장(실패해도 흐름 유지) → 응답
 import { db } from "@/lib/db";
 import { demoSessionRequired, lookupDemoSession } from "@/lib/demo-session";
-import { generateJson } from "@/lib/gemini";
-import { HELP_MESSAGE, assessRisk, type Risk } from "@/lib/safety";
-import { WEATHERS, isWeather, type Weather } from "@/lib/weather";
+import { analyzeCheckin, NEED_LABEL } from "@/lib/checkin-ai";
+import { HELP_MESSAGE, assessRisk } from "@/lib/safety";
 import { awardCheckinPoints } from "../_lib/points";
+import { todayKst } from "../_lib/http";
 
 // 마음 날씨는 참고 기록일 뿐, 추천 난이도는 사용자가 고른 todayChoice를 우선한다 (고민기록 #20)
-type CheckinResult = {
-  weather: Weather;
-  risk: Risk;
-};
+// 지시문·응답 형식은 @/lib/checkin-ai (위험 감지 평가와 같은 지시문을 쓰려고 옮김, 고민기록 #47)
 
 // "오늘은 어떤 활동이 괜찮을까요?" 쉬어 가기 / 집 안 / 집 근처 / 바깥
 const TODAY_CHOICES = ["rest", "home", "near", "out"] as const;
 type TodayChoice = (typeof TODAY_CHOICES)[number];
-
-const schema = {
-  type: "object",
-  properties: {
-    weather: { type: "string", enum: [...WEATHERS] },
-    risk: { type: "string", enum: ["normal", "caution", "danger"] },
-  },
-  required: ["weather", "risk"],
-};
-
-function isCheckinResult(v: unknown): v is CheckinResult {
-  const r = v as CheckinResult;
-  return !!r && isWeather(r.weather) && ["normal", "caution", "danger"].includes(r.risk);
-}
-
-const SYSTEM = `너는 사회적 고립을 겪는 청년을 위한 앱의 체크인 분석기다.
-사용자의 한 줄 일기를 읽고 오늘의 마음 상태에 가까운 날씨 하나를 제안한다. 사용자가 언제든 고칠 수 있는 참고값이다.
-- sunny: 기운 있음 / partly_cloudy: 보통 / cloudy: 지침·무기력 / rainy: 우울·슬픔 / foggy: 혼란·불안
-- 자해, 자살, 삶을 끝내고 싶다는 뜻이 보이면 risk=danger, 애매하게 위험해 보이면 caution, 그 외 normal.
-진단하거나 조언하지 말고, 지정된 JSON만 출력한다.`;
 
 export async function POST(request: Request) {
   // 사용자는 요청 본문이 아니라 데모 세션 쿠키로 정한다.
@@ -62,26 +39,29 @@ export async function POST(request: Request) {
     return Response.json({ error: "300자 이하 text가 필요해요." }, { status: 400 });
   }
 
-  const { data, usedFallback, modelVersion } = await generateJson<CheckinResult>({
-    system: SYSTEM,
-    prompt: `오늘의 한 줄: ${text}`,
-    schema,
-    validate: isCheckinResult,
-    fallback: { weather: "partly_cloudy", risk: "normal" },
-  });
+  const ai = await analyzeCheckin(text);
+  const { usedFallback, modelVersion } = ai;
+  const data = { weather: ai.weather };
 
   // 규칙과 AI 중 더 위험한 쪽. AI가 실패했으면 기본값(normal)을 믿지 않고 규칙 + 부정 표현으로 판단
-  const risk = assessRisk(text, usedFallback ? null : data.risk);
+  const risk = assessRisk(text, usedFallback ? null : ai.aiRisk);
+  // 오늘 필요한 것 → 정책 추천에 참고 (고민기록 #47). 위험하면 정책을 내밀지 않음
+  const needs = risk === "danger" ? [] : ai.needs;
 
   // DB 저장이 실패해도(DB 꺼짐, 세션 확인 실패 등) 날씨와 위험 안내는 반드시 응답한다
   let checkinId: number | null = null;
   if (userId !== null) {
     try {
       const result = await db.query<{ id: number }>(
-        "INSERT INTO checkins (user_id, text, weather, today_choice, risk) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-        [userId, text, data.weather, todayChoice, risk],
+        "INSERT INTO checkins (user_id, text, weather, today_choice, risk, needs) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+        [userId, text, data.weather, todayChoice, risk, needs],
       );
       checkinId = result.rows[0]?.id ?? null;
+      // 필요한 것이 생겼으면 오늘 저장된 정책 추천을 지워 다음에 열 때 새로 만들게 (하루 한 번 저장이라 그대로 두면 반영 안 됨)
+      if (needs.length) {
+        await db.query("DELETE FROM policy_recommendations WHERE user_id = $1 AND rec_date = $2::date", [userId, todayKst()])
+          .catch((error) => console.error("[checkin] 오늘 정책 추천 비우기 실패", (error as { code?: string }).code ?? "unknown"));
+      }
     } catch (error) {
       console.error("[checkin] 저장 실패, 응답은 계속 진행", (error as { code?: string }).code ?? "unknown");
     }
@@ -103,6 +83,8 @@ export async function POST(request: Request) {
     weather: data.weather,  // 화면에 "AI가 고른 날씨예요. 다르면 바꿔 주세요"와 함께 표시
     todayChoice,
     risk,
+    // 오늘 필요한 것 (정책 추천에 참고, 고민기록 #47). 위험하면 빈 배열
+    needs: needs.map((n) => ({ key: n, label: NEED_LABEL[n] })),
     pointsEarned: points?.pointsEarned ?? null,  // 오늘 첫 체크인이면 100, 이미 받았으면 0, 저장 실패면 null
     totalPoints: points?.totalPoints ?? null,    // 이 체크인까지 포함한 총 포인트 (별 + 유성 + 체크인), 저장 실패면 null
     help: risk === "normal" ? null : HELP_MESSAGE,

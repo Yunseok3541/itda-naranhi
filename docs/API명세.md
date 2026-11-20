@@ -1124,3 +1124,11 @@ node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-ai-live.
 
 - DB: 팀 공용 Neon (서버 시간대 GMT → 날짜는 SQL에서 `Asia/Seoul`로 변환), 로컬은 루트에서 `docker compose up -d` (`postgres://app:app@localhost:5432/starquest`)
 - 환경 변수 예시: `web/.env.example`
+
+### 체크인 → 정책 연결 (고민기록 #47)
+
+- `POST /api/checkin` 응답에 `needs: [{ "key": "money_job", "label": "돈·일" }]` 추가 (money_job | health | family | people). 같은 AI 호출에서 받음, 위험(danger)이면 `[]`
+- `GET /api/policies`(맞춤 추천) 응답에 `checkinNeeds: [{ key, label }]` — 오늘 체크인에서 참고한 것. 없으면 `[]`
+- `DELETE /api/policies/checkin-needs` → 200 `{ "cleared": 1 }` 오늘 체크인의 필요를 비우고 오늘 추천을 지움 (다음에 새로 만듦). 401 세션 없음, 500·503 SAVE_FAILED
+- DB: `checkins.needs TEXT[]` (`db/migrations/20261122_checkin_needs.sql`)
+

@@ -153,3 +153,12 @@
 }
 .apply-helper .bubble ol { list-style: decimal; }
 .apply-helper .bubble ul { list-style: disc; }
+
+/* 정책 화면: 오늘 체크인을 참고했다는 안내와 끄기 (고민기록 #47) */
+.policy-checkin-hint { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; margin: 10px 0; padding: 10px 14px; border-radius: 14px; background: rgba(246, 207, 125, .08); border: 1px solid rgba(246, 207, 125, .25); }
+.policy-checkin-hint p { margin: 0; color: #ffe9bf; font-size: .9rem; }
+.policy-checkin-hint p span { color: var(--star-gold, #f6cf7d); }
+.night-ui .policy-checkin-hint button {
+  width: auto; min-height: 40px; margin: 0; padding: 0 4px; border: 0 !important; background: none !important; box-shadow: none !important;
+  color: var(--starlight-dim, #b9b0d6) !important; font-size: .8125rem; text-decoration: underline;
+}
