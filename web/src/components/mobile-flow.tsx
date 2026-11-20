@@ -8,6 +8,7 @@ import PoliciesScreen from './policies-screen';
 import CentersScreen from './centers-screen';
 import SkyPanorama from '@/app/sky-preview/sky-panorama';
 import { ProfileScreen, StartQuestions, StartResult } from './profile-form';
+import GlassSelect from './glass-select';
 import ProfileHome from './profile-home';
 import { PendingNextLink } from './next-step-card';
 import QuestScreen from './quest-screen';
@@ -198,7 +199,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
    {needsSession && <section className="card"><p>데모 세션을 다시 시작해 주세요. 작성한 글은 이 화면에 그대로 있어요.</p><button disabled={busy} onClick={() => run(restartSession)}>데모 다시 시작</button></section>}
  </>;
  if(!loaded)return <main className="shell sky-mode"><p className="night-loading">밤하늘을 준비하고 있어요…</p></main>;
- return <HelpContext.Provider value={helpToggle}>{night&&<SkyPanorama background dome={locked}/>}<main className={night?`shell sky-mode panorama-content${locked?' sky-locked':''}`:'shell night-ui'} lang="ko">{locked
+ return <HelpContext.Provider value={helpToggle}>{night&&<SkyPanorama background dome={locked}/>}<main className={night?`shell sky-mode panorama-content${locked?' sky-locked':''}${!ready?' sky-intro':''}`:'shell night-ui'} lang="ko">{locked
    // 메인: 왼쪽 위 도움받을 곳, 오른쪽 위 정책추천·청년센터 (머리글 대신 모서리 버튼)
    ? <header className="sky-top">
        <button type="button" className="sky-pill sky-utility sky-help-button" aria-expanded={help?.title===HELP.title} onClick={()=>H(h=>h?.title===HELP.title?null:HELP)}>
@@ -221,7 +222,15 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
    : ready
    // 다른 화면: 머리글 없음. 각 화면이 공통 틀의 제목 줄(screen-kit.tsx ScreenBar: ‹ 뒤로 · 제목 · ♡ 도움받을 곳)을 그림
    ? null
-   : <header><Link className="brand" href="/">✧ 나란히</Link>{ready&&mode==='example'&&<span className="small">예시 기록</span>}{!ready&&<Link className="text-button" href="/catalog">별자리 도감</Link>}{ready&&<Link className="text-button" href="/sky">내 밤하늘</Link>}<button className="text-button" onClick={()=>H(h=>h?.title===HELP.title?null:HELP)}>도움받을 곳</button></header>}
+   // 첫 화면·시작 질문: 메인과 같은 모서리 버튼 (왼쪽 도움받을 곳, 오른쪽 별자리 도감. 청년센터·정책은 데모를 시작해야 쓸 수 있어 도감으로)
+   : <header className="sky-top">
+       <button type="button" className="sky-pill sky-utility sky-help-button" aria-expanded={help?.title===HELP.title} onClick={()=>H(h=>h?.title===HELP.title?null:HELP)}>
+         <span className="sky-utility-symbol"><SkyControlIcon name="heart" /></span><span>도움받을 곳</span>
+       </button>
+       <Link className="sky-pill sky-utility sky-catalog-button" href="/catalog">
+         <span className="sky-utility-symbol"><SkyControlIcon name="book" /></span><span>별자리 도감</span>
+       </Link>
+     </header>}
  {!questOpen && feedback}
  {!ready ? showStartResult ? <>
    <StartResult answers={startAnswers} demo />
@@ -233,7 +242,8 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
    </div>
    <details className="onboarding"><summary>체험 방식</summary><section className="card">
      <p>가상 내용으로 체험해 주세요. 실제 개인정보는 입력하지 마세요.</p>
-     <label>체험 방식<select value={mode} onChange={e => M(e.target.value as Mode)}><option value="example">예시 모드 · 브라우저 저장</option><option value="api">실제 API · 서버 세션</option></select></label>
+     <GlassSelect<Mode> label="체험 방식" value={mode} onChange={M}
+       options={[{ value: 'example', label: '예시 모드 · 브라우저 저장' }, { value: 'api', label: '실제 API · 서버 세션' }]} />
    </section></details>
  </> : <section className="card onboarding-step" aria-label={`시작 질문 ${startStep + 1}/3`}>
    <h2 aria-live="polite">시작 질문 <span>{startStep + 1}/3</span></h2>
