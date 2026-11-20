@@ -104,7 +104,16 @@ try {
   const a3 = (await applyHelper(full, { intent: "ask", text: "기숙사 돼요?" }, client, fakeGen({ found: false, answer: "", risk: "normal" }))).body as Body;
   check("질문: found=false → 지어내지 않고 대본 제안", a3.reply.includes("찾지 못했어요") && a3.followUps[0] === "script", a3);
 
-  // ---------- 위기 표현 ----------
+  // ---------- aiStatus: 왜 기본 문장이 나왔는지 응답에서 보이게 ----------
+  check("aiStatus: 규칙 버튼 not_used", steps.aiStatus === "not_used" && docs.aiStatus === "not_used", [steps.aiStatus, docs.aiStatus]);
+  check("aiStatus: AI 문장 사용 ok", s1.aiStatus === "ok" && a1.aiStatus === "ok", [s1.aiStatus, a1.aiStatus]);
+  check("aiStatus: 원문에 없는 숫자로 버림 filtered", s2.aiStatus === "filtered" && a2.aiStatus === "filtered" && p2.aiStatus === "filtered", [s2.aiStatus, a2.aiStatus, p2.aiStatus]);
+  check("aiStatus: AI 호출 실패 error, \"원문에 없음\" 답은 ok", s4.aiStatus === "error" && a3.aiStatus === "ok", [s4.aiStatus, a3.aiStatus]);
+  const noKeyGen = (async (o: { fallback: unknown }) => ({ data: o.fallback, usedFallback: true, modelVersion: null, fallbackReason: "no_key" })) as unknown as Gen;
+  const nk = (await applyHelper(full, { intent: "script" }, client, noKeyGen)).body as Body;
+  check("aiStatus: 키 없음 no_key (로컬 개발 서버)", nk.aiStatus === "no_key" && nk.source === "fallback", nk.aiStatus);
+
+
   const gDanger = fakeGen({ found: true, answer: "네", risk: "normal" });
   const d1 = (await applyHelper(full, { intent: "ask", text: "다 그만두고 죽고 싶어요" }, client, gDanger)).body as Body;
   check("위기 표현(규칙) → AI 부르지 않고 안내 + help", d1.help?.title && gDanger.calls === 0 && d1.reply.includes("나중에 해도 괜찮아요"), d1);

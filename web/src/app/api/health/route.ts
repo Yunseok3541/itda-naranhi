@@ -1,6 +1,7 @@
 // 세팅 확인용: DB 연결, 데모 세션 테이블, Gemini 키 설정 여부를 알려줌
 // 키·DB 주소·오류 원문은 응답에 넣지 않는다 (오류는 코드만)
 import { db } from "@/lib/db";
+import { HELPER_MODEL } from "@/app/api/policies/helper";
 
 export async function GET() {
   let dbStatus = "ok";
@@ -26,5 +27,7 @@ export async function GET() {
     demoSessions,
     gemini: process.env.GEMINI_API_KEY ? "key set" : "no key (기본값으로 동작)",
     geminiModel: process.env.GEMINI_MODEL ?? "(기본값)",
+    // 신청 도우미 챗봇 모델 (키가 없으면 AI 버튼은 기본 문장, 응답 aiStatus = no_key)
+    helperModel: HELPER_MODEL,
   });
 }

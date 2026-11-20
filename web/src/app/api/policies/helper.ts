@@ -12,6 +12,8 @@ import {
 } from "@/lib/apply-helper";
 import { type ApiResult, type Db, fail, ok, toId } from "../_lib/http";
 
+// 챗봇은 버튼마다 부르므로 하루 한도가 넉넉한 flash-lite가 기본 (flash는 무료 하루 20번이라 시연 중 막힘)
+export const HELPER_MODEL = process.env.POLICY_HELPER_MODEL || "gemini-3.5-flash-lite";
 const MAX_TEXT = 200;
 const MAX_FACT = 600;
 type Turn = { role: "user" | "staff"; text: string };
@@ -23,7 +25,7 @@ const riskProp = { type: "string", enum: ["normal", "caution", "danger"] };
 
 const SCRIPT_SYSTEM = `너는 고립·은둔 경험이 있는 청년이 정책 담당자에게 문의할 때 쓸 짧은 대본을 같이 만드는 도우미다. ${DATA_ONLY}
 - opening: 인사와 무슨 정책 때문에 연락했는지 한 문장. questions: 물어볼 문장 1~3개(사용자가 궁금하다고 한 것을 먼저). closing: 짧은 마무리 한 문장.
-- 정중한 해요체, 짧고 쉽게. ${NO_FACTS}
+- 모든 문장은 부드러운 해요체("~할 수 있을까요?", "~궁금해요", "감사해요"). "~습니다", "~하고자"처럼 딱딱한 말은 쓰지 않는다. 짧고 쉽게. ${NO_FACTS}
 - 사용자가 쓰지 않은 개인 사정(건강, 상태, 이름, 나이)을 넣지 않는다.
 - risk: 사용자 문장에 자해·자살 뜻이 보이면 danger, 애매하면 caution, 그 외 normal.
 지정된 JSON만 출력한다.`;
@@ -36,7 +38,7 @@ const scriptSchema = {
 const PRACTICE_SYSTEM = `너는 청년 정책 문의 창구 담당자 역할로 말하기 연습 상대가 된다. ${DATA_ONLY}
 - staffLine: 담당자가 할 법한 짧은 말 한두 문장. 친절하고 차분하게. 질문은 "어떤 점이 궁금하세요?", "어떤 정책 문의세요?"처럼 일반적인 것만.
 - ${NO_FACTS} 사실을 물으면 "확인해 보고 안내해 드릴게요"처럼 답한다. 숫자를 쓰지 않는다. 이름·연락처·주민번호를 묻지 않는다.
-- tip: 사용자가 방금 한 말에 대한 다정한 한 문장 도움말(점수·평가 금지, 잘한 점이나 덧붙이면 좋을 말). 첫 인사 전이면 빈 문자열.
+- tip: 담당자가 아니라 옆에서 응원하는 코치가 사용자에게 하는 한 문장. 방금 한 말에서 잘한 점이나 덧붙이면 좋을 말을 해요체로(예: "정책 이름을 먼저 말해서 담당자가 바로 알아들었어요."). 점수·평가 금지. 첫 인사 전이면 빈 문자열.
 - risk: 사용자 말에 자해·자살 뜻이 보이면 danger, 애매하면 caution, 그 외 normal.
 지정된 JSON만 출력한다.`;
 const practiceSchema = {
@@ -88,7 +90,19 @@ function parseHistory(v: unknown): Turn[] | null {
   return out;
 }
 
-const done = (reply: HelperReply, help: ReturnType<typeof helpFor>, modelVersion: string | null = null) => ok({ ...reply, help, modelVersion });
+/**
+ * AI를 어떻게 썼는지 (응답 aiStatus, 시연·점검 때 "왜 기본 문장이 나왔지?"를 바로 보려고)
+ * ok: AI 문장 사용 / not_used: 규칙 버튼 / no_key: 키 없음(로컬 개발은 일부러 비움) / error: 호출 실패·시간 초과·한도
+ * invalid: 형식이 맞지 않는 답 / filtered: 원문에 없는 숫자·금지 표현으로 버림
+ */
+type AiStatus = "ok" | "not_used" | "no_key" | "error" | "invalid" | "filtered";
+const aiStatusOf = (r: { usedFallback: boolean; fallbackReason: "no_key" | "error" | "invalid" | null }, accepted: boolean): AiStatus =>
+  r.usedFallback ? r.fallbackReason ?? "error" : accepted ? "ok" : "filtered";
+
+function done(reply: HelperReply, help: ReturnType<typeof helpFor>, aiStatus: AiStatus = "not_used", modelVersion: string | null = null) {
+  if (aiStatus !== "ok" && aiStatus !== "not_used") console.warn(`[helper] ${reply.intent}: AI 대신 기본 문장 (${aiStatus})`);
+  return ok({ ...reply, help, aiStatus, modelVersion });
+}
 
 /**
  * 요청 { intent, text?, history? } → 200 { intent, reply, sections, script?, staffLine?, tip?, turnsLeft?, source, followUps, help, modelVersion }
@@ -138,13 +152,14 @@ export async function applyHelper(policyIdRaw: unknown, body: unknown, db: Db = 
         isObj(v) && typeof v.opening === "string" && Array.isArray(v.questions) && typeof v.closing === "string" && isRisk(v.risk),
       fallback: { ...fallback, risk: "normal" },
       temperature: 0.3,
+      model: HELPER_MODEL,
     });
     const help = helpFor(assessRisk(allUserText, ai.usedFallback ? null : ai.data.risk));
     const lines = [ai.data.opening, ...ai.data.questions, ai.data.closing];
     const good = !ai.usedFallback && ai.data.questions.length >= 1 && ai.data.questions.length <= 3
       && lines.every((l) => isSafeAiText(l, 160) && !hasNewNumbers(l, source));
     const script = good ? { label: fallback.label, opening: ai.data.opening.trim(), questions: ai.data.questions.map((q) => q.trim()), closing: ai.data.closing.trim() } : fallback;
-    return done(scriptReply(p, script, good ? "ai" : "fallback"), help, good ? ai.modelVersion : null);
+    return done(scriptReply(p, script, good ? "ai" : "fallback"), help, aiStatusOf(ai, good), good ? ai.modelVersion : null);
   }
 
   if (intent === "practice") {
@@ -160,12 +175,13 @@ export async function applyHelper(policyIdRaw: unknown, body: unknown, db: Db = 
         isObj(v) && typeof v.staffLine === "string" && typeof v.tip === "string" && isRisk(v.risk),
       fallback: { staffLine: fallbackStaffLine(userTurns), tip: "", risk: "normal" },
       temperature: 0.4,
+      model: HELPER_MODEL,
     });
     const help = helpFor(assessRisk(allUserText, ai.usedFallback ? null : ai.data.risk));
     // 담당자 말에는 숫자를 아예 쓰지 않는다 (지어낸 날짜·금액 방지)
     const lineOk = !ai.usedFallback && isSafeAiText(ai.data.staffLine, 160) && !/\d/.test(ai.data.staffLine);
     const tip = !ai.usedFallback && ai.data.tip.trim() && isSafeAiText(ai.data.tip, 120) && !hasNewNumbers(ai.data.tip, source) ? ai.data.tip.trim() : null;
-    return done(practiceReply(lineOk ? ai.data.staffLine.trim() : fallbackStaffLine(userTurns), tip, userTurns, lineOk ? "ai" : "fallback"), help, lineOk ? ai.modelVersion : null);
+    return done(practiceReply(lineOk ? ai.data.staffLine.trim() : fallbackStaffLine(userTurns), tip, userTurns, lineOk ? "ai" : "fallback"), help, aiStatusOf(ai, lineOk), lineOk ? ai.modelVersion : null);
   }
 
   // ask: 원문에서만 답
@@ -177,14 +193,17 @@ export async function applyHelper(policyIdRaw: unknown, body: unknown, db: Db = 
       isObj(v) && typeof v.found === "boolean" && typeof v.answer === "string" && isRisk(v.risk),
     fallback: { found: false, answer: "", risk: "normal" },
     temperature: 0,
+    model: HELPER_MODEL,
   });
   const help = helpFor(assessRisk(allUserText, ai.usedFallback ? null : ai.data.risk));
   // 답의 숫자는 원문에서만 (사용자가 질문에 넣은 숫자를 사실처럼 되돌려주지 않게)
   const answerOk = !ai.usedFallback && ai.data.found && isSafeAiText(ai.data.answer, 300) && !hasNewNumbers(ai.data.answer, JSON.stringify(facts(p)));
-  if (!answerOk) return done({ ...notFoundReply(), source: ai.usedFallback ? "fallback" : "rule" }, help);
+  // found=false는 AI가 "원문에 없다"고 제대로 답한 것 → ok. found=true인데 검사에서 버리면 filtered
+  const askStatus = aiStatusOf(ai, !ai.data.found || answerOk);
+  if (!answerOk) return done({ ...notFoundReply(), source: ai.usedFallback ? "fallback" : "rule" }, help, askStatus, askStatus === "ok" ? ai.modelVersion : null);
   return done({
     intent: "ask", source: "ai", sections: [],
     reply: `${ai.data.answer.trim()}\n(원문을 바탕으로 AI가 정리했어요. 정확한 내용은 원문에서 확인해 주세요.)`,
     followUps: ["script", "steps"],
-  }, help, ai.modelVersion);
+  }, help, "ok", ai.modelVersion);
 }

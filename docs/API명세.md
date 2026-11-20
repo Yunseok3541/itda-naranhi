@@ -602,10 +602,12 @@ const { cheer, help } = await processReflection({
   "staffLine": "네, 어떤 점이 궁금하세요?", "tip": "인사를 먼저 해서 좋았어요.", "turnsLeft": 5,   // practice만
   "source": "ai",                              // rule: 원문·정해 둔 문장 / ai: 검사 통과한 AI 문장 / fallback: AI 대신 기본 문장
   "followUps": [],                             // 다음에 보여 줄 버튼
-  "help": null, "modelVersion": "gemini-3.5-flash-lite" }
+  "help": null, "modelVersion": "gemini-3.5-flash-lite",
+  "aiStatus": "ok" }                          // ok | not_used(규칙 버튼) | no_key(키 없음, 로컬 개발 서버) | error(호출 실패·한도) | invalid(형식 틀림) | filtered(원문에 없는 숫자·금지 표현으로 버림)
 // 400 이유·ID·글자 수·기록 형식 / 404 없는·분류 전 정책 / 401 세션 없음 / 500 LOAD_FAILED — 모두 위기 표현이면 help 포함
 ```
 
+- 모델: `POLICY_HELPER_MODEL` (기본 `gemini-3.5-flash-lite`, `/api/health`의 `helperModel`). 로컬 `npm run dev`는 키를 비워 둬서 항상 `no_key` → 실제 AI 확인은 `scripts/verify-apply-helper-live.mts`
 - AI 호출: steps·docs·start와 연습 첫 인사는 0번, script·ask·연습 말 1번당 1번. 연습은 사용자 말 6번까지
 - AI 문장에 원문에 없던 숫자 → 버리고 기본 문장 (ask는 원문 숫자만, 연습 담당자 말은 숫자 금지). 위기 표현이면 AI 없이 안내만
 
