@@ -1,0 +1,33 @@
+* { box-sizing: border-box }
+:root { color-scheme: dark; font-family: 'Malgun Gothic','Apple SD Gothic Neo',sans-serif; background:#161425; color:#fcf5f7 }
+body { margin:0; min-height:100vh; background:radial-gradient(ellipse at 40% 10%,#30253b 0,transparent 55%),#161425 }
+main { width:min(1080px,93%); margin:auto; padding:26px 0 6vh }
+header { display:flex; justify-content:space-between; align-items:center; padding:0 2px 18px; border-bottom:1px solid #ffffff25; font-size:.88rem; color:#d6cada }
+header a { font-weight:bold; color:#ffe6bb; text-decoration:none; font-size:1.12rem }
+h1 { margin:clamp(24px,5vh,58px) 0 22px; font-size:clamp(1.7rem,3.8vw,3rem); letter-spacing:-.075em }
+.studio { display:grid; grid-template-columns:1.6fr 1fr; border:1px solid #ffffff27; border-radius:28px; overflow:hidden; box-shadow:0 25px 65px #0d091e55 }
+.sky { --glow:#675073; isolation:isolate; position:relative; min-width:0; min-height:480px; background:radial-gradient(ellipse at 55% 53%,var(--glow),transparent 71%),linear-gradient(145deg,#29213e,#242038 70%,#37304c); overflow:hidden }
+.stars { position:absolute; inset:0; pointer-events:none }
+.stars i { position:absolute; border-radius:50%; background:#fff1d9; box-shadow:0 0 5px #ead5ff }
+.constellation { position:absolute; z-index:1; top:21px; left:24px; color:#ecdfec; font-size:.86rem; letter-spacing:.04em }
+canvas { display:block; width:100%; height:100%; position:absolute; inset:0; touch-action:none; cursor:grab }
+canvas:active { cursor:grabbing }
+.orbit { position:absolute; bottom:15px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:5px; border-radius:30px; background:#161222b8; border:1px solid #ffffff36; white-space:nowrap; font-size:.8rem; color:#ece3ee }
+button,a { -webkit-tap-highlight-color:transparent }
+button { cursor:pointer; font:inherit; color:inherit }
+.orbit button { background:none; border:0; width:44px; height:44px; font-size:1.35rem }
+.info { padding:clamp(22px,3.5vw,46px); background:#292336; display:flex; flex-direction:column; align-items:flex-start }
+nav { display:flex; gap:4px; width:100%; padding:4px; background:#201b2c; border-radius:30px }
+nav button { border:0; padding:8px; min-height:44px; flex:1; border-radius:24px; background:none; color:#cdbfd4; font-size:.93rem }
+nav button[aria-pressed=true] { color:#271f32; background:#ecdfef; font-weight:bold }
+.story { margin:auto 0; padding:30px 0 }
+#theme { font-size:.86rem; color:#e8cdb0; margin:0 0 7px }
+h2 { font-size:clamp(2.4rem,5vw,4.25rem); letter-spacing:-.065em; margin:0; line-height:1.2 }
+#description { color:#dfd4e0; line-height:1.8; font-size:1rem; word-break:keep-all; margin:14px 0 0 }
+.actions { display:flex; gap:18px; align-items:center; flex-wrap:wrap }
+.actions button { background:#f4d6ac; color:#34263a; border:0; border-radius:14px; padding:12px 18px; font-weight:bold; min-height:44px }
+.actions button:disabled { opacity:.5 }
+.actions a { color:#e3d8e7; font-size:.85rem; padding:12px 0; text-underline-offset:4px }
+#status { position:absolute; top:44%; text-align:center; width:100%; pointer-events:none; color:#fff2df }
+:focus-visible { outline:3px solid #efc987; outline-offset:-3px }
+@media(max-width:720px) { main { width:min(94%,540px); padding-top:17px } .studio { grid-template-columns:1fr; border-radius:22px } .sky { min-height:0; height:clamp(290px,45svh,440px) } .story { padding:18px 0 } .info { padding:18px 20px 24px } h1 { margin:20px 0 14px } }

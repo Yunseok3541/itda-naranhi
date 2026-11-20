@@ -12,7 +12,6 @@ body:has(.panorama-shell:not(.panorama-background)) { background: #0d0820; }
 .panorama-content .night { pointer-events: none; }
 .panorama-content .night .stage,
 .panorama-content .night .night-toolbar,
-.panorama-content .night .pager,
 .panorama-content .night .sheet,
 .panorama-content .night .night-list,
 .panorama-content .night .recent-pill { pointer-events: auto; }
@@ -64,17 +63,11 @@ body:has(.panorama-shell:not(.panorama-background)) { background: #0d0820; }
   @keyframes person-spark { 50% { opacity: .35; transform: scale(.7); } }
 }
 
-/* Main scene artwork sits behind the interactive celestial projection. */
-html.sky-locked-page .panorama-background .panorama-surface {
+.panorama-dome .panorama-surface {
   background: #100b22;
 }
-html.sky-locked-page .panorama-background .panorama-surface::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(180deg, #110b1bed 0%, #160e28d9 20%, #21133b15 53%, #120e3080 78%, #100c28b8 100%),
-    url('/sky-preview/panorama.webp') center 43% / auto 148% no-repeat;
-  transform: scaleX(-1);
+.panorama-dome .panorama-canvas { height: 100%; }
+.panorama-dome .panorama-person {
+  opacity: var(--sky-foreground, 0);
 }
-html.sky-locked-page .panorama-background :is(.panorama-hills, .panorama-grass) { display: none; }
+.panorama-dome .panorama-person > .sky-person { animation: none; }
