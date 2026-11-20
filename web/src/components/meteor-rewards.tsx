@@ -1,17 +1,28 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { client, type Mode } from '@/lib/mobile-data';
+import { FOV_MAX, FOV_MIN } from '@/lib/sky-view';
 
 const visibleTime = 5200;
 const day = 24 * 60 * 60 * 1000;
 const koreaOffset = 9 * 60 * 60 * 1000;
+/** 가장 크게 확대했을 때 별똥별 배율 (가장 넓게 볼 때 1) */
+const METEOR_MAX_SCALE = 2.4;
 
-export default function MeteorRewards({ mode, skyTotal }: { mode: Mode; skyTotal?: number }) {
+/** 하늘 확대 정도(fov)에 따른 별똥별 배율. 하늘 그림처럼 그대로 키우면 끝까지 확대할 때 18배가 돼서
+ *  확대 단계(로그)에 비례해 1 ~ METEOR_MAX_SCALE 로 키움. 넓게 볼 때 1이라 누르는 영역(44px)은 줄지 않음 */
+export function meteorScale(fov: number) {
+  const zoom = Math.log(FOV_MAX / Math.min(FOV_MAX, Math.max(FOV_MIN, fov))) / Math.log(FOV_MAX / FOV_MIN);
+  return 1 + (METEOR_MAX_SCALE - 1) * zoom;
+}
+
+export default function MeteorRewards({ mode, skyTotal, fov = FOV_MAX }: { mode: Mode; skyTotal?: number; /** 지금 하늘 시야각. 확대할수록 별똥별이 커짐 */ fov?: number }) {
   const [total, setTotal] = useState<number>();
   const [meteor, setMeteor] = useState<number | null>(null);
   const [limitReached, setLimitReached] = useState(false);
-  const [reward, setReward] = useState<number | null>(null);
+  // +1 포인트는 유성을 잡은 자리(화면 좌표)에서 떠오름 (FE_QA)
+  const [reward, setReward] = useState<{ id: number; x: number; y: number } | null>(null);
   const pending = useRef(false);
   const announced = useRef<number | null>(null);
   const awardTimer = useRef<number>(0);
@@ -74,7 +85,7 @@ export default function MeteorRewards({ mode, skyTotal }: { mode: Mode; skyTotal
     };
   }, [mode]);
 
-  async function catchMeteor(id: number) {
+  async function catchMeteor(id: number, x: number, y: number) {
     if (pending.current || limitReached || announced.current === id) return;
     pending.current = true;
     try {
@@ -84,7 +95,7 @@ export default function MeteorRewards({ mode, skyTotal }: { mode: Mode; skyTotal
       setTotal(value => Math.max(value ?? 0, result.totalPoints));
       setLimitReached(result.meteor.caughtToday >= result.meteor.dailyLimit);
       if (result.pointsEarned === 1) {
-        setReward(id);
+        setReward({ id, x, y });
         window.clearTimeout(awardTimer.current);
         awardTimer.current = window.setTimeout(() => setReward(null), 1600);
       }
@@ -96,7 +107,13 @@ export default function MeteorRewards({ mode, skyTotal }: { mode: Mode; skyTotal
   return <>
     {(skyTotal !== undefined || total !== undefined) && <div className="sky-points" aria-label={`총 ${value} 포인트`}><span aria-hidden="true">✦</span> {value} 포인트</div>}
     {meteor !== null && <button key={meteor} type="button" className="sky-pill sky-meteor" aria-label="유성 담기"
-      disabled={limitReached} onClick={() => void catchMeteor(meteor)}><span aria-hidden="true">✦</span></button>}
-    {reward !== null && <div key={reward} className="sky-meteor-reward" role="status">+1 포인트</div>}
+      style={{ '--meteor-scale': meteorScale(fov).toFixed(3) } as CSSProperties}
+      disabled={limitReached} onClick={event => {
+        // 유성은 움직이는 중이라 누른 순간의 자리를 기억 (키보드로 누르면 단추 가운데)
+        const box = event.currentTarget.getBoundingClientRect();
+        const pointer = event.clientX || event.clientY;
+        void catchMeteor(meteor, pointer ? event.clientX : box.left + box.width / 2, pointer ? event.clientY : box.top + box.height / 2);
+      }}><span aria-hidden="true">✦</span></button>}
+    {reward !== null && <div key={reward.id} className="sky-meteor-reward" role="status" style={{ left: reward.x, top: reward.y }}>+1 포인트</div>}
   </>;
 }

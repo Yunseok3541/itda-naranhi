@@ -69,5 +69,5 @@ body:has(.panorama-shell:not(.panorama-background)) { background: #0d0820; }
 .panorama-dome .panorama-canvas { height: 100%; }
 .panorama-dome .panorama-person {
   opacity: var(--sky-foreground, 0);
-  transform: translate(-50%, calc((1 - var(--sky-foreground, 0)) * 48px));
 }
+.panorama-dome .panorama-person > .sky-person { animation: none; }

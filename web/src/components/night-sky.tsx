@@ -73,9 +73,10 @@ function measure(text: string, maxLine: number) {
 function placeLabel({ x, y, text }: { x: number; y: number; text: string }, stars: { x: number; y: number }[], width: number, height: number, band?: { top: number; bottom: number }, minimap?: Box) {
   const STAR = 16, GAP = 20, PAD = 22, LINE = 16.2;
   const starBoxes = stars.map(i => ({ x: i.x - STAR, y: i.y - STAR, w: STAR * 2, h: STAR * 2 }));
-  const narrow = measure(text, 110);
-  const measured = narrow.lines > 2 ? measure(text, 118) : narrow;
-  const w = Math.min(140, Math.ceil(measured.width) + PAD), h = Math.min(2, measured.lines) * LINE + 12;
+  const maxWidth = Math.min(180, width - 16);
+  const measured = measure(text, maxWidth - PAD - 4);
+  const w = Math.min(maxWidth, Math.ceil(measured.width) + PAD + 4);
+  const h = measured.lines * LINE + 12;
   const centered = Math.max(4, Math.min(width - w - 4, x - w / 2));
   const candidates: Box[] = [
     { x: centered, y: y + GAP, w, h },
@@ -113,7 +114,7 @@ function freeBand() {
   return frame && top !== undefined ? { top: top + 12 - frame.top, bottom: frame.height * 0.76 } : undefined;
 }
 
-export default function NightSky({ stars, selected, onSelect, busy, onReload, footer, nextLink, completedId, mode, totalPoints, showGuide, onDismissGuide, onOpenQuest }: {
+export default function NightSky({ stars, selected, onSelect, busy, onReload, footer, nextLink, completedId, mode, totalPoints, onOpenQuest }: {
   stars: Star[];
   selected: Star | null;
   onSelect: (star: Star | null) => void;
@@ -125,8 +126,6 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   completedId?: number;
   mode: Mode;
   totalPoints?: number;
-  showGuide: boolean;
-  onDismissGuide: () => void;
   onOpenQuest: () => void;
 }) {
   const starLight = useId();
@@ -168,13 +167,13 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     setFocus({ index, direction: unit(view.lon / RAD, view.lat / RAD), fov: view.fov });
     setNamedStar(starId);
   }, []);
-  useSkyTour(centers, skies, freeBand, finishFocus);
+  useSkyTour();
   const recent = useMemo(() => latestGroupIndex(groups), [groups]);
   const [burst, setBurst] = useState<{ key: number; x: number; y: number } | null>(null);
   // 캐릭터 말풍선: 누르면 열리고 다시 누르면 닫힘 (null = 닫힘, 문자열 = 오늘의 질문)
   const [talk, setTalk] = useState<string | null>(null);
   const toggleTalk = () => setTalk(t => (t ? null : QUESTIONS[Math.floor(Date.now() / 86_400_000) % QUESTIONS.length]));
-  const sheet = useRef<HTMLElement>(null);
+  const sheet = useRef<HTMLDialogElement>(null);
   const list = useRef<HTMLDetailsElement>(null);
   const burstCount = useRef(0);
   const closeList = () => { if (list.current) list.current.open = false; };
@@ -191,6 +190,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
 
   const safeIndex = Math.min(index, Math.max(groups.length - 1, 0));
   const current = groups[safeIndex];
+  const tracked = groups.map((group, i) => i === safeIndex || group.stars.some(star => star.status !== 'untried'));
   const complete = !!current && completed.has(current.id);
   const foreground = frame ? foregroundVisibility(view, frame.width, frame.height) : 0;
 
@@ -210,7 +210,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     initialized.current = true;
     const center = toLonLat(centers[safeIndex]);
     const initial = openFocused.current ? fitView(sky.points, frame.width, frame.height, freeBand())
-      : { lon: center.lon, lat: Math.min(46 * RAD, center.lat), fov: FOV_MAX };
+      : { lon: center.lon, lat: Math.min(22 * RAD, center.lat), fov: FOV_MAX };
     skyView.flyTo({ ...initial, lat: Math.max(0, initial.lat) }, 0,
       { onArrival: openFocused.current ? () => finishFocus(safeIndex) : undefined });
   }, [centers, finishFocus, frame, safeIndex, skies]);
@@ -232,13 +232,9 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     return () => { window.clearTimeout(timeout); window.removeEventListener('keydown', dismiss); };
   }, [namedStar]);
 
-  useEffect(() => { if (selected) sheet.current?.focus(); }, [selected]);
   useEffect(() => {
-    if (!selected) return;
-    const close = (e: KeyboardEvent) => { if (e.key === 'Escape') onSelect(null); };
-    window.addEventListener('keydown', close);
-    return () => window.removeEventListener('keydown', close);
-  }, [selected, onSelect]);
+    if (selected && sheet.current && !sheet.current.open) sheet.current.showModal();
+  }, [selected]);
 
   /** 별자리를 눌렀을 때: 지금 별자리로 정하고 그곳으로 이동하며 확대 */
   function jump(i: number, starId: number | null = null) {
@@ -322,15 +318,15 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     const starIndex = groups[groupIndex]?.stars.findIndex(star => star.starId === namedStar);
     const star = starIndex === undefined ? undefined : groups[groupIndex].stars[starIndex];
     const point = starIndex === undefined ? null : positions[groupIndex]?.[starIndex];
-    if (!star || !point) return null;
+    if (!star || !point || !detailed || groupIndex !== safeIndex) return null;
     const map = document.querySelector('.sky-minimap')?.getBoundingClientRect();
     const exclusion = map ? { x: map.left - frame.left - 4, y: map.top - frame.top - 4, w: map.width + 8, h: map.height + 8 } : undefined;
     return placeLabel({ ...point, text: star.title }, positions[groupIndex].filter(item => item !== null),
       frame.width, frame.height, freeBand(), exclusion);
-  }, [groups, namedStar, positions, frame]);
+  }, [detailed, groups, namedStar, positions, frame, safeIndex]);
 
   return <section className="night" aria-label="내 밤하늘">
-    <MeteorRewards key={mode} mode={mode} skyTotal={totalPoints} />
+    <MeteorRewards key={mode} mode={mode} skyTotal={totalPoints} fov={view.fov} />
 
     {frame && <div className="sky-anchors" style={{ left: frame.left, top: frame.top, width: frame.width, height: frame.height }}>
       <div className="sky-companion-layer">
@@ -355,7 +351,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
         </defs>
         {groups.map((g, gi) => skies[gi].edges.map(([a, b], edgeIndex) => {
           const p = projected[gi]?.[a], q = projected[gi]?.[b];
-          if (!p || !q) return null;
+          if (!p || !q || !tracked[gi] || (gi !== safeIndex && !detailed)) return null;
           const lit = g.stars[a]?.status === 'bright' && g.stars[b]?.status === 'bright';
           const near = gi === safeIndex && detailed;
           const celebrating = g.id === completedId && lit;
@@ -371,7 +367,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
       </svg>
       {groups.map((g, gi) => g.stars.map((s, i) => {
         const p = positions[gi]?.[i];
-        if (!p) return null;
+        if (!p || !tracked[gi]) return null;
         const isCurrent = gi === safeIndex;
         const emphasis = isCurrent && detailed ? ' current' : isCurrent ? ' current far' : ' other';
         return <button key={s.starId} type="button"
@@ -398,17 +394,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
 
     {current ? <>
       <div className="night-title">
-        <div className="night-heading-row">
-          {groups.length > 1 && <button type="button" className="pager-arrow" aria-label="이전 별자리"
-            onClick={() => jump((safeIndex - 1 + groups.length) % groups.length)}>
-            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7" /></svg>
-          </button>}
-          <h1 className={complete ? 'complete' : undefined}>{current.name}</h1>
-          {groups.length > 1 && <button type="button" className="pager-arrow" aria-label="다음 별자리"
-            onClick={() => jump((safeIndex + 1) % groups.length)}>
-            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
-          </button>}
-        </div>
+        <h1 className={complete && detailed ? 'complete' : undefined}>{detailed ? current.name : '내 밤하늘'}</h1>
         <p>{complete ? '별자리를 모두 이었어요' : current.theme}</p>
       </div>
       {labelSpot && <p className="night-hint">별을 한 번 더 누르면 그날의 기억이 열려요</p>}
@@ -426,7 +412,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
           <div className="night-list-body" role="dialog" aria-label="모든 별 목록">
             <div className="sheet-grip" aria-hidden="true" />
             {groups.map((g, gi) => <div key={g.id}>
-              <h3>{g.name}</h3>
+              <h3><button type="button" className="ghost" onClick={() => { closeList(); jump(gi); }}>{g.name} 보기</button></h3>
               {g.stars.map(s => <button key={s.starId} type="button" className="night-row" onClick={() => { jump(gi); onSelect(s); closeList(); }}>
                 <span className={`dot ${s.status}`} aria-hidden="true" />
                 <span>{s.title}<small>{labels[s.status]}</small></span>
@@ -444,40 +430,35 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     </div>
 
     {/* 캐릭터(배경 인물) 위에 겹친 투명 단추 → 말풍선. 화면을 막지 않게 작게, 다시 누르면 닫힘 */}
-    {showGuide && !selected && <section className="sky-guide" aria-labelledby="sky-guide-title">
-      <h2 id="sky-guide-title">오늘 해볼 작은 일을 골라볼까요?</h2>
-      <p>한 줄 체크인 뒤에 오늘의 별을 고를 수 있어요.</p>
-      <button type="button" className="primary sky-guide-primary" aria-haspopup="dialog" onClick={onOpenQuest}>
-        <SkyControlIcon name="star" /> 오늘의 별 고르기
-      </button>
-      <button type="button" className="text-button sky-icon-action" onClick={onDismissGuide}><SkyControlIcon name="moon" /> 그냥 하늘 보기</button>
-    </section>}
-    {!showGuide && foreground > 0.35 && <button type="button" className="char-hotspot" style={{ translate: `0 ${(1 - foreground) * 48}px` }}
+    {foreground > 0.65 && <button type="button" className="char-hotspot"
       aria-label={talk ? '말풍선 닫기' : '캐릭터에게 말 걸기'} aria-expanded={!!talk} onClick={toggleTalk}>
       <span className="sky-character-prompt"><SkyControlIcon name={talk ? 'close' : 'talk'} /></span>
     </button>}
-    {!showGuide && foreground > 0.35 && talk && <div className="char-bubble" role="status">
+    {foreground > 0.65 && talk && <div className="char-bubble" role="status">
       <p className="char-question">{talk}</p>
       <p className="char-sub">한 줄로 들려주면 오늘의 별을 찾아 줄게요</p>
-      <button type="button" className="text-button char-link sky-icon-action" aria-haspopup="dialog" onClick={onOpenQuest}><SkyControlIcon name="star" /> 오늘의 별</button>
+      <button type="button" className="text-button char-link sky-icon-action" aria-haspopup="dialog" onClick={() => { setTalk(null); onOpenQuest(); }}><SkyControlIcon name="star" /> 오늘의 별</button>
     </div>}
 
     {completedGroup && <ConstellationCelebration constellationId={completedGroup.id} name={completedGroup.name} />}
 
-    {selected && <section ref={sheet} tabIndex={-1} className="sheet" aria-label="별의 기억">
-      <div className="sheet-grip" aria-hidden="true" />
-      <p className={`sheet-status ${selected.status}`}>{labels[selected.status]}</p>
-      <h2>{selected.title}</h2>
-      {selected.description && <p className="sheet-desc">{selected.description}</p>}
-      {selected.memories.length
-        ? <ul className="memories">{selected.memories.map(m => <li key={m.attemptId}><time dateTime={m.date}>{memoryDate(m.date)}</time><p>{m.reflection || '말없이 남긴 작은 시도'}</p></li>)}</ul>
-        : <p className="sheet-empty">아직 이 별과의 기억이 없어요.</p>}
-      <div className="sheet-actions">
-        <Link className="primary sky-icon-action" href={`/stars/${selected.starId}`}>
-          <SkyControlIcon name={selected.status === 'untried' ? 'star' : 'memory'} /> {selected.status === 'untried' ? '이 별 만나러 가기' : '이 별 다시 기록하기'}
-        </Link>
-        <button type="button" className="ghost sky-icon-action" onClick={() => onSelect(null)}><SkyControlIcon name="close" /> 닫기</button>
+    {selected && <dialog ref={sheet} className="sheet" aria-label={selected.title}
+      onClose={event => { if (!event.currentTarget.open) onSelect(null); }}
+      onClick={event => { if (event.target === event.currentTarget) event.currentTarget.close(); }}>
+      <div className="star-sheet-content">
+        <button type="button" className="text-button star-sheet-close" aria-label="별 상세 닫기" onClick={() => sheet.current?.close()}><SkyControlIcon name="close" /></button>
+        <p className={`sheet-status ${selected.status}`}>{labels[selected.status]}</p>
+        <h2>{selected.title}</h2>
+        {selected.description && <p className="sheet-desc">{selected.description}</p>}
+        {selected.memories.length
+          ? <ul className="memories">{selected.memories.map(m => <li key={m.attemptId}><time dateTime={m.date}>{memoryDate(m.date)}</time><p>{m.reflection || '말없이 남긴 작은 시도'}</p></li>)}</ul>
+          : null}
+        <div className="sheet-actions">
+          <Link className="primary sky-icon-action" href={`/stars/${selected.starId}`}>
+            <SkyControlIcon name={selected.status === 'untried' ? 'star' : 'memory'} /> {selected.status === 'untried' ? '퀘스트 시작' : '이 별 다시 기록하기'}
+          </Link>
+        </div>
       </div>
-    </section>}
+    </dialog>}
   </section>;
 }

@@ -200,6 +200,20 @@ try {
   const r2 = (await recommendPolicies(userId, client, gen2)).body as Body;
   check("재사용 시 맞지 않게 된 정책은 빼고 AI 호출 0", r2.reused === true && gen2.calls === 0 && !(r2.items as Body[]).some((i) => i.policyId === id.money), r2.items);
 
+  // 추천 기준을 실제로 바꾸면 오늘 저장된 추천을 지우고 새 기준으로 다시 만듦 (FE_QA, 고민기록 #51)
+  const savedRows = async () => Number((await client.query<{ n: string }>(
+    "SELECT count(*) AS n FROM policy_recommendations WHERE user_id = $1 AND rec_date = $2::date", [userId, today])).rows[0].n);
+  const before = await savedRows();
+  await saveProfile(userId, { policyInfo: { job: "unemployed", income: "under_2000", special: [] } }, client);
+  const afterChange = await savedRows();
+  const gen3 = fakeGen({ items: [{ policyId: id.income, reason: "소득 조건이 맞아요." }] });
+  const r3 = (await recommendPolicies(userId, client, gen3)).body as Body;
+  check("기준(소득)을 바꾸면 오늘 추천을 지우고 다음 조회 때 새로 만듦", before === 1 && afterChange === 0 && r3.reused !== true && gen3.calls === 1, { before, afterChange, reused: r3.reused, calls: gen3.calls });
+  await saveProfile(userId, { birthYear: year - 26 }, client); // 지금과 같은 출생연도
+  check("같은 값으로 다시 저장하면 오늘 추천은 그대로", (await savedRows()) === 1);
+  await saveProfile(userId, { startAnswers: { range: "home" } }, client);
+  check("시작 질문(단계)을 바꿔도 오늘 추천을 지움", (await savedRows()) === 0);
+
   // 점수: 필요한 것 ⑥ 반영, AI에는 정책 신청 정보를 보내지 않음
   const prompts: string[] = [];
   const spy = (async (o: { prompt: string; fallback: unknown }) => { prompts.push(o.prompt); return { data: { items: [] }, usedFallback: false, modelVersion: "fake", fallbackReason: null }; }) as unknown as Gen;

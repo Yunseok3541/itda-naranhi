@@ -4,7 +4,7 @@ import { useId } from "react";
 // 사용자를 바라보며 한 손을 하늘로 흔듦 (말풍선으로 말을 거는 역할, night-sky.tsx의 char-hotspot)
 // 긴 머리·치마·속눈썹·화장처럼 성별을 떠올리게 하는 요소는 넣지 않는다
 // 예전 그림(public/sky-preview/foreground.webp)은 되돌리기용으로 남겨 둠
-export default function SkyPerson({ sculpted = false }: { sculpted?: boolean }) {
+export default function SkyPerson({ portrait = false, sculpted = false }: { portrait?: boolean; sculpted?: boolean }) {
   const haloId = useId();
   if (sculpted) return (
     <svg className="sky-person" viewBox="0 0 100 172" aria-hidden="true">
@@ -26,7 +26,7 @@ export default function SkyPerson({ sculpted = false }: { sculpted?: boolean }) 
   const hoodie = '#8c7ad6';
   const hoodieShade = '#6f5dbb';
   return (
-    <svg className="sky-person" viewBox="0 0 100 172" aria-hidden="true">
+    <svg className="sky-person" viewBox={portrait ? '0 8 100 100' : '0 0 100 172'} aria-hidden="true">
       {/* 발밑 그림자 */}
       <ellipse cx="50" cy="166" rx="24" ry="4.5" fill="#0b0818" opacity=".45" />
       {/* 다리·운동화 */}

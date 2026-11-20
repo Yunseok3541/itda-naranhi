@@ -95,7 +95,7 @@ export async function request<T>(path: string, method = 'GET', body?: unknown): 
   return data as T;
 }
 export function client(mode: Mode) { return {
-  async start() { if (mode === 'api') { const r = await request<{ ready: boolean }>('demo/session', 'POST', {}); if (!r.ready) throw new Error('데모 세션을 시작하지 못했어요.'); } else write(read()); localStorage.setItem('naranhi-mode', mode); },
+  async start(rememberMode = true) { if (mode === 'api') { const r = await request<{ ready: boolean }>('demo/session', 'POST', {}); if (!r.ready) throw new Error('데모 세션을 시작하지 못했어요.'); } else write(read()); if (rememberMode) localStorage.setItem('naranhi-mode', mode); },
   async sky(): Promise<{ stars: Star[]; totalPoints?: number }> {
     if (mode === 'api') return request('sky');
     const store = read();
@@ -213,3 +213,16 @@ export function client(mode: Mode) { return {
     return { attemptId: id, starId: body.starId, status: body.status, cheer: '오늘 손을 뻗은 순간도 당신의 하늘에 남아요.', help: ruleHelp(body.reflection), pointsEarned, totalPoints };
   }
 }; }
+
+/** 추천 기준(프로필)을 저장하면 정책 화면이 기억해 둔 목록을 버리고 다시 불러오게 하는 표시 (서버도 오늘 추천을 지움) */
+const POLICIES_STALE = 'naranhi-policies-stale';
+export function markPoliciesStale() {
+  try { sessionStorage.setItem(POLICIES_STALE, '1'); } catch { /* 표시를 못 남겨도 새로 들어온 화면은 처음부터 불러옴 */ }
+}
+export function takePoliciesStale() {
+  try {
+    const stale = sessionStorage.getItem(POLICIES_STALE) === '1';
+    if (stale) sessionStorage.removeItem(POLICIES_STALE);
+    return stale;
+  } catch { return false; }
+}

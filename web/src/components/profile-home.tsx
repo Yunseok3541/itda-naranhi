@@ -25,7 +25,7 @@ const shortDate = (value: string) => {
 };
 
 export default function ProfileHome({ mode }: { mode: Mode }) {
-  // 주소가 /profile#settings면 설정부터 (정책 화면의 "추천 기준 바꾸기"에서 옴). 이 화면은 브라우저에서만 그려짐
+  // 주소가 #settings로 끝나면 설정부터 열기. 이 화면은 브라우저에서만 그려짐
   const [settings, setSettings] = useState(() => typeof window !== 'undefined' && window.location.hash === '#settings');
   const [stars, setStars] = useState<Star[] | null>(null);
   const [facts, setFacts] = useState<MilestoneFacts>(NO_FACTS);

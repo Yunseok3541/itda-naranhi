@@ -4,13 +4,14 @@
 // - 대표 영역: 핵심 메시지 + 기준 지역 칩 / 요약 3칸: 추천 수 · 온라인 신청 · 마감 있음
 // - 정책 카드: 방식·마감 칩, 요약, 추천 이유, 신청 조건은 접어 둠
 // - 상단 보기 전환: [맞춤 추천] / [모든 정책] (개수는 API의 counts, 고민기록 #41). 한 번 불러온 보기는 기억해 두고 다시 부르지 않음
-// - 부가 기능(추천 기준 바꾸기, 청년센터)은 맨 아래 "더보기"
+// - [모든 정책]: 검색·지역·신청 방식 필터, 24개씩 더 보기. 머리줄과 보기 전환은 스크롤해도 위에 붙어 있음
+// - 부가 기능(추천 기준 바꾸기 → /policies/criteria, 저장하면 정책으로 돌아옴 · 청년센터)은 맨 아래 "더보기"
 // - 원문 근거 칩: 원문 문장에서 찾은 항목만 "있음", 못 찾으면 "확인 필요" (AI 점수는 보여 주지 않음, 고민기록 #37)
 // - [신청 도와줘]: 신청 도우미 창 (apply-helper.tsx, 고민기록 #39)
 // - [나랑 안 맞아요]: 이유를 고르면 그 정책은 다시 추천하지 않음. 지역·조건 이유는 피드백 루프로 (고민기록 #38)
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { request, type Help, type Mode } from '@/lib/mobile-data';
+import { request, takePoliciesStale, type Help, type Mode } from '@/lib/mobile-data';
 import type { HelperPolicy } from '@/lib/apply-helper';
 import ApplyHelper from './apply-helper';
 import { Hero, HeroIcon, MoreLinks, ScreenBar, Summary } from './screen-kit';
@@ -39,6 +40,8 @@ const VIEWS: { value: View; label: string }[] = [
   { value: 'recommended', label: '맞춤 추천' },
   { value: 'all', label: '모든 정책' },
 ];
+const pageSize = 24;
+const emptyFilters = { query: '', scope: '', method: '' };
 
 const example: Result = {
   items: [{ policyId: 1, title: '예시 생활 지원 정책', summary: '정책 화면을 체험하기 위한 가상 정보예요. 실제 모집 중인 정책이 아니에요.',
@@ -56,6 +59,8 @@ const exampleHelperPolicy: HelperPolicy = {
 
 export default function PoliciesScreen({ mode, onError, onClearError }: { mode: Mode; onError: (error: unknown) => void; onClearError: () => void }) {
   const [view, setView] = useState<View>('recommended');
+  const [filters, setFilters] = useState(emptyFilters);
+  const [visibleCount, setVisibleCount] = useState(pageSize);
   // 보기별로 불러온 결과 (모드가 바뀌면 버림). 같은 날 맞춤 추천은 서버에서도 같은 결과라 다시 부르지 않아도 됨
   const [loaded, setLoaded] = useState<{ mode: Mode; byView: Partial<Record<View, Result>> }>({ mode, byView: {} });
   // 가장 최근 API 응답의 counts (아직 열지 않은 보기의 개수를 버튼에 보여 줄 때 씀)
@@ -71,7 +76,10 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
   useEffect(() => {
     let active = true;
     async function load() {
-      const byView = loaded.mode === mode ? loaded.byView : {};
+      // 추천 기준을 바꾸고 돌아왔으면 기억해 둔 두 보기를 모두 버리고 새로 불러옴 (서버도 오늘 추천을 지웠음)
+      const stale = takePoliciesStale();
+      if (stale) { setLoaded({ mode, byView: {} }); setServerCounts({ recommended: null, all: null }); }
+      const byView = !stale && loaded.mode === mode ? loaded.byView : {};
       if (byView[view]) { setLoading(false); setError(''); return; } // 이미 불러온 보기
       setLoading(true); setError(''); onClearError();
       try {
@@ -101,6 +109,28 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
     recommended: byView.recommended ? visible(byView.recommended, 'recommended').length : serverCounts.recommended,
     all: byView.all ? byView.all.items.length : serverCounts.all,
   };
+  const scopes = [...new Set(items.map(policy => policy.scope).filter(Boolean))];
+  const methods = [...new Set(items.map(policy => policy.burdenLabel).filter(Boolean))];
+  const query = filters.query.trim().toLocaleLowerCase();
+  const filtered = all ? items.filter(policy =>
+    (!filters.scope || policy.scope === filters.scope) &&
+    (!filters.method || policy.burdenLabel === filters.method) &&
+    (!query || [policy.title, policy.summary, ...policy.tags].join(' ').toLocaleLowerCase().includes(query))
+  ) : items;
+
+  function updateFilters(next: typeof emptyFilters) {
+    setFilters(next);
+    setVisibleCount(pageSize);
+  }
+
+  // 보기를 바꾸면 필터를 비우고 맨 위로
+  function selectView(next: View) {
+    if (next === view) return;
+    setView(next);
+    updateFilters(emptyFilters);
+    window.scrollTo(0, 0);
+  }
+
   function retryView() {
     setLoaded(prev => {
       const next = { ...prev.byView };
@@ -119,13 +149,16 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
     finally { setCheckinOffBusy(false); }
   }
   return <>
-    <ScreenBar title="정책 추천" />
-    <div className="policy-view-switch" role="group" aria-label="정책 보기">
-      {VIEWS.map(v => <button key={v.value} type="button" className="secondary" aria-pressed={view === v.value}
-        onClick={() => setView(v.value)}>
-        {view === v.value && <span aria-hidden="true">✓ </span>}{v.label}
-        {count[v.value] !== null && <span className="policy-view-count">{count[v.value]}</span>}
-      </button>)}
+    {/* 머리줄 + 보기 전환은 스크롤해도 위에 붙어 있음 (FE_QA: 쭉 내리면 뒤로 가기가 사라짐) */}
+    <div className="policy-screen-header">
+      <ScreenBar title={all ? '모든 정책' : '정책 추천'} {...(all ? { onBack: () => selectView('recommended'), backLabel: '맞춤 추천으로' } : {})} />
+      <div className="policy-view-switch" role="group" aria-label="정책 보기">
+        {VIEWS.map(v => <button key={v.value} type="button" className="secondary" aria-pressed={view === v.value}
+          onClick={() => selectView(v.value)}>
+          {view === v.value && <span aria-hidden="true">✓ </span>}{v.label}
+          {count[v.value] !== null && <span className="policy-view-count">{count[v.value]}</span>}
+        </button>)}
+      </div>
     </div>
     <Hero
       visual={<HeroIcon>✦</HeroIcon>}
@@ -146,7 +179,23 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
     {loading && <p role="status">정책을 불러오고 있어요…</p>}
     {error && <section className="card"><p>잠시 후 다시 불러와 주세요.</p><button onClick={retryView}>다시 불러오기</button></section>}
     {result && items.length === 0 && <section className="card"><h2>지금 보여드릴 정책이 없어요</h2><p>다른 정책을 살펴보거나 내 정보를 확인해 주세요.</p></section>}
-    {items.map(policy => <article className="card" key={policy.policyId}>
+    {all && result && items.length > 0 && <section className="card policy-filters" aria-label="정책 필터">
+      <label>정책 검색<input type="search" placeholder="예: 월세, 일자리" value={filters.query} onChange={event => updateFilters({ ...filters, query: event.target.value })} /></label>
+      <div className="choices">
+        <label>지원 지역<select value={filters.scope} onChange={event => updateFilters({ ...filters, scope: event.target.value })}>
+          <option value="">전체 지역</option>{scopes.map(scope => <option key={scope}>{scope}</option>)}
+        </select></label>
+        <label>신청 방식<select value={filters.method} onChange={event => updateFilters({ ...filters, method: event.target.value })}>
+          <option value="">전체 방식</option>{methods.map(method => <option key={method}>{method}</option>)}
+        </select></label>
+      </div>
+      <div className="policy-filter-status">
+        <span role="status">{filtered.length}개 정책</span>
+        {(query || filters.scope || filters.method) && <button className="text-button" onClick={() => updateFilters(emptyFilters)}>필터 초기화</button>}
+      </div>
+      {filtered.length === 0 && <p>조건에 맞는 정책이 없어요.</p>}
+    </section>}
+    {(all ? filtered.slice(0, visibleCount) : filtered).map(policy => <article className="card" key={policy.policyId}>
       <div className="card-tags">
         {[policy.scope, policy.burdenLabel].filter(Boolean).map(t => <span key={t}>{t}</span>)}
         {policy.deadline && <span className="gold">{policy.deadline}</span>}
@@ -167,18 +216,21 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
       </details>}
       {policy.url && /^https?:\/\//i.test(policy.url) && <a className="primary" href={policy.url} target="_blank" rel="noopener noreferrer"
         onClick={() => { if (mode === 'api') void request(`policies/${policy.policyId}/click`, 'POST', {}).catch(() => {}); }}>정책 원문 확인</a>}
-      <button type="button" className="secondary" onClick={() => setHelping(policy)}>신청 도와줘</button>
-      {policy.needsInquiry && <Link className="secondary" href="/centers">청년센터에서 문의 준비하기</Link>}
+      <div className="policy-support-actions">
+        <button type="button" className="secondary" onClick={() => setHelping(policy)}>신청 도와줘</button>
+        {policy.needsInquiry && <Link className="secondary" href="/centers">청년센터에서 문의 준비하기</Link>}
+      </div>
       {sent[policy.policyId]
         ? <SentNote result={sent[policy.policyId]} />
         : <NotForMe policyId={policy.policyId} mode={mode} onSent={r => setSent(prev => ({ ...prev, [policy.policyId]: r }))} />}
     </article>)}
+    {all && visibleCount < filtered.length && <button className="secondary" onClick={() => setVisibleCount(count => count + pageSize)}>정책 더 보기</button>}
     {sentNotes.length > 0 && <section className="card" aria-live="polite">
       {sentNotes.map(([id, r]) => <p key={id} className="small">{r.message}</p>)}
     </section>}
     {helping && <ApplyHelper policyId={helping.policyId} title={helping.title} mode={mode} examplePolicy={exampleHelperPolicy} onClose={() => setHelping(null)} />}
     <MoreLinks>
-      <Link href="/profile#settings">추천 기준 바꾸기 (내 정보)</Link>
+      <Link href="/policies/criteria">추천 기준 바꾸기</Link>
       <Link href="/centers">청년센터 살펴보기</Link>
     </MoreLinks>
   </>;

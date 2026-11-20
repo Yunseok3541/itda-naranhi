@@ -47,7 +47,7 @@ html.sky-night-page body {
 .sky-mode .help { background: rgba(246, 207, 125, .14); border: 1px solid var(--star-gold-soft); color: var(--starlight); }
 .sky-mode .error { background: rgba(255, 120, 150, .16); color: #ffd3dd; }
 .sky-mode footer { color: rgba(238, 233, 255, .45); }
-.sky-mode button:not(.nstar):not(.sky-pill):not(.char-hotspot):not(.recent-pill):not(.text-button):not(.ghost):not(.sky-minimap):not(.sky-map-target):not(.pager-arrow):not(.night-row):not(.dock-main):not(.quest-dialog button):not(.glass-select-trigger),
+.sky-mode button:not(.nstar):not(.sky-pill):not(.char-hotspot):not(.recent-pill):not(.text-button):not(.ghost):not(.sky-minimap):not(.sky-map-target):not(.night-row):not(.dock-main):not(.quest-dialog button):not(.glass-select-trigger),
 .sky-mode .primary { background: linear-gradient(180deg, #ffe3a3, var(--star-gold)); color: #24183f; box-shadow: 0 0 24px rgba(246, 207, 125, .35); }
 .sky-mode .ghost { background: transparent; color: var(--starlight-dim); border: 1px solid var(--glass-line); }
 .night-loading { margin-top: 40vh; text-align: center; color: var(--starlight-dim); }
@@ -115,6 +115,19 @@ html.sky-night-page body {
 @media (prefers-reduced-motion: reduce) { .glass-select-chevron { transition: none; } }
 .sky-mode .onboarding-step { margin-top: min(12dvh, 100px); }
 .onboarding-step h2 span { margin-left: 6px; color: var(--starlight-dim); font-size: .75em; }
+.onboarding-step .choices { grid-template-columns: fit-content(40%) minmax(0, 1fr); }
+.onboarding-step .choices > :first-child { min-width: 4.5em; }
+.onboarding-step .check {
+  min-height: 44px; padding: 6px 12px; margin: 4px 0;
+  border: 1px solid var(--glass-line); border-radius: 10px; cursor: pointer;
+}
+.onboarding-step .check:has(:checked) { border-color: var(--star-gold-soft); background: rgba(246, 207, 125, .09); }
+.onboarding-step .check input { flex: none; accent-color: var(--star-gold); }
+.choices.quest-range-options { grid-template-columns: repeat(auto-fit, minmax(min(100%, max(9rem, 45%)), 1fr)); }
+.onboarding-result dl { margin: 0; }
+.onboarding-result dl > div { display: grid; grid-template-columns: 6.5em 1fr; gap: 12px; padding: 12px 0; border-top: 1px solid var(--glass-line); }
+.onboarding-result dt { color: var(--starlight-dim); }
+.onboarding-result dd { margin: 0; }
 .sky-mode .onboarding label, .sky-mode .onboarding legend { color: var(--starlight); }
 
 .sky-mode .sky-actions {
@@ -182,15 +195,27 @@ html.sky-night-page body {
   position: fixed; z-index: 1; top: 36dvh; left: calc(50% + min(31vw, 152px)); display: grid;
   place-items: center; width: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 50%;
   background: transparent; color: #fff0bb; text-shadow: 0 0 12px #ffe4a1; pointer-events: auto;
+  /* 하늘을 확대할수록 커짐 (meteor-rewards.tsx의 meteorScale). 지나가는 움직임(transform)과 따로 적용되는 scale 속성 */
+  scale: var(--meteor-scale, 1); transition: scale .18s ease-out;
 }
 .sky-meteor::before {
   content: ''; position: absolute; inset: 21px auto auto 26px; width: 45px; height: 2px;
   background: linear-gradient(90deg, #fff3ce, transparent); transform: rotate(-26deg); transform-origin: left;
 }
 .sky-mode button.sky-pill.sky-meteor:disabled { pointer-events: none; opacity: .55; }
-.sky-meteor-reward { position: fixed; z-index: 2; left: 50%; top: 35dvh; transform: translateX(-50%); color: #ffe29a; font-weight: 700; text-shadow: 0 2px 10px #110b25; pointer-events: none; }
+.sky-meteor-reward {
+  position: fixed; z-index: 2; transform: translate(-50%, -130%); white-space: nowrap;
+  color: #ffe29a; font-weight: 700; text-shadow: 0 2px 10px #110b25; pointer-events: none;
+}
 @media (prefers-reduced-motion: no-preference) {
   .sky-meteor { animation: sky-meteor-pass 5.2s linear both; }
+  .sky-meteor-reward { animation: sky-meteor-reward-rise 1.6s ease-out both; }
+  @keyframes sky-meteor-reward-rise {
+    from { opacity: 0; transform: translate(-50%, -60%) scale(.85); }
+    15% { opacity: 1; transform: translate(-50%, -130%) scale(1); }
+    70% { opacity: 1; }
+    to { opacity: 0; transform: translate(-50%, -230%); }
+  }
   @keyframes sky-meteor-pass {
     from { transform: translate(30px, -30px); opacity: 0; }
     12%, 85% { opacity: 1; }
@@ -229,32 +254,26 @@ html.sky-night-page body {
 .burst i { position: absolute; width: 5px; height: 5px; margin: -2.5px; border-radius: 50%; background: var(--star-gold); box-shadow: 0 0 8px var(--star-gold); opacity: 0; }
 
 /* 별자리 넘기기 */
-.night-heading-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 8px; width: min(100%, 300px); margin-inline: auto; }
-.night-heading-row h1 { grid-column: 2; }
-.pager-arrow {
-  display: grid; place-items: center; flex: none; width: 44px; min-height: 44px; padding: 0;
-  border-radius: 50%; background: transparent; color: var(--starlight-dim); pointer-events: auto;
-}
-.pager-arrow svg { padding: 5px; box-sizing: content-box; border: 1px solid #bca9df43; border-radius: 50%; background: #261d3c91; }
-.pager-arrow:is(:hover, :focus-visible) { background: var(--glass); color: var(--starlight); }
-.pager-arrow svg, .night-list summary svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.night-list summary svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .night-hint { text-align: center; color: rgba(238, 233, 255, .45); font-size: .8125rem; margin: 6px 0 0; }
 
 /* 기억 시트 (아래에서 올라옴) */
 .sheet {
-  position: fixed; z-index: 5; left: 50%; bottom: 0; transform: translateX(-50%);
-  width: min(100%, 520px); max-height: 72dvh; overflow-y: auto;
-  padding: 10px 20px calc(20px + env(safe-area-inset-bottom));
-  border-radius: 22px 22px 0 0; border: 1px solid var(--glass-line); border-bottom: 0;
-  background: #100f30;
-  box-shadow: 0 -10px 40px rgba(0, 0, 0, .45);
+  position: fixed; inset: 0; margin: auto;
+  width: min(calc(100% - 32px), 420px); max-height: min(76dvh, calc(100dvh - 32px)); overflow-y: auto; overscroll-behavior: contain;
+  padding: 0;
+  border-radius: 20px; border: 1px solid var(--glass-line);
+  background: #100f30; color: var(--starlight);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .45);
 }
-.sheet:focus-visible { outline: none; }
+.sheet::backdrop { background: #08061965; }
+.star-sheet-content { padding: 14px 16px calc(16px + env(safe-area-inset-bottom)); }
+.sky-mode .star-sheet-close { float: right; display: grid; place-items: center; width: 44px; min-height: 44px; padding: 0; margin-left: 8px; }
 .sheet-grip { width: 40px; height: 4px; margin: 0 auto 12px; border-radius: 4px; background: var(--glass-line); }
 .sheet h2 { margin: 2px 0 6px; }
 .sheet-status { margin: 0; font-size: .8125rem; color: var(--starlight-dim); }
 .sheet-status.bright { color: var(--star-gold); }
-.sheet-desc, .sheet-empty { color: var(--starlight-dim); }
+.sheet-desc { color: var(--starlight-dim); }
 .memories { list-style: none; padding: 0; margin: 10px 0; }
 .memories li { padding: 10px 0; border-top: 1px solid var(--glass-line); white-space: pre-wrap; }
 .memories time { font-size: .8125rem; color: var(--star-gold); }
@@ -354,12 +373,13 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 /* 지금 별자리 별 이름 */
 /* 위치는 가려지는 별과 미니맵을 피해 정한다. */
 .nstar-label {
-  position: absolute; box-sizing: border-box; padding: 5px 10px; max-width: 140px; border: 1px solid rgba(255,255,255,.14); border-radius: 8px;
+  position: absolute; box-sizing: border-box; padding: 5px 10px; border: 1px solid rgba(255,255,255,.14); border-radius: 8px;
   font-size: 12px; font-weight: 500; letter-spacing: -.01em; line-height: 1.35; color: var(--starlight); text-align: center;
   white-space: normal; word-break: keep-all; overflow-wrap: anywhere;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  display: block;
   background: rgba(18,15,40,.55); backdrop-filter: blur(6px); text-shadow: 0 1px 3px #08051c;
 }
+.sky-anchors .nstar:has(.nstar-label) { z-index: 1; }
 .sky-anchors .nstar.bright .nstar-label { color: var(--star-gold); }
 /* .nstar > span(별 점을 동그랗게)이 이름표까지 타원으로 만들어 글자 모서리가 잘리던 것 되돌림 */
 .nstar > .nstar-label { border-radius: 8px; grid-area: auto; }
@@ -371,8 +391,16 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
   .nstar:active .core { transform: scale(1.35); transition: transform .12s; }
   .burst i { animation: burst .7s ease-out forwards; }
   @keyframes burst { 0% { opacity: 1; transform: rotate(var(--a)) translateY(0) scale(1); } 100% { opacity: 0; transform: rotate(var(--a)) translateY(-34px) scale(.3); } }
-  .sheet { animation: sheet-up .28s cubic-bezier(.2, .8, .2, 1); }
-  @keyframes sheet-up { from { transform: translate(-50%, 24px); opacity: 0; } }
+  /* 별 상세는 화면 가운데 창이라 아래에서 올라오는 대신 제자리에서 살짝 커지며 나타남 */
+  .sheet[open] { animation: sheet-in .26s cubic-bezier(.2, .8, .2, 1); }
+  .sheet[open]::backdrop { animation: backdrop-in .26s ease-out; }
+  @keyframes sheet-in { from { scale: .94; opacity: 0; } }
+  @keyframes backdrop-in { from { opacity: 0; } }
+  /* 화면 전환: 메인(밤하늘)에 들어오면 위·아래 메뉴가 하늘 위로 천천히 떠오름 (FE_QA "화면 전환을 더 유기적으로") */
+  .sky-locked :is(.sky-top, .night-actions, .sky-actions) { animation: screen-rise .45s cubic-bezier(.2, .8, .2, 1) both; }
+  .sky-locked .night-actions { animation-delay: .06s; }
+  .sky-locked .sky-actions { animation-delay: .1s; }
+  @keyframes screen-rise { from { opacity: 0; translate: 0 10px; } }
   .night-title h1 { animation: fade-in .5s ease-out; }
   @keyframes fade-in { from { opacity: 0; transform: translateY(4px); } }
 }
@@ -399,7 +427,7 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .sky-icon-action { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
 .sky-icon-action .sky-control-icon { width: 16px; height: 16px; }
 /* 메인에서는 도움 안내를 모서리 버튼 아래 뜨는 불투명한 창으로 (뒤 별자리와 겹쳐 읽기 어렵지 않게, 배치를 밀지 않게) */
-.sky-locked > .help {
+.sky-locked > .help.help-panel {
   position: fixed; z-index: 6; top: calc(68px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
   width: min(calc(100% - 32px), 488px); max-height: 62dvh; overflow-y: auto; margin: 0; padding: 14px 16px;
   background: #171236; border: 1px solid var(--star-gold-soft); border-radius: 16px; box-shadow: 0 12px 36px rgba(0, 0, 0, .5);
@@ -423,40 +451,25 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 }
 .sky-character-prompt .sky-control-icon { width: 18px; height: 18px; }
 .char-bubble {
-  position: fixed; z-index: 3; left: 50%; transform: translateX(-42%); bottom: calc(var(--person-bottom) + var(--person-height) + 6px);
-  width: max-content; max-width: min(250px, calc(100% - 48px)); padding: 10px 14px 9px;
+  position: fixed; z-index: 3; left: 50%; transform: translateX(-50%); bottom: calc(var(--person-bottom) + var(--person-height) + 6px);
+  width: max-content; max-width: min(18rem, calc(100% - 32px)); padding: 12px 14px;
+  display: grid; gap: 6px; word-break: keep-all;
   border-radius: 16px; border: 1px solid rgba(190, 160, 255, .55); background: rgba(20, 14, 46, .82);
   color: var(--starlight); box-shadow: 0 8px 24px rgba(0, 0, 0, .35); pointer-events: auto;
 }
 .char-bubble::after {
-  content: ""; position: absolute; left: 34%; bottom: -7px; width: 12px; height: 12px; transform: rotate(45deg);
+  content: ""; position: absolute; left: calc(50% - 6px); bottom: -7px; width: 12px; height: 12px; transform: rotate(45deg);
   background: rgba(20, 14, 46, .95); border-right: 1px solid rgba(190, 160, 255, .55); border-bottom: 1px solid rgba(190, 160, 255, .55);
 }
 .char-question { margin: 0; font-weight: 750; font-size: .95rem; }
-.char-sub { margin: 2px 0 6px; font-size: .78rem; color: var(--starlight-dim); }
-.char-link { display: inline-block; font-size: .82rem; font-weight: 750; color: var(--star-gold); }
-.sky-guide {
-  position: fixed; z-index: 2; left: 50%; bottom: calc(var(--person-bottom) + var(--person-height) * 1.24 + 18px);
-  transform: translateX(-50%); width: min(278px, calc(100% - 32px)); padding: 15px 16px 7px;
-  border: 1px solid #bfa1df73; border-radius: 18px;
-  background: linear-gradient(155deg, #2e2048, #1e1731); box-shadow: 0 8px 35px #09051677;
-  color: var(--starlight); text-align: center; pointer-events: auto;
-}
-.sky-guide::after {
-  content: ''; position: absolute; z-index: -1; width: 12px; height: 12px; bottom: -7px; left: calc(50% - 6px); transform: rotate(45deg);
-  border-bottom: 1px solid #bfa1df73; border-right: 1px solid #bfa1df73; background: #1e1731;
-}
-.sky-guide h2 { margin: 0; font-size: 1rem; line-height: 1.45; }
-.sky-guide p { margin: 5px 0 12px; color: #d7c9ef; font-size: .8125rem; }
-.sky-guide .sky-guide-primary { display: flex; justify-content: center; align-items: center; gap: 7px; min-height: 44px; margin: 0; font-size: .875rem; }
-.sky-guide .text-button { display: inline-flex; align-items: center; width: auto; min-height: 40px; margin: 2px 0 0; border: 0; background: transparent; font-size: .8125rem; }
-@media (max-height: 540px) {
-  .sky-guide { bottom: calc(var(--sky-dock-height) + 14px + env(safe-area-inset-bottom)); }
-  .sky-guide::after { content: none; }
+.char-sub { margin: 0; font-size: .8125rem; color: var(--starlight-dim); }
+.sky-mode .char-bubble .char-link {
+  width: 100%; min-height: 44px; margin-top: 2px; border-radius: 12px;
+  border-color: var(--star-gold-soft); background: #3b3044; color: #ffe7b0; font-weight: 700;
 }
 @media (prefers-reduced-motion: no-preference) {
   .char-bubble { animation: bubble-in .22s ease-out; }
-  @keyframes bubble-in { from { opacity: 0; transform: translate(-42%, 6px); } }
+  @keyframes bubble-in { from { opacity: 0; transform: translate(-50%, 6px); } }
 }
 
 /* 세로가 짧은 화면: 안내 한 줄을 숨겨 별자리 자리를 넓힘 (하늘 끌기 안내는 캐릭터·목록으로도 알 수 있음) */
@@ -522,7 +535,7 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .quest-dialog {
   position: fixed; inset: auto 0 var(--quest-keyboard-inset, 0px);
   width: min(100%, 520px); max-width: 100%;
-  max-height: min(84dvh, calc(var(--quest-viewport-height, 100dvh) - 14px), 740px);
+  max-height: min(88dvh, calc(var(--quest-viewport-height, 100dvh) - 16px), 700px);
   padding: 0; margin: 0 auto; overflow: hidden;
   border: 1px solid #ac92db6b; border-bottom: 0; border-radius: 24px 24px 0 0;
   background: #1a142d; box-shadow: 0 -12px 45px #0a061a9c;
@@ -531,10 +544,9 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .quest-dialog::backdrop { background: #09061775; }
 .quest-dialog-header {
   position: relative; display: flex; align-items: center; justify-content: space-between;
-  padding: 13px 16px 10px 20px; gap: 10px; border-bottom: 1px solid #c4abe22d;
+  margin: 0; padding: 6px 16px; gap: 10px; border-bottom: 1px solid #c4abe22d;
   background: linear-gradient(125deg, #352349, #241a38);
 }
-.quest-dialog-grip { position: absolute; top: 5px; left: calc(50% - 16px); width: 32px; height: 3px; border-radius: 2px; background: #d4bced5c; }
 .quest-dialog-header h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.075rem; }
 .quest-dialog-header h2 svg { color: var(--star-gold); }
 .sky-mode .quest-dialog .quest-dialog-close {
@@ -545,12 +557,15 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
   min-height: 0; overflow-y: auto; overscroll-behavior: contain;
   padding: 4px 16px calc(16px + env(safe-area-inset-bottom));
 }
-.quest-dialog-body textarea { min-height: 90px; font-size: 1rem; }
+.quest-dialog-body textarea { min-height: 72px; font-size: 1rem; }
 .quest-dialog-body .card { margin-block: 10px; }
+.quest-dialog-body .quest-entry { padding: 0; border: 0; box-shadow: none; background: none; }
+.quest-dialog-body .quest-entry :is(label, fieldset) { margin-block: 8px 12px; }
 .quest-dialog-body :is(h2, [tabindex="-1"]) { scroll-margin-top: 10px; }
 .quest-dialog-body [tabindex="-1"]:focus { outline: none; }
 @media (prefers-reduced-motion: no-preference) {
   .quest-dialog[open] { animation: quest-dialog-rise .22s ease-out; }
+  .quest-dialog[open]::backdrop { animation: backdrop-in .22s ease-out; }
   @keyframes quest-dialog-rise { from { transform: translateY(22px); opacity: .55; } }
 }
 
@@ -570,7 +585,7 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .shell.night-ui { padding-bottom: calc(32px + env(safe-area-inset-bottom)); }
 
 
-:is(.sky-locked, .sky-intro) .sky-top { display: grid; grid-template-columns: repeat(2, minmax(0, 140px)); align-items: center; }
+:is(.sky-locked, .sky-intro) .sky-top { display: grid; grid-template-columns: repeat(2, minmax(0, clamp(120px, 38vw, 146px))); align-items: center; }
 :is(.sky-locked, .sky-intro) .sky-top .sky-pill {
   min-height: 32px;
   padding-inline: 9px;
@@ -733,8 +748,6 @@ html.sky-locked-page { --sky-dock-height: 96px; --person-height: 15dvh; }
 @media (max-width: 360px) {
 
   .sky-top .sky-utility-symbol { width: 29px; height: 29px; }
-  .sky-locked .night-heading-row h1 { font-size: 1.5rem; }
-  .night-heading-row { gap: 2px; }
 }
 .sky-locked .night-hint { color: #ded7eaad; margin-top: 2px; }
 .sky-locked .night-list summary {

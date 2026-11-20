@@ -168,8 +168,10 @@ export function screenRay(view: SkyView, width: number, height: number) {
 }
 
 export function foregroundVisibility(view: SkyView, width: number, height: number) {
-  const verticalFov = 4 * Math.atan(height / (4 * scaleFor(view.fov, width, height)));
-  return Math.max(0, Math.min(1, (verticalFov / 2 + 7 * RAD - view.lat) / (12 * RAD)));
+  const ground = projector(view, width, height)(unit(view.lon / RAD, 0));
+  if (!ground) return 0;
+  // Fade before the horizon reaches the character's feet above the dock.
+  return Math.max(0, Math.min(1, (height - ground.y - 126) / 38));
 }
 
 /**

@@ -71,7 +71,7 @@ export function Avatar({ id = 'person', size = 96 }: { id?: string; size?: numbe
   return <span className="avatar" style={{ width: size, height: size }}>
     {c
       ? <img src={`/catalog/${c.id}.webp`} alt="" />  // eslint-disable-line @next/next/no-img-element
-      : <span className="avatar-person"><SkyPerson /></span>}
+      : <span className="avatar-person"><SkyPerson portrait /></span>}
   </span>;
 }
 

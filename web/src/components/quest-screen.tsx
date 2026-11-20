@@ -53,11 +53,11 @@ export default function QuestScreen({ mode, busy, run, onHelp, onError, onClose,
       chip={weather ? `마음 날씨 · ${weather}` : undefined}
     /></>}
 
-    <section className="card">
-      <h2>한 줄 기록</h2>
+    <section className="card quest-entry">
+      {!inSheet && <h2>한 줄 기록</h2>}
       <label>마음에 떠오른 한 줄<textarea disabled={busy} maxLength={300} value={text} onChange={e => { setText(e.target.value); reset(); }} placeholder="가상 내용으로 적어 주세요" /></label>
       <fieldset><legend>오늘은 어떤 활동이 괜찮을까요?</legend>
-        <div className="choices">{CHOICES.map(([v, l]) => <button key={v} type="button" disabled={busy} className="secondary" aria-pressed={choice === v} onClick={() => { setChoice(v); reset(); }}>{l}</button>)}</div>
+        <div className="choices quest-range-options">{CHOICES.map(([v, l]) => <button key={v} type="button" disabled={busy} className="secondary" aria-pressed={choice === v} onClick={() => { setChoice(v); reset(); }}>{l}</button>)}</div>
       </fieldset>
       <button disabled={busy || !text.trim()} onClick={() => run(async () => {
         reset();

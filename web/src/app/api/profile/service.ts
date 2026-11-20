@@ -37,6 +37,7 @@ export async function getProfile(userId: number, db: Db = pool): Promise<ApiResu
  *   전부 답하지 않아도 저장한다 ({} → 시작 질문을 거친 사용자로 셈)
  * - policyInfo: 정책 신청 정보 전체. 전부 비우면 NULL로 지움. null을 보내도 지움
  * - birthYear: 출생연도 또는 null
+ * - 값이 실제로 바뀌면 오늘 저장된 맞춤 정책 추천(policy_recommendations)을 지운다 → 다음 GET /api/policies가 새 기준으로 다시 만듦
  */
 export async function saveProfile(userId: number, body: unknown, db: Db = pool): Promise<ApiResult> {
   if (!body || typeof body !== "object" || Array.isArray(body)) return fail(400, "INVALID", "저장할 내용이 없어요.");
@@ -68,11 +69,26 @@ export async function saveProfile(userId: number, body: unknown, db: Db = pool):
     set("birth_year", y);
   }
   if (sets.length === 0) return fail(400, "INVALID", "저장할 내용이 없어요.");
+  // 세 칸 모두 정책 추천 기준이라, 값이 실제로 바뀌면 오늘 저장된 맞춤 추천을 지워 다음 조회 때 새 기준으로 다시 만든다
+  // (FE_QA: 추천 기준을 바꾸고 정책 화면으로 돌아오면 맞는 추천이 보여야 함, 고민기록 #51)
+  // 같은 값으로 다시 저장하면 그대로 재사용 (AI를 다시 부르지 않음). old는 UPDATE 전 값을 읽음 (한 문장 안의 같은 스냅숏)
+  values.push(todayKst());
+  const today = `$${values.length}::date`;
 
   try {
     const r = (
       await db.query<Row>(
-        `UPDATE users SET ${sets.join(", ")} WHERE id = $1 RETURNING start_answers, policy_info, birth_year, current_stage`,
+        `WITH old AS (SELECT start_answers, policy_info, birth_year, current_stage FROM users WHERE id = $1),
+         updated AS (
+           UPDATE users SET ${sets.join(", ")} WHERE id = $1 RETURNING start_answers, policy_info, birth_year, current_stage
+         ),
+         reset AS (
+           DELETE FROM policy_recommendations p USING old, updated
+           WHERE p.user_id = $1 AND p.rec_date = ${today}
+             AND (old.start_answers IS DISTINCT FROM updated.start_answers OR old.policy_info IS DISTINCT FROM updated.policy_info
+               OR old.birth_year IS DISTINCT FROM updated.birth_year OR old.current_stage IS DISTINCT FROM updated.current_stage)
+         )
+         SELECT * FROM updated`,
         values,
       )
     ).rows[0];
