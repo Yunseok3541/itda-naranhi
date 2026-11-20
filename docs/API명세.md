@@ -589,6 +589,26 @@ const { cheer, help } = await processReflection({
 - 화면 문구: "자격은 원문에서 확인해 주세요. 요약은 AI가 만들어 틀릴 수 있어요." / 상단 "예시 지역: 서울 마포구 · 정책 정보 기준 {basis.updatedAt}"
 - 데이터 수집·분류: `web/scripts/sync-policies.mts` (새·바뀐 정책만 분류). 검증: `web/scripts/verify-policies.mts` (트랜잭션 롤백, 가짜 AI).
 
+```jsonc
+// POST /api/policies/{policyId}/helper — 신청 도우미 (챗봇형, 고민기록 #39). 대화는 저장하지 않음, 세션 필요
+// 요청
+{ "intent": "practice",                       // steps | docs | script | practice | ask | start
+  "text": "안녕하세요, 정책 문의드려요",        // ask는 필수, script·practice는 선택. 200자 이하
+  "history": [{ "role": "staff", "text": "네, 청년 정책 문의 창구예요. 어떤 일로 연락 주셨어요?" }] }  // practice만, 화면이 들고 있다가 보냄
+// 200
+{ "intent": "practice", "reply": "",
+  "sections": [],                              // steps·docs·start: [{ "title": "원문에 적힌 신청 방법", "items": ["..."] }]
+  "script": null,                              // script: { "label": "전화로 말할 때", "opening": "...", "questions": ["..."], "closing": "..." }
+  "staffLine": "네, 어떤 점이 궁금하세요?", "tip": "인사를 먼저 해서 좋았어요.", "turnsLeft": 5,   // practice만
+  "source": "ai",                              // rule: 원문·정해 둔 문장 / ai: 검사 통과한 AI 문장 / fallback: AI 대신 기본 문장
+  "followUps": [],                             // 다음에 보여 줄 버튼
+  "help": null, "modelVersion": "gemini-3.5-flash-lite" }
+// 400 이유·ID·글자 수·기록 형식 / 404 없는·분류 전 정책 / 401 세션 없음 / 500 LOAD_FAILED — 모두 위기 표현이면 help 포함
+```
+
+- AI 호출: steps·docs·start와 연습 첫 인사는 0번, script·ask·연습 말 1번당 1번. 연습은 사용자 말 6번까지
+- AI 문장에 원문에 없던 숫자 → 버리고 기본 문장 (ask는 원문 숫자만, 연습 담당자 말은 숫자 금지). 위기 표현이면 AI 없이 안내만
+
 ### 8. 프로필 — `GET /api/profile`, `PUT /api/profile` (윤석, 기획: `docs/기획/프로필.md`)
 
 모든 칸은 선택이다. `null` = 답하지 않음. 유형 이름은 만들지 않는다. 화면 `/profile` "내 정보"와 첫 화면 시작 질문이 사용한다.
