@@ -4,12 +4,14 @@
 // - 입력창 하나로 바로 대화 (chat). 확실한 말("서류 뭐야")은 서버가 규칙으로 바로, 나머지는 AI가 원문 안에서 답함
 // - 버튼은 입력창 위 칩으로: 신청 순서 · 서류 · 뭐라고 말하지? · 말하기 연습 · 작게 시작
 // - 말하기 연습은 따로 들어가는 모드 (AI가 담당자 역할 → 도우미 답과 섞이지 않게)
-// - 대화는 저장하지 않음 (창을 닫으면 사라짐). 예시 모드는 서버 없이 같은 규칙 문장으로 답한다 (AI 없음)
+// - 대화는 서버에 저장하지 않음. 이 브라우저 탭에만 정책별로 남아 창을 닫았다 열어도 이어짐, 탭을 닫거나 [대화 지우기]로 사라짐 (고민기록 #44)
+// - 예시 모드는 서버 없이 같은 규칙 문장으로 답한다 (AI 없음)
 import { useEffect, useRef, useState } from 'react';
 import {
   CHAT_MAX_TURNS, chatFallback, docsReply, fallbackScript, fallbackStaffLine, INTENT_LABEL, PRACTICE_MAX_TURNS, PRACTICE_SUGGEST,
   practiceReply, routeChat, scriptReply, startReply, stepsReply, type HelperIntent, type HelperPolicy, type HelperReply,
 } from '@/lib/apply-helper';
+import { chatKey, clearChat, loadChat, saveChat } from '@/lib/apply-helper-store';
 import { request, type Help, type Mode } from '@/lib/mobile-data';
 
 type Reply = HelperReply & { help?: Help };
@@ -17,6 +19,8 @@ type Message = { id: number; from: 'me' | 'bot'; text: string; reply?: Reply };
 type Turn = { role: 'user' | 'staff' | 'bot'; text: string };
 
 const CHIPS: HelperIntent[] = ['steps', 'docs', 'script', 'practice', 'start'];
+/** 서버가 받는 대화 기록은 21줄까지 → 최근 20줄만 보냄 (칩을 눌러도 기록이 쌓여 넘칠 수 있었음) */
+const SEND_LOG = 20;
 
 /** 예시 모드: 서버 없이 규칙 문장으로 */
 function exampleReply(policy: HelperPolicy, intent: HelperIntent, text: string, userTurns: number): Reply {
@@ -36,18 +40,29 @@ export default function ApplyHelper({ policyId, title, mode, examplePolicy, onCl
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const end = useRef<HTMLDivElement>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  // 이 탭에 남아 있던 대화 (창을 다시 열면 이어짐). 연습 중이던 것은 이어지지 않고 대화 모드로 시작
+  const storeKey = chatKey(mode, policyId);
+  const [restored] = useState(() => loadChat<Message, Turn>(storeKey));
+  const [messages, setMessages] = useState<Message[]>(restored?.messages ?? []);
   const [inputMode, setInputMode] = useState<'chat' | 'practice'>('chat');
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   // 자유 대화 기록(user/bot)과 연습 기록(user/staff)은 따로 (연습 상대 말이 도우미 대화에 섞이지 않게)
-  const [chatLog, setChatLog] = useState<Turn[]>([]);
+  const [chatLog, setChatLog] = useState<Turn[]>(restored?.chatLog ?? []);
   const [practiceLog, setPracticeLog] = useState<Turn[]>([]);
-  const [lastQuestion, setLastQuestion] = useState('');
-  const nextId = useRef(1);
+  const [lastQuestion, setLastQuestion] = useState(restored?.lastQuestion ?? '');
+  const nextId = useRef(Math.max(0, ...(restored?.messages ?? []).map(m => m.id)) + 1);
+  const [showRestored, setShowRestored] = useState(!!restored);
 
   useEffect(() => { dialog.current?.showModal(); }, []);
   useEffect(() => { end.current?.scrollIntoView({ block: 'end' }); }, [messages, busy]);
+  // 바뀔 때마다 이 탭에 저장 (저장 못 해도 대화는 계속됨)
+  useEffect(() => { saveChat(storeKey, { messages, chatLog, lastQuestion }); }, [storeKey, messages, chatLog, lastQuestion]);
+
+  function clearConversation() {
+    clearChat(storeKey);
+    setMessages([]); setChatLog([]); setPracticeLog([]); setLastQuestion(''); setInputMode('chat'); setShowRestored(false);
+  }
 
   const push = (m: Omit<Message, 'id'>) => setMessages(prev => [...prev, { ...m, id: nextId.current++ }]);
   const chatTurns = chatLog.filter(t => t.role === 'user').length;
@@ -63,7 +78,7 @@ export default function ApplyHelper({ policyId, title, mode, examplePolicy, onCl
     try {
       // 대본은 방금 대화에서 물어본 말(원문에 없던 것)을 넣어 만든다
       const sendText = intent === 'script' ? lastQuestion : said;
-      const sendHistory = practicing ? (said ? practiceLog : []) : intent === 'chat' ? chatLog : undefined;
+      const sendHistory = practicing ? (said ? practiceLog : []) : intent === 'chat' ? chatLog.slice(-SEND_LOG) : undefined;
       const turns = practicing ? (said ? practiceTurns + 1 : 0) : chatTurns + 1;
       const reply: Reply = mode === 'api'
         ? await request<Reply>(`policies/${policyId}/helper`, 'POST', { intent, ...(sendText ? { text: sendText } : {}), ...(sendHistory ? { history: sendHistory } : {}) })
@@ -97,10 +112,17 @@ export default function ApplyHelper({ policyId, title, mode, examplePolicy, onCl
         <p className="small">신청 도우미</p>
         <h2 id="apply-helper-title">{title}</h2>
       </div>
-      <button type="button" className="apply-helper-close" onClick={() => dialog.current?.close()} aria-label="닫기">✕</button>
+      <div className="apply-helper-head-actions">
+        {messages.length > 0 && <button type="button" className="apply-helper-clear" onClick={clearConversation} disabled={busy}>대화 지우기</button>}
+        <button type="button" className="apply-helper-close" onClick={() => dialog.current?.close()} aria-label="닫기">✕</button>
+      </div>
     </header>
     <div className="apply-helper-log" aria-live="polite">
-      <div className="bubble bot"><p>어디서 막혔는지 편하게 말해 주세요. 원문에 있는 내용만 알려 드려요. 이 대화는 저장하지 않아요.</p></div>
+      <div className="bubble bot">
+        <p>어디서 막혔는지 편하게 말해 주세요. 원문에 있는 내용만 알려 드려요.</p>
+        <p className="small apply-helper-privacy">이 대화는 서버에 저장하지 않아요. 창을 닫아도 <b>이 브라우저 탭을 닫기 전까지</b>는 이 기기에 남아서 다시 열면 이어져요. 함께 쓰는 기기라면 다 본 뒤 위의 [대화 지우기]를 눌러 주세요.</p>
+      </div>
+      {showRestored && messages.length > 0 && <p className="small apply-helper-restored" role="status">이전 대화를 이어서 보여 드려요.</p>}
       {messages.map(m => <Bubble key={m.id} message={m} onPick={intent => void ask(intent)} disabled={busy} />)}
       {busy && <div className="bubble bot" role="status"><p>생각하고 있어요…</p></div>}
       <div ref={end} />
