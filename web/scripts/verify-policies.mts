@@ -7,7 +7,7 @@ process.env.GEMINI_API_KEY = ""; // 혹시 실제 generateJson이 불려도 호�
 const { db } = await import("@/lib/db");
 const { normalizePolicy, upsertPolicies, pickDemoSet } = await import("@/lib/policy-sync");
 const { checkClassification, actionableByRule, sourceFields, projectBeforeAi, classifyPending } = await import("@/lib/policy-classify");
-const { recommendPolicies, listPolicies, recordClick, filterByDifficulty, scorePolicy } = await import("@/app/api/policies/service");
+const { recommendPolicies, listPolicies, recordClick, filterByDifficulty, scorePolicy, diversify, bucketOf } = await import("@/app/api/policies/service");
 const { todayKst } = await import("@/app/api/_lib/http");
 type Db = import("@/app/api/_lib/http").Db;
 type Gen = typeof import("@/lib/gemini").generateJson;
@@ -154,21 +154,42 @@ try {
   const r1 = (await recommendPolicies(A, client, gen)).body as Body;
   const r1ids = (r1.items as Body[]).map((i) => i.policyId);
   check("1단계 사용자 → 난이도 2까지만 후보 (P4 제외)", r1.maxDifficulty === 2 && !r1ids.includes(id.P4), r1);
-  check("후보 밖·중복 제거, 순서 유지 [P1, P3]", JSON.stringify(r1ids) === JSON.stringify([id.P1, id.P3]), r1ids);
+  check("후보 밖·중복 제거, AI 순서 유지 [P1, P3] + 3개가 안 되면 안 쓴 분야로 1개 채움", JSON.stringify(r1ids.slice(0, 2)) === JSON.stringify([id.P1, id.P3]) && r1ids.length === 3 && ![id.P1, id.P3, id.P4].includes(r1ids[2]), r1ids);
   check("금지 표현 이유 → 문장 틀로 교체, 정상 이유는 그대로", !/반드시/.test(r1.items[0].reason) && r1.items[1].reason === "온라인으로 생활비 부담을 덜 수 있어요.", r1.items);
   check("응답 칸: 방식 이름·마감·범위·문의 연결 여부", r1.items[0].burdenLabel && r1.items[0].deadline === "상시 모집" && r1.items[0].scope === "서울" && r1.items[0].needsInquiry === false, r1.items[0]);
   check("AI 1회 호출, usedFallback=false", gen.calls === 1 && r1.usedFallback === false);
   const shown = (await client.query("SELECT count(*)::int AS n FROM policy_events WHERE user_id = $1 AND event = 'shown'", [A])).rows[0].n;
-  check("추천한 정책 노출 기록 2건", shown === 2, shown);
+  check("추천한 정책 노출 기록 3건", shown === 3, shown);
 
   const gen2 = fakeGen({ items: [] });
   const r2 = (await recommendPolicies(A, client, gen2)).body as Body;
   check("같은 날 다시 요청 → 저장된 추천, AI 호출 0", r2.reused === true && gen2.calls === 0 && JSON.stringify((r2.items as Body[]).map((i) => i.policyId)) === JSON.stringify(r1ids));
   const shown2 = (await client.query("SELECT count(*)::int AS n FROM policy_events WHERE user_id = $1 AND event = 'shown'", [A])).rows[0].n;
-  check("재사용 때는 노출 기록을 다시 쌓지 않음", shown2 === 2, shown2);
+  check("재사용 때는 노출 기록을 다시 쌓지 않음", shown2 === 3, shown2);
 
   const r3 = (await recommendPolicies(B, client, invalidGen)).body as Body;
-  check("AI 실패 → 규칙 순서 상위 3개 + 문장 틀 이유, usedFallback", r3.usedFallback === true && r3.items.length === 3 && r3.items[0].policyId === id.P1 && r3.items.every((i: Body) => i.reason.length > 0), r3.items);
+  const r3b = (r3.items as Body[]).map((i) => i.bucket);
+  check("AI 실패 → 규칙 순서로 분야가 다른 3~5개 + 문장 틀 이유, usedFallback", r3.usedFallback === true && r3.items.length >= 3 && r3.items.length <= 5
+    && r3.items[0].policyId === id.P1 && r3.items.every((i: Body) => i.reason.length > 0)
+    && new Set(r3b.slice(0, 3)).size === 3, { n: r3.items.length, buckets: r3b });
+
+  // 분야 다양성: AI가 같은 분야(마음·관계) 정책을 두 번 고르면 두 번째는 건너뜀
+  const C6 = await user(6, null);
+  const genDup = fakeGen({ items: [{ policyId: id.P1, reason: "마음 회복에 도움이 될 수 있어요." }, { policyId: id.P5, reason: "상담을 받을 수 있어요." },
+    { policyId: id.P4, reason: "주거 부담을 덜 수 있어요." }, { policyId: id.P3, reason: "생활비에 보탬이 될 수 있어요." }] });
+  const r6 = (await recommendPolicies(C6, client, genDup)).body as Body;
+  check("AI가 같은 분야를 두 번 고르면 건너뜀 → [P1, P4, P3]", JSON.stringify((r6.items as Body[]).map((i) => i.policyId)) === JSON.stringify([id.P1, id.P4, id.P3]), r6.items.map((i: Body) => [i.policyId, i.bucket]));
+  check("다양화 규칙: 주거·주거·돈·일 → 주거·돈·일 (순서 유지)", JSON.stringify(diversify([{ k: "a", tags: ["주거"] }, { k: "b", tags: ["주거"] }, { k: "c", tags: ["생활비"] }, { k: "d", tags: ["일자리"] }], 3).map((x) => x.k)) === '["a","c","d"]'
+    && bucketOf({ tags: ["금융"] }) === "돈" && bucketOf({ tags: [] }) === "기타");
+
+  // 원문 근거 표시: 찾으면 있음(yes), 못 찾으면 확인 필요(unknown) — "없음"이라고 단정하지 않음
+  const ev = (await client.query<{ id: number }>(
+    `INSERT INTO policies (source, source_id, title, region_code, apply_always, raw, summary, burden, stage, relevance, tags, classified_at, actionable)
+     VALUES ('youth_policy', 'verify-P17', '가상 정책 P17', '11000', true, $1, '근거 요약', 'visit', 1, 1, '{}', now(), true) RETURNING id`,
+    [{ plcyAplyMthdCn: "복지로 온라인 신청 후 주민센터 방문", sbmsnDcmntCn: "신청서" }])).rows[0].id;
+  const evItem = ((await listPolicies(A, client)).body as Body).items.find((i: Body) => i.policyId === ev);
+  const evMap = Object.fromEntries((evItem?.evidence ?? []).map((e: Body) => [e.item, e.status]));
+  check("원문 근거: 온라인 신청·방문·서류는 있음, 상담은 확인 필요", evMap["온라인 신청"] === "yes" && evMap["방문"] === "yes" && evMap["서류 제출"] === "yes" && evMap["상담·면접"] === "unknown", evMap);
 
   // 점수: 전화가 부담인 사용자에게 전화 정책은 뒤로, 돈 때문에 멈춘 적 있으면 생활비 정책을 앞으로
   const row = (k: string) => ({ id: id[k], title: k, summary: "", burden: defs.find((d) => d[0] === k)![3], stage: defs.find((d) => d[0] === k)![2],
