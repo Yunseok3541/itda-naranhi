@@ -625,6 +625,20 @@ const { cheer, help } = await processReflection({
 - DB: `users.policy_info JSONB` 추가 (`db/migrations/20261120_profile.sql`, 여러 번 실행 안전). ④~⑥은 기존 `start_answers`에 키만 늘어남. **공용 Neon 적용은 PR이 합쳐진 뒤 팀에 알리고 진행**
 - 검증: `web/scripts/verify-profile.mts` 40/40 (로컬 DB, 트랜잭션 롤백, 가짜 AI). `verify-policies.mts` 39/39 그대로
 
+
+```jsonc
+// POST /api/policies/{policyId}/feedback — "나랑 안 맞아요" (피드백 루프 입구, 고민기록 #38)
+// 요청
+{ "reason": "region", "text": "저는 서울인데 부산 게 왔어요" }   // reason: region | eligibility | not_needed | too_hard | other, text는 선택 200자 이하
+// 201
+{ "feedbackId": 12, "excluded": true, "loop": "pending",          // pending: 데이터 오류인지 루프에서 확인 / personal: 이 사용자 추천만 조정
+  "message": "알려 주셔서 고마워요. 이 정책은 다시 추천하지 않을게요. 지역 정보가 맞는지도 확인해 둘게요.", "help": null }
+// 400 이유 없음·잘못된 ID·200자 넘음 / 404 없는 정책 / 401 세션 없음 / 500·503 SAVE_FAILED — 모두 text에 위기 표현이 있으면 help 포함
+```
+
+- 피드백을 저장하는 즉시 그 사용자의 추천(오늘 저장된 추천 포함)에서 빠진다. "모든 정책 보기"에서는 그대로 보인다.
+- 모든 사용자의 데이터 수정은 판정 → 검증 → 승인 루프를 통과한 경우만 (`scripts/run-feedback-loop.mts`, 무료 한도 때문에 시연에서는 실행하지 않음).
+
 ---
 
 ## 만들 것 (기획: `docs/기획/아이디어_v4.md`)

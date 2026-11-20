@@ -248,3 +248,51 @@ CREATE TABLE center_events (
   PRIMARY KEY (id),
   FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) COMMENT '청년센터 행동 기록';
+
+CREATE TABLE policy_feedback (
+  id           INT          NOT NULL AUTO_INCREMENT COMMENT '피드백 ID',
+  user_id      INT          NOT NULL COMMENT '사용자 ID',
+  policy_id    INT          NOT NULL COMMENT '정책 ID',
+  reason       VARCHAR(20)  NOT NULL COMMENT '이유(region/eligibility/not_needed/too_hard/other)',
+  text         VARCHAR(200) NULL     COMMENT '직접 쓴 한 줄',
+  loop_status  VARCHAR(12)  NOT NULL DEFAULT 'pending' COMMENT '루프 상태',
+  created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '작성 시각',
+  PRIMARY KEY (id),
+  FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  FOREIGN KEY (policy_id) REFERENCES policies (id) ON DELETE CASCADE
+) COMMENT '정책 피드백(나랑 안 맞아요)';
+
+CREATE TABLE policy_correction_requests (
+  id              INT          NOT NULL AUTO_INCREMENT COMMENT '수정 요청 ID',
+  feedback_id     INT          NULL     COMMENT '피드백 ID',
+  policy_id       INT          NOT NULL COMMENT '정책 ID',
+  field           VARCHAR(20)  NOT NULL COMMENT '고칠 칸',
+  current_value   TEXT         NULL     COMMENT '지금 값',
+  proposed_value  TEXT         NOT NULL COMMENT '바꿀 값',
+  evidence        TEXT         NOT NULL COMMENT '원문 근거 구절',
+  status          VARCHAR(10)  NOT NULL DEFAULT 'proposed' COMMENT '단계(proposed/returned/verified/applied/rejected)',
+  attempts        SMALLINT     NOT NULL DEFAULT 1 COMMENT '판정 횟수',
+  judge_note      TEXT         NULL     COMMENT '판정 메모',
+  verify_note     TEXT         NULL     COMMENT '검증 메모',
+  review_note     TEXT         NULL     COMMENT '승인 메모',
+  models          JSON         NULL     COMMENT '단계별 모델',
+  created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 시각',
+  updated_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '갱신 시각',
+  PRIMARY KEY (id),
+  FOREIGN KEY (feedback_id) REFERENCES policy_feedback (id) ON DELETE SET NULL,
+  FOREIGN KEY (policy_id) REFERENCES policies (id) ON DELETE CASCADE
+) COMMENT '정책 수정 요청(피드백 루프)';
+
+CREATE TABLE policy_correction_log (
+  id            INT         NOT NULL AUTO_INCREMENT COMMENT '반영 ID',
+  request_id    INT         NULL     COMMENT '수정 요청 ID',
+  policy_id     INT         NOT NULL COMMENT '정책 ID',
+  field         VARCHAR(20) NOT NULL COMMENT '바꾼 칸',
+  before_value  TEXT        NULL     COMMENT '바꾸기 전',
+  after_value   TEXT        NULL     COMMENT '바꾼 후',
+  applied_at    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '반영 시각',
+  reverted_at   DATETIME    NULL     COMMENT '되돌린 시각',
+  PRIMARY KEY (id),
+  FOREIGN KEY (request_id) REFERENCES policy_correction_requests (id) ON DELETE SET NULL,
+  FOREIGN KEY (policy_id) REFERENCES policies (id) ON DELETE CASCADE
+) COMMENT '정책 수정 반영 기록';
