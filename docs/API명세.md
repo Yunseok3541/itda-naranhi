@@ -2,7 +2,8 @@
 
 > API는 Next.js 앱(`web/src/app/api/`)의 Route Handler로 구현한다 (고민기록 #27).
 > 화면은 같은 앱에서 `fetch('/api/...')`로 호출한다. 화면 쪽 내용은 [화면설계.md](화면설계.md), 문구는 [기능 완료 기준](기획/기능완료기준과_콘텐츠.md), 세션 사용법은 [web/README.md](../web/README.md) "데모 세션"
-> 마지막 갱신: 2026-11-20 오후 (별자리를 도감 캐릭터 10개로 맞춤, Neon 동기화 SQL `20261121_quests_sync.sql`. 담당 고은비, 브랜치 `feat/points`)
+> 마지막 갱신: 2026-11-20 (프로필 이미지: 획득한 별자리만 고르는 `GET·PUT /api/profile/avatar`, 오류 코드 `NOT_ACQUIRED`, Neon 변경 SQL `20261121_profile_avatar.sql` / 데모 시작 질문을 질문별 페이지로 바꿀 때의 저장 계약 확인. 담당 고은비, 브랜치 `feat/profile-avatar`)
+> 이전 갱신: 2026-11-20 오후 (별자리를 도감 캐릭터 10개로 맞춤, Neon 동기화 SQL `20261121_quests_sync.sql`. 담당 고은비, 브랜치 `feat/points`)
 > 이전 갱신: 2026-11-19 18시 (포인트: 시도 저장 `pointsEarned`·`totalPoints`, 밤하늘 `totalPoints`·별 `points`, 시드를 루트 `quests.json` 기준 별자리 12개·별 40개로 교체, 별 `focus`·`tags` 칸. 담당 고은비, 브랜치 `feat/points`)
 > 이전 갱신: 2026-11-19 13시 (청년센터·문의 초안 화면 연결 계약, 초안 `sent` 칸, 문의 API 세션 장애 503, 실데이터 전환 계획, AI 실호출 기록)
 >
@@ -23,6 +24,7 @@
 | 밤하늘 `GET /api/sky` | 윤석 | `api/sky/route.ts`, `api/_lib/sky.ts` | ⚠ 고은비가 먼저 구현해 둠 → 위와 같음 |
 | 청년센터 `GET /api/centers`, `/api/centers/{id}` | 고은비 | `api/centers/`, `api/_lib/centers*.ts` | 가상 센터 1곳으로 HTTP 검증 완료. 실데이터는 인증키 대기 |
 | 문의 초안 `POST·GET /api/inquiries`, `PATCH /api/inquiries/{id}` (AI ⑥) | 고은비 | `api/inquiries/`, `api/_lib/inquiries.ts` | 생성·수정·재조회·보냄 기록 HTTP 검증 완료 |
+| 프로필 이미지 `GET·PUT /api/profile/avatar` | 고은비 | `api/profile/avatar/` | 구현·검증 (`feat/profile-avatar`). 화면 연결은 화면 담당 |
 
 - `api/_lib/http.ts`는 새 API가 함께 쓰는 응답 형식·날짜 도우미다 (밑줄 폴더라 라우트가 되지 않음).
 - 위기 표현 규칙 `lib/safety.ts`는 공용이다. 고은비가 AI 출력 검사(`isSafeAiText`)와 규칙 안내(`ruleHelp`)를 추가했다.
@@ -74,6 +76,7 @@
 | 400 | `INVALID` | 필드 누락·허용값 아님·길이 초과 | 입력 유지, `error` 문구 표시. 입력을 고치게 함 |
 | 401 | `NO_SESSION` | 세션 쿠키 없음·만료 | 입력을 지우지 말고 `POST /api/demo/session`을 다시 부르거나 데모 시작 화면으로 |
 | 404 | `NOT_FOUND` | 없는 ID, **다른 세션의 기록** (존재 여부를 알려주지 않으려고 404로 통일) | "찾을 수 없어요" 안내 후 이전 화면으로 |
+| 403 | `NOT_ACQUIRED` | 아직 획득하지 않은(별을 모두 따지 않은) 별자리를 프로필 이미지로 고름 | 그 별자리를 고를 수 없게 막고 `error` 문구 표시. 지금 이미지는 그대로 |
 | 500 | `SAVE_FAILED` | DB 저장 실패 | "지금은 저장하지 못했어요. 적어 둔 글은 그대로 있어요." + **다시 저장하기**. 입력 유지 |
 | 500 | `LOAD_FAILED` | DB 조회 실패 | 다시 불러오기 버튼 |
 | 503 | `SAVE_FAILED` / `LOAD_FAILED` | 시도 저장·밤하늘 조회 전에 DB 장애로 세션을 확인하지 못함 | 입력을 유지하고 같은 요청을 재시도한다. `help`가 있으면 표시한다. |
@@ -625,6 +628,62 @@ const { cheer, help } = await processReflection({
 - DB: `users.policy_info JSONB` 추가 (`db/migrations/20261120_profile.sql`, 여러 번 실행 안전). ④~⑥은 기존 `start_answers`에 키만 늘어남. **공용 Neon 적용은 PR이 합쳐진 뒤 팀에 알리고 진행**
 - 검증: `web/scripts/verify-profile.mts` 40/40 (로컬 DB, 트랜잭션 롤백, 가짜 AI). `verify-policies.mts` 39/39 그대로
 
+#### 데모 시작 질문을 질문별 페이지로 바꿀 때 (2026-11-20 확인, 고민기록 #33)
+
+**결론: 기존 `PUT /api/profile`을 그대로 쓴다. 서버 단계별 임시 저장 API는 만들지 않는다.**
+
+- 지금 흐름: 첫 화면에서 질문 ①~③에 답함 (세션 없음) → **데모 시작** → `POST /api/demo/session` → 답이 하나라도 있으면 `PUT /api/profile { startAnswers }` 한 번 (`mobile-flow.tsx`).
+- 질문을 답하는 동안은 **아직 세션(사용자)이 없어서** 서버에 단계별로 저장할 곳이 없다. 이전/다음 이동 중 입력값은 화면 상태로 들고 있으면 되고, 새로고침에도 남기려면 `sessionStorage`에 두면 된다 (개인정보가 아닌 선택지 값뿐).
+- 서버에 단계별로 저장하려면 첫 질문 전에 세션을 만들고, `start_answers`와 별도로 "다 답했는지"를 둬야 한다 (`start_answers`가 NULL이 아니면 "시작 질문을 거친 사용자"로 세고, 1순위 지표 `v_outside_attempt_rate`의 분모에도 들어감). 시연 흐름에서 얻는 것이 없어 두지 않는다.
+
+질문별 입력값과 저장 위치 (`users`):
+
+| 화면 단계 | 질문 | 요청 키 | 값 | 저장 |
+| --------- | ---- | ------- | -- | ---- |
+| 1/3 | 요즘 할 수 있는 활동 범위는? | `startAnswers.range` | `home` · `near` · `out` · `people` 하나 | `start_answers.range` + **`current_stage`** (home 1 · near 2 · out 3 · people 4) |
+| 2/3 | 부담되는 상황은? (여러 개) | `startAnswers.burden` | `people` · `unfamiliar` · `phone` · `morning` 배열 | `start_answers.burden` (목록 순서로 정리·중복 제거) |
+| 3/3 | 혼자 / 함께하는 활동도 | `startAnswers.with` | `alone` · `together` 하나 | `start_answers.with` |
+
+- 마지막 질문을 마치고 **데모 시작**을 누를 때 세 답을 한 번에 보낸다: `{ "startAnswers": { "range": "out", "burden": ["people"], "with": "alone" } }`. 응답(`currentStage` 포함)은 GET과 같아서 결과 화면에 바로 쓸 수 있다.
+- 건너뛴 질문은 `null`(또는 키를 빼기). 다 건너뛰면 지금처럼 요청을 보내지 않아도 되고, `{ "startAnswers": {} }`를 보내면 "시작 질문을 거쳤지만 답은 없음"으로 저장된다 (단계 1 그대로).
+- ①을 비우면 시작 단계는 그대로다 (1로 내리지 않음). 틀린 값이면 400 + `field`(예: `startAnswers.with`)이고 아무것도 저장하지 않는다.
+- ⚠ `startAnswers`는 **통째로 바뀐다** (빠진 키 = 답하지 않음). 이미 "내 정보"에서 ④~⑥을 답한 사용자가 첫 화면 질문을 다시 거쳐 ①~③만 보내면 ④~⑥이 지워진다. 지금은 브라우저에 모드가 남아 있으면 첫 화면을 건너뛰어서 거의 일어나지 않지만, 화면에서 막으려면 데모 시작 뒤 `GET /api/profile`의 `startAnswers`가 `null`일 때만 저장하거나, 받은 값에 ①~③을 덮어 보낸다.
+- 검증: `verify-profile.mts`에 위 경우 10개 추가 → **50 / 50**
+
+### 8-1. 프로필 이미지 — `GET /api/profile/avatar`, `PUT /api/profile/avatar` (고은비, 고민기록 #33)
+
+프로필 이미지 = **획득한 별자리의 도감 캐릭터** 또는 기본 캐릭터. 획득 = 그 별자리의 별을 **모두 한 번 이상 땄음**(bright). 도감 화면(`lib/constellations.ts`의 `getCompletedConstellationIds`)과 같은 기준이고, DB 뷰 `v_user_acquired_constellations`로 계산한다. 저장값은 별자리 ID(`users.avatar_constellation_id`), `null` = 기본 캐릭터.
+
+```jsonc
+// GET /api/profile/avatar
+// 200 — 별자리 전체(도감 순서) + 획득 여부. 화면은 acquired인 것만 고를 수 있게 한다
+{
+  "avatarConstellationId": 1,         // 지금 프로필 이미지 별자리, null = 기본 캐릭터
+  "constellations": [
+    { "constellationId": 1, "name": "카시오페이아자리", "acquired": true,  "acquiredDate": "2026-11-20" },  // 마지막 별을 처음 딴 날 (한국 날짜)
+    { "constellationId": 2, "name": "돌고래자리",       "acquired": false, "acquiredDate": null }
+  ]
+}
+// 401 NO_SESSION / 404 NOT_FOUND / 500 LOAD_FAILED "지금은 별자리 목록을 불러오지 못했어요." / 503 LOAD_FAILED
+```
+
+```jsonc
+// PUT /api/profile/avatar
+{ "constellationId": 1 }      // 획득한 별자리 ID, 또는 null(기본 캐릭터로)
+// 200 — GET과 같은 모양 (바뀐 avatarConstellationId + 목록)
+// 400 { "error": "별자리 번호를 확인해 주세요.", "code": "INVALID", "help": null, "field": "constellationId" }   // 키가 없거나 양의 정수·null이 아님
+// 403 { "error": "아직 별을 모두 따지 않은 별자리예요. 별을 모두 따면 고를 수 있어요.", "code": "NOT_ACQUIRED", "help": null }
+// 404 { "error": "별자리를 찾을 수 없어요.", "code": "NOT_FOUND", "help": null }
+// 401 NO_SESSION / 500 LOAD_FAILED·SAVE_FAILED / 503 SAVE_FAILED
+```
+
+- 캐릭터 그림은 화면이 `catalog/characters.ts`에서 `constellationId`로 찾는다 (`characters.find(c => c.constellationId === id)`). 서버는 캐릭터 문자열 ID(`saebit` 등)를 다루지 않는다.
+- 미획득 별자리는 403으로 거절하고 지금 이미지를 바꾸지 않는다. 저장하는 UPDATE 문장에서도 획득 여부를 다시 확인한다. 다른 사용자가 획득한 별자리는 내 것이 아니다.
+- 저장된 별자리를 더는 획득한 상태가 아니면(콘텐츠 변경으로 그 별자리에 별이 늘어난 경우) GET은 `avatarConstellationId: null`(기본 캐릭터)로 준다. 별을 마저 따면 다시 고를 수 있다.
+- 저장은 됐는데 목록을 다시 읽지 못하면 200 `{ "avatarConstellationId": 1, "constellations": null }` (실패로 보내지 않음).
+- ⚠ 지금 화면(`profile-home.tsx`)은 이미지를 브라우저(`localStorage` `naranhi-avatar`)에만 저장하고 캐릭터 전부를 고를 수 있다. API 모드에서는 이 API로 바꾸고, 예시 모드는 밤하늘 예시 기록으로 같은 기준을 적용하면 된다 (화면 담당).
+- 검증: `web/scripts/verify-avatar.mts` **30 / 30**
+
 ---
 
 ## 만들 것 (기획: `docs/기획/아이디어_v4.md`)
@@ -720,11 +779,23 @@ node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-star-api
 node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-star-api.mts --ai-fail  # 잘못된 키
 GEMINI_MODEL=gemini-3.5-flash-lite node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-star-api.mts
 GEMINI_MODEL=gemini-3.5-flash-lite node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-safety.mts
+node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-avatar.mts            # 프로필 이미지 (20261121_profile_avatar.sql 적용된 DB)
 # 서버를 띄운 뒤 (npm run build && npx next start -p 3107)
 node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-http.mts --base=http://localhost:3107
 node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-inquiry-http.mts --base=http://localhost:3107   # 센터·문의 초안
 node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-ai-live.mts --base=http://localhost:3107       # AI 실호출 기록 (공개 주소는 1번만)
 ```
+
+### 2026-11-20 프로필 이미지·시작 질문 저장 검증 (브랜치 `feat/profile-avatar` = `master` 761c820 + 이번 변경, 로컬 Docker만, 키 없음)
+
+| 검증 | 결과 | 비고 |
+| ---- | ---- | ---- |
+| 새 DB(`db/init`) — `verify-avatar.mts` | **30 / 30 통과** | 잘못된 요청 400, 일부만 딴·dim·다른 사용자 별자리 403, 없는 별자리 404, 획득 날짜, 화면 `getCompletedConstellationIds` 결과 = 서버 목록, 별이 늘면 미획득·기본 캐릭터, 외래키, DB 실패 500 |
+| 새 DB — `verify-profile.mts` | **50 / 50 통과** (기존 40 + 시작 질문 10) | ① 범위별 시작 단계 1·2·3·4, ①~③만 보냄 = 6칸 보냄, 다 건너뜀, 틀린 값, ④~⑥ 지워지는 현재 계약 |
+| 새 DB — `verify-star-api.mts --no-key` | **81 / 81 통과** | 회귀 없음 |
+| Neon 경로: master `db/init` + 가상 기록(별자리 1 완성) → `20261121_profile_avatar.sql` 2번 | 에러 없음, 기록 그대로 | users 칸·외래키·뷰 정의가 새 DB와 같음. 기존 사용자 획득 별자리 1이 바로 보임 |
+| HTTP (쿠키 세션, `next dev`) | 기대대로 | 세션 없음 401, 데모 시작 → `PUT /api/profile` ①~③ → 단계 2, 미획득 403 → 별 5개 따기 → 200, 미획득 2 → 403, 999 → 404, 문자 → 400, 다시 조회 = 1 |
+| `tsc --noEmit`, eslint (바꾼 파일) | 통과 | |
 
 ### 2026-11-20 오후 별자리를 도감 10개로 맞춘 뒤 재검증 (브랜치 `feat/points`, 로컬 Docker만, 키 없음)
 
@@ -880,6 +951,18 @@ node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-ai-live.
 - 폐기한 별자리 6개(안드로메다·북쪽왕관·페가수스·목동·오리온·큰곰)와 그전 12개 묶음은 루트 `quests.retired.json`에 보관 (DB·스크립트는 읽지 않음).
 - `quests.json`에 없는 별이 DB에 있으면 멈춘다 (별을 지우면 시도 기록이 깨지므로 자동으로 지우지 않음).
 - 확인: `SELECT id, stage, name, star_count FROM constellations ORDER BY id;` → 10줄, `SELECT count(*) FROM stars;` → 40
+
+## DB 변경 — 프로필 이미지 (`feat/profile-avatar`, `db/migrations/20261121_profile_avatar.sql`, 기록 유지)
+
+다른 변경 SQL과 순서 상관없다. **기록을 지우지 않는다.** 여러 번 실행해도 결과가 같다.
+
+| 변경 | 내용 | API에서 할 일 |
+| ---- | ---- | ------------- |
+| 칸 추가 | `users.avatar_constellation_id INT` (NULL = 기본 캐릭터), 외래키 `constellations(id) ON DELETE SET NULL` | 반영 완료 (`api/profile/avatar/`) |
+| 뷰 추가 | `v_user_acquired_constellations` (user_id, constellation_id, acquired_at): 별자리의 별을 모두 딴 사용자·별자리. 별 수는 `star_count`가 아니라 실제 `stars` 행으로 셈 | 프로필 이미지 검증. 도감·별자리 완성 안내에도 쓸 수 있음 |
+
+- ⚠ 적용 전에 이 브랜치를 배포하면 `/api/profile/avatar`만 500이고 다른 API는 그대로다.
+- 확인: `SELECT to_regclass('public.v_user_acquired_constellations');` → 이름이 나오면 적용 완료
 
 ## 실행 환경
 

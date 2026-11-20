@@ -1,7 +1,7 @@
 -- ERDCloud 가져오기(Import)용 DDL (MySQL 문법)
 -- COMMENT가 ERDCloud의 논리명(한글 이름)으로 표시됨
 -- ※ 확인용 파일. 실제 DB는 db/init/01_schema.sql(PostgreSQL) 기준이며, 스키마를 바꾸면 이 파일도 함께 수정
--- ※ 운영 DB 변경 이력: db/migrations/ (마지막: 20261120_erd_v4_alignment.sql)
+-- ※ 운영 DB 변경 이력: db/migrations/ (마지막: 20261121_profile_avatar.sql)
 -- ※ PostgreSQL 전용 기능(CHECK, 배열, 뷰)은 빠져 있음
 
 CREATE TABLE users (
@@ -14,6 +14,7 @@ CREATE TABLE users (
   policy_info    JSON         NULL     COMMENT '정책 신청 정보(취업·학력·결혼·연소득·해당 상황, 선택, AI 미전송)',
   share_in_sky   BOOLEAN      NOT NULL DEFAULT FALSE COMMENT '같은 하늘의 별 집계 동의',
   created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '가입 시각',
+  avatar_constellation_id INT NULL COMMENT '프로필 이미지 별자리 ID(획득한 별자리만, NULL = 기본 캐릭터. 외래키 constellations.id는 PostgreSQL 스키마에만)',
   PRIMARY KEY (id)
 ) COMMENT '사용자';
 
