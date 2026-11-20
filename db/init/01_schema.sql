@@ -21,7 +21,10 @@ CREATE TABLE users (
   -- {"job":"unemployed","school":"high_grad","married":"single","income":"under_2000","special":[]}
   policy_info    JSONB,
   share_in_sky   BOOLEAN NOT NULL DEFAULT false,                   -- 같은 하늘의 별 집계 포함 동의
-  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- 프로필 이미지 = 획득한(별을 모두 딴) 별자리의 도감 캐릭터. NULL = 기본 캐릭터 (고민기록 #33)
+  -- 외래키는 constellations를 만든 뒤 아래에서 건다. 획득 여부는 API가 v_user_acquired_constellations로 확인
+  avatar_constellation_id INT
 );
 
 -- 데모 세션 (로그인 없이 브라우저마다 가상 사용자 1명)
@@ -56,6 +59,10 @@ CREATE TABLE constellations (
   theme       VARCHAR(100),
   star_count  SMALLINT NOT NULL
 );
+
+-- 프로필 이미지 별자리 (users는 constellations보다 먼저 만들어서 여기서 건다). 별자리가 없어지면 기본 캐릭터로
+ALTER TABLE users ADD CONSTRAINT users_avatar_constellation_id_fkey
+  FOREIGN KEY (avatar_constellation_id) REFERENCES constellations(id) ON DELETE SET NULL;
 
 -- 별 = 퀘스트
 CREATE TABLE stars (
@@ -377,6 +384,27 @@ SELECT COALESCE(s.user_id, e.user_id)                                           
        COALESCE(e.checkin_points, 0)::int                                                   AS checkin_points
 FROM star s
 FULL JOIN ev e ON e.user_id = s.user_id;
+
+-- 사용자가 획득한 별자리: 그 별자리의 별을 모두 한 번 이상 땄음(bright) (도감·프로필 이미지, 고민기록 #33)
+-- 화면 lib/constellations.ts의 getCompletedConstellationIds와 같은 기준. 별 수는 star_count가 아니라 실제 stars 행으로 센다
+-- acquired_at = 마지막 별을 처음 딴 시각 (= 별자리를 완성한 순간). 다시 따거나 dim은 영향 없음
+CREATE VIEW v_user_acquired_constellations AS
+WITH first_bright AS (
+  SELECT user_id, star_id, min(created_at) AS at
+  FROM star_attempts
+  WHERE status = 'bright'
+  GROUP BY user_id, star_id
+), totals AS (
+  SELECT constellation_id, count(*) AS stars FROM stars GROUP BY constellation_id
+)
+SELECT f.user_id,
+       s.constellation_id,
+       max(f.at) AS acquired_at
+FROM first_bright f
+JOIN stars s  ON s.id = f.star_id
+JOIN totals t ON t.constellation_id = s.constellation_id
+GROUP BY f.user_id, s.constellation_id, t.stars
+HAVING count(*) = t.stars;
 
 -- 같은 하늘의 별: 오늘(한국 시간) 별마다 시도한 사람 수 (동의한 사용자만, 구 단위, 5명 미만은 숨김)
 CREATE VIEW v_sky_today AS
