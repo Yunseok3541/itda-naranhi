@@ -1,0 +1,129 @@
+{
+  "at": "2026-11-20T02:53:16.888Z",
+  "model": "gemini-3.5-flash-lite",
+  "results": [
+    {
+      "name": "keyword (AI 없음)",
+      "actionable": "90% (18/20)",
+      "burden": "83% (15/18)",
+      "difficultyExact": "78% (14/18)",
+      "difficultyNear": "89% (16/18)"
+    },
+    {
+      "name": "before (11/19, 입력 7칸)",
+      "actionable": "100% (20/20)",
+      "burden": "78% (14/18)",
+      "difficultyExact": "67% (12/18)",
+      "difficultyNear": "78% (14/18)"
+    },
+    {
+      "name": "after (지금, 입력 전부 · gemini-3.5-flash-lite)",
+      "actionable": "100% (20/20)",
+      "burden": "78% (14/18)",
+      "difficultyExact": "67% (12/18)",
+      "difficultyNear": "83% (15/18)"
+    }
+  ],
+  "after": {
+    "20260415005400112751": {
+      "actionable": true,
+      "burden": "visit",
+      "difficulty": 4
+    },
+    "20260710005400113257": {
+      "actionable": true,
+      "burden": "online",
+      "difficulty": 1
+    },
+    "20260918005400113454": {
+      "actionable": true,
+      "burden": "phone",
+      "difficulty": 5
+    },
+    "20260921005400113469": {
+      "actionable": true,
+      "burden": "group",
+      "difficulty": 6
+    },
+    "20260922005400113526": {
+      "actionable": true,
+      "burden": "visit",
+      "difficulty": 3
+    },
+    "20260922005400113549": {
+      "actionable": false,
+      "burden": "visit",
+      "difficulty": 3
+    },
+    "20260927005400113592": {
+      "actionable": true,
+      "burden": "group",
+      "difficulty": 6
+    },
+    "20260930005400113721": {
+      "actionable": true,
+      "burden": "phone",
+      "difficulty": 5
+    },
+    "20260930005400113731": {
+      "actionable": false,
+      "burden": "online",
+      "difficulty": 1
+    },
+    "20260930005400113739": {
+      "actionable": true,
+      "burden": "visit",
+      "difficulty": 4
+    },
+    "20261018005400213983": {
+      "actionable": true,
+      "burden": "group",
+      "difficulty": 6
+    },
+    "20261018005400213990": {
+      "actionable": true,
+      "burden": "group",
+      "difficulty": 6
+    },
+    "20261021005400214195": {
+      "actionable": true,
+      "burden": "group",
+      "difficulty": 6
+    },
+    "20261021005400214201": {
+      "actionable": true,
+      "burden": "online",
+      "difficulty": 1
+    },
+    "20261021005400214202": {
+      "actionable": true,
+      "burden": "phone",
+      "difficulty": 5
+    },
+    "20261021005400214219": {
+      "actionable": true,
+      "burden": "online",
+      "difficulty": 1
+    },
+    "20261021005400214222": {
+      "actionable": true,
+      "burden": "phone",
+      "difficulty": 5
+    },
+    "20261023005400214275": {
+      "actionable": true,
+      "burden": "visit",
+      "difficulty": 4
+    },
+    "20261023005400214276": {
+      "actionable": true,
+      "burden": "phone",
+      "difficulty": 5
+    },
+    "20261023005400214281": {
+      "actionable": true,
+      "burden": "online",
+      "difficulty": 1
+    }
+  }
+}

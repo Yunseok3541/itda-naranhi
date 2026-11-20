@@ -76,8 +76,12 @@ check("이름 규칙: 대출·보증·할인·공급·상담 → true, 해당 �
 const input = sourceFields({ id: 1, title: "가상 정책", raw: { plcyNm: "가상 정책", plcyKywdNm: "맞춤형상담서비스", mclsfNm: "취약계층 및 금융지원",
   addAplyQlfcCndCn: "서울시 거주 고립 청년", srngMthdCn: "", plcyPvsnMthdCd: "0042005", zipCd: "11440", inqCnt: "73", newTextField: "새로 생긴 한글 칸",
   sprtTrgtAgeLmtYn: "Y", sprtTrgtMinAge: "19", sprtTrgtMaxAge: "39", sprtSclCnt: "0" } });
-check("AI 입력: 키워드·분류·추가 자격 조건·나이 포함, 목록에 없는 한글 칸도 포함", input["키워드"] === "맞춤형상담서비스" && input["중분류"] === "취약계층 및 금융지원"
-  && input["추가_자격_조건"] === "서울시 거주 고립 청년" && input["나이"] === "19~39세" && input["newTextField"] === "새로 생긴 한글 칸", input);
+check("AI 입력: 키워드·분류·추가 자격 조건 포함, 목록에 없는 한글 칸도 포함", input["키워드"] === "맞춤형상담서비스" && input["중분류"] === "취약계층 및 금융지원"
+  && input["추가_자격_조건"] === "서울시 거주 고립 청년" && input["newTextField"] === "새로 생긴 한글 칸", input);
+check("AI 입력: 주소·기관명·나이·날짜는 넣지 않음 (판단을 흐림)", !("나이" in input) && !Object.values(input).some((v) => /^https?:/.test(v))
+  && !("sprvsnInstCdNm" in sourceFields({ id: 2, title: "t", raw: { sprvsnInstCdNm: "서울특별시 청년과" } })), input);
+const modes = checkClassification({ actionable: true, summary: "재무상담을 받을 수 있다.", applyMode: "online", useMode: "phone", difficulty: 2, difficultyNote: "", relevance: 2, tags: [] }, src);
+check("신청 온라인 + 이용 상담 → 최종 방식 상담, 난이도 최소 5", modes?.burden === "phone" && modes.difficulty === 5, modes);
 check("AI 입력: 빈 칸·숫자 코드·지역 코드·조회수·지원 규모 0은 넣지 않음", !("심사_방법" in input) && !("plcyPvsnMthdCd" in input) && !("zipCd" in input) && !("inqCnt" in input) && !("지원_규모" in input), input);
 check("AI 전 정부 사업 거르기: 이름 규칙, 중분류 '정책인프라구축'(서비스 말이 없을 때)",
   projectBeforeAi("청년의 삶 실태조사", {}) && projectBeforeAi("청년정책 사회보장협의제도 개선", { mclsfNm: "정책인프라구축" })
