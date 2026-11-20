@@ -418,7 +418,14 @@ html.sky-fading .panorama-canvas, html.sky-fading .sky-anchors { opacity: 0; }
   font-size: 12px;
   font-weight: 400;
 }
-.sky-locked .night-actions { margin-top: 4px; }
+.sky-locked .night-actions { margin-top: 4px; flex-wrap: wrap; justify-content: center; }
+.night-next { pointer-events: auto; }
+.night-next:empty { display: none; }
+.sky-mode .night-next .sky-pill {
+  min-height: 34px;
+  padding-inline: 10px;
+  font-size: .75rem;
+}
 .sky-locked .night-list summary { font-size: 11px; }
 
 .sky-mode .sky-minimap {

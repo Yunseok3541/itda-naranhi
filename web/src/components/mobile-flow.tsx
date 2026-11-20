@@ -8,6 +8,7 @@ import CentersScreen from './centers-screen';
 import SkyPanorama from '@/app/sky-preview/sky-panorama';
 import { StartQuestions } from './profile-form';
 import ProfileHome from './profile-home';
+import { PendingNextLink } from './next-step-card';
 import QuestScreen from './quest-screen';
 import StarScreen from './star-screen';
 import { HelpContext } from './screen-kit';
@@ -163,7 +164,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
      <tab.Icon /><span>{tab.label}</span>
    </Link>)}
  </nav>}
- {screen==='sky'&&<NightSky stars={stars} selected={selected} onSelect={SS} busy={busy} onReload={()=>run(async()=>S((await client(mode).sky()).stars))} footer={footer} completedId={completedId}/>}
+ {screen==='sky'&&<NightSky stars={stars} selected={selected} onSelect={SS} busy={busy} onReload={()=>run(async()=>S((await client(mode).sky()).stars))} footer={footer} nextLink={<PendingNextLink mode={mode} />} completedId={completedId}/>}
  {screen==='checkin'&&<QuestScreen mode={mode} busy={busy} run={run} onHelp={H} onError={E}/>}
  {screen==='star'&&<StarScreen key={starId} mode={mode} star={star} busy={busy} run={run} onHelp={H} onSaved={reloadSky}/>}
  {screen==='profile'&&<ProfileHome mode={mode}/>}

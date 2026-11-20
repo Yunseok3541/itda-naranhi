@@ -123,7 +123,7 @@ function freeBand() {
   return top !== undefined && bottom !== undefined ? { top: top + 12 - offset, bottom: bottom - 8 - offset } : undefined;
 }
 
-export default function NightSky({ stars, selected, onSelect, busy, onReload, footer, completedId }: {
+export default function NightSky({ stars, selected, onSelect, busy, onReload, footer, nextLink, completedId }: {
   stars: Star[];
   selected: Star | null;
   onSelect: (star: Star | null) => void;
@@ -131,6 +131,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   onReload: () => void;
   /** 메인은 한 화면에 고정이라 페이지 아래 안내(footer)를 "모든 별 목록" 창 맨 아래에 둔다 */
   footer?: ReactNode;
+  nextLink?: ReactNode;
   completedId?: number;
 }) {
   const starLight = useId();
@@ -337,6 +338,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
 
     {/* 모든 별 목록: 안내 문구 아래 작은 버튼 → 아래에서 올라오는 창 (캔버스를 못 쓰는 사람도 모든 별을 고를 수 있게) */}
       <div className="night-actions">
+        {nextLink && <div className="night-next">{nextLink}</div>}
         {/* 다른 별자리를 보고 있을 때만: 가장 최근에 기록한 별자리로 돌아가기 */}
         {recent >= 0 && recent !== safeIndex && <button type="button" className="recent-pill" onClick={() => jump(recent)}>
           <span aria-hidden="true">↺</span> 최근 별자리

@@ -74,12 +74,12 @@ export default function CatalogGallery() {
   }, []);
 
   function isAcquired(character: Character) {
-    return character.constellationId !== undefined && acquired?.has(character.constellationId) === true;
+    return acquired?.has(character.constellationId) === true;
   }
 
   function statusLabel(character: Character) {
     if (isAcquired(character)) return '획득';
-    if (character.constellationId === undefined || acquired) return '미획득';
+    if (acquired) return '미획득';
     return loadFailed ? '획득 상태 미확인' : '획득 확인 중';
   }
 
@@ -156,7 +156,7 @@ export default function CatalogGallery() {
               <span className="catalog-acquisition" data-acquired={isAcquired(selected)}>{statusLabel(selected)}</span>
               <p className="catalog-theme">{selected.constellation.theme}</p>
               <p className="catalog-story">{selected.story}</p>
-              <p className="catalog-activity">{selected.constellationId !== undefined ? '내 밤하늘에서 활동할 수 있어요' : '도감에서 만날 수 있어요'}</p>
+              <p className="catalog-activity">내 밤하늘에서 활동할 수 있어요</p>
             </div>
           </div>
         )}
