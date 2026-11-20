@@ -9,23 +9,23 @@ export type Character = {
   };
   color: string;
   story: string;
-  hasActivity?: boolean;
+  constellationId?: number;
 };
 
 export const characters: readonly Character[] = [
   {
     id: 'saebit', nickname: '새빛', constellation: activityConstellations[1],
-    color: '#ba9ef1', hasActivity: true,
+    color: '#ba9ef1', constellationId: 1,
     story: '다섯 별이 모여 새빛의 작은 왕관이 됐어요. 창가에 아침빛이 들면, 새빛도 눈을 뜨고 오늘의 하늘을 바라봐요.',
   },
   {
     id: 'yunseul', nickname: '윤슬', constellation: activityConstellations[2],
-    color: '#78d7c8', hasActivity: true,
+    color: '#78d7c8', constellationId: 2,
     story: '윤슬은 물 위로 올라와 가끔 숨을 골라요. 햇살을 머금은 물방울을 띄우고, 잠깐 쉬어 가는 동안 곁에서 헤엄쳐요.',
   },
   {
     id: 'doran', nickname: '도란', constellation: activityConstellations[3],
-    color: '#ecaf99', hasActivity: true,
+    color: '#ecaf99', constellationId: 3,
     story: '도란은 작은 리라가 달린 집을 등에 지고 다녀요. 오늘은 문 앞까지만 가 보고 싶다면, 도란도 딱 거기까지 함께 가요.',
   },
   {
