@@ -2,11 +2,13 @@
 
 > API는 Next.js 앱(`web/src/app/api/`)의 Route Handler로 구현한다 (고민기록 #27).
 > 화면은 같은 앱에서 `fetch('/api/...')`로 호출한다. 화면 쪽 내용은 [화면설계.md](화면설계.md), 문구는 [기능 완료 기준](기획/기능완료기준과_콘텐츠.md), 세션 사용법은 [web/README.md](../web/README.md) "데모 세션"
-> 마지막 갱신: 2026-11-19 18시 (포인트: 시도 저장 `pointsEarned`·`totalPoints`, 밤하늘 `totalPoints`·별 `points`, 시드를 루트 `quests.json` 기준 별자리 12개·별 40개로 교체, 별 `focus`·`tags` 칸. 담당 고은비, 브랜치 `feat/points`)
+> 마지막 갱신: 2026-11-20 오후 (별자리를 도감 캐릭터 10개로 맞춤, Neon 동기화 SQL `20261121_quests_sync.sql`. 담당 고은비, 브랜치 `feat/points`)
+> 이전 갱신: 2026-11-19 18시 (포인트: 시도 저장 `pointsEarned`·`totalPoints`, 밤하늘 `totalPoints`·별 `points`, 시드를 루트 `quests.json` 기준 별자리 12개·별 40개로 교체, 별 `focus`·`tags` 칸. 담당 고은비, 브랜치 `feat/points`)
 > 이전 갱신: 2026-11-19 13시 (청년센터·문의 초안 화면 연결 계약, 초안 `sent` 칸, 문의 API 세션 장애 503, 실데이터 전환 계획, AI 실호출 기록)
 >
-> ⚠ **`feat/points`부터 시드가 바뀌어 별 ID와 별자리가 달라졌다** (별 1~40 = `quests.json`의 quest id, 고민기록 #31). 아래 응답 예시 중 "실제 응답"이라고 적힌 것은 이전 시드(별 16개)로 받은 기록이라 ID·별자리 이름이 지금과 다르다. 형식은 그대로다.
+> ⚠ **`feat/points`부터 시드가 바뀌어 별 ID와 별자리가 달라졌다** (별 1~40 = `quests.json`의 quest id, **별자리 1~10 = 도감 캐릭터 순서**, 고민기록 #31). 아래 응답 예시 중 "실제 응답"이라고 적힌 것은 이전 시드(별 16개)로 받은 기록이라 ID·별자리 이름이 지금과 다르다. 형식은 그대로다.
 > 화면 영향: `mobile-flow.tsx`의 GPS(도착 확인) 안내는 별 ID 대신 밤하늘 응답의 `verifyType === "gps"`로 판단한다 (`lib/mobile-data.ts`의 `isGpsStar`, 예시 모드만 예시 목록의 16·17). 새 시드의 GPS 별은 6·8·10·11·17·33. 예시 모드의 별 제목 17개는 새 콘텐츠와 다르다.
+> 화면 담당이 맞출 것 (별자리 = 도감 10개): DB 별자리 ID 1~10이 `catalog/characters.ts` 순서·이름·테마와 같다. ① `lib/constellations.ts`의 `activityConstellations`를 1~10으로 늘리기(이름·테마는 characters.ts와 같음) ② `characters.ts`의 `hasActivity`를 10명 모두 true ③ `lib/sky-constellations.ts`의 하늘 모양을 별 수에 맞춰 추가 — 1 카시오페이아 5·2 돌고래 5는 지금 모양 그대로 맞음, 3 거문고 4·4 작은곰 3·5 토끼 3·6 여우 4·7 카멜레온 3·8 백조 5·9 독수리 3·10 화가 5. 모양이 없으면 기본 호 모양으로 그려져 깨지지는 않는다.
 
 ## 담당과 구현 위치
 
@@ -332,7 +334,7 @@ const { cheer, help } = await processReflection({
   "stars": [
     {
       "starId": 28, "title": "집 근처 산책로 한 바퀴 돌기", "description": "집 근처 산책로를 천천히 한 바퀴 걸어요. 중간에 돌아와도 괜찮아요.",
-      "constellationId": 4, "constellationName": "북쪽왕관자리", "position": 2, "verifyType": "self",
+      "constellationId": 6, "constellationName": "여우자리", "position": 2, "verifyType": "self",
       "status": "dim",          // untried | dim | bright. 한 번이라도 bright면 bright
       "attempts": 2,
       "points": 0,              // feat/points 추가. bright면 이 별의 점수(난이도 × 10), 아니면 0 (따기 전에는 점수를 알려주지 않음)
@@ -342,7 +344,7 @@ const { cheer, help } = await processReflection({
       ]
     },
     { "starId": 1, "title": "창문 열고 5분 바깥 공기 쐬기", "description": "창문을 열고 바깥 공기를 5분 느껴 봐요. 나가지 않아도 괜찮아요.",
-      "constellationId": 1, "constellationName": "안드로메다자리", "position": 1, "verifyType": "self",
+      "constellationId": 1, "constellationName": "카시오페이아자리", "position": 1, "verifyType": "self",
       "status": "untried", "attempts": 0, "points": 0, "memories": [] }
   ]
 }
@@ -351,11 +353,11 @@ const { cheer, help } = await processReflection({
 // 503 { "error": "지금은 밤하늘을 불러오지 못했어요.", "code": "LOAD_FAILED", "help": null }   // 세션 조회 DB 장애
 ```
 
-- 별 목록은 **시드의 모든 별**(현재 40개, 별자리 12개)을 단계·별자리·순서대로 준다 (별자리 선택 API가 생기면 바꿈).
+- 별 목록은 **시드의 모든 별**(현재 40개, 별자리 10개)을 단계·별자리·순서대로 준다. 별자리 ID·이름은 도감(`catalog/characters.ts`)과 같다 (별자리 선택 API가 생기면 바꿈).
 - `totalPoints`·`points`는 위 "3. 별 시도 저장"의 포인트 규칙과 같은 뷰로 계산한다. 별자리 하나를 다 따면 1단계 30, 2단계 40, 3단계 90, 4단계 160.
 - `status`는 뷰 `v_user_star_status` 기준(최종 상태), `memories`는 개별 시도. 회고 없이 저장한 시도는 `reflection: null`.
 - 별 상세 화면 URL(예: `/stars/12`)로 바로 들어와도 이 응답에서 `starId`로 제목을 얻는다.
-- 센터 "앞까지 가 본 별"은 새 시드에서 **별 17 "청년센터 방문해서 둘러보기"**(4단계 돌고래자리 1번째, GPS, `category: center`)다. v4 시드와 ID가 같아 화면의 `/stars/17` 링크는 그대로 맞는다 (제목·별자리는 바뀜). GPS 확인이면 `placeId`에 `center:{centerId}`, `placeName`에 센터 이름을 보낸다.
+- 센터 "앞까지 가 본 별"은 새 시드에서 **별 17 "청년센터 방문해서 둘러보기"**(4단계 작은곰자리 1번째, GPS, `category: center`)다. v4 시드와 ID가 같아 화면의 `/stars/17` 링크는 그대로 맞는다 (제목·별자리는 바뀜). GPS 확인이면 `placeId`에 `center:{centerId}`, `placeName`에 센터 이름을 보낸다.
 
 ### 5·6. 청년센터와 문의 초안 — 화면 연결 계약 (고은비 → 재희)
 
@@ -713,7 +715,7 @@ AI 출력 검사 (`lib/safety.ts`의 `isSafeAiText`): 위험 표현, 지시·과
 ### 실행 방법 (web/에서)
 
 ```bash
-node node_modules/tsx/dist/cli.mjs scripts/gen-quest-seed.mts --check   # quests.json과 시드·변경 SQL이 같은지 (고친 뒤에는 --check 없이 실행해 다시 생성)
+node node_modules/tsx/dist/cli.mjs scripts/gen-quest-seed.mts --check   # quests.json과 시드·Neon 동기화 SQL이 같은지 (고친 뒤에는 --check 없이 실행해 다시 생성)
 node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-star-api.mts --no-key   # 키 없음
 node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-star-api.mts --ai-fail  # 잘못된 키
 GEMINI_MODEL=gemini-3.5-flash-lite node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-star-api.mts
@@ -724,7 +726,18 @@ node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-inquiry-
 node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-ai-live.mts --base=http://localhost:3107       # AI 실호출 기록 (공개 주소는 1번만)
 ```
 
-### 2026-11-20 quests.json으로 콘텐츠 교체 뒤 재검증 (브랜치 `feat/points`, 로컬 Docker만, 키 없음)
+### 2026-11-20 오후 별자리를 도감 10개로 맞춘 뒤 재검증 (브랜치 `feat/points`, 로컬 Docker만, 키 없음)
+
+| 실행 | 결과 | 비고 |
+| ---- | ---- | ---- |
+| 동기화 SQL `20261121_quests_sync.sql` — 지금 Neon과 같은 DB(최신 master + points + survey)에 시도·설문·하위 퀘스트 시도·옛 별자리 기록을 넣고 2번 실행 | 에러 없음, **시도 기록 그대로** | 포인트 70점 그대로, 오늘의 추천·체크인 그대로. 지운 것은 옛 별자리 11번을 가리키던 `user_constellations` 1줄뿐 |
+| 새 DB / master + points + 동기화 / Neon과 같은 DB + 동기화 | 별자리 10개·별 40행·하위 퀘스트 같음, 번호 10/40/40 | 스키마는 새 DB = master + points + 동기화 (설문 칸은 #21에서) |
+| `verify-star-api.mts --no-key` | **81 / 81** | 새 검사: 별자리 = 도감 캐릭터 10명(순서·이름·테마) |
+| `verify-profile` / `verify-policies` | **40 / 40**, **41 / 41** | |
+| `npm run build` → `next start` HTTP — `verify-http` / `verify-inquiry-http` | **20 / 20**, **25 / 25** | 밤하늘 API: 별자리 10개, 별 수 5·5·4·3·3·4·3·5·3·5 |
+| `eslint`, `tsc` (`next typegen` 뒤) | 오류 없음 | |
+
+ (브랜치 `feat/points`, 로컬 Docker만, 키 없음)
 
 | 실행 | 결과 | 비고 |
 | ---- | ---- | ---- |
@@ -844,7 +857,7 @@ node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-ai-live.
 
 | 변경 | 내용 | API에서 할 일 |
 | ---- | ---- | ------------- |
-| 콘텐츠 교체 | 원본 루트 `quests.json` → `web/scripts/gen-quest-seed.mts`가 시드·이 변경 SQL을 만듦. 별자리 12개(단계마다 3개)·별 40개, 별 ID = quest id. `is_outside`·`category`·`verify_type`·`place_type`·`description`도 JSON에 있음 | 별 ID를 코드에 직접 적지 않기. 문구를 고치면 JSON만 고치고 스크립트 실행 (`--check`로 어긋남 확인) |
+| 콘텐츠 교체 | 원본 루트 `quests.json`. 이 파일 적용 당시는 별자리 12개(단계마다 3개)·별 40개였고, 지금은 아래 동기화 SQL로 별자리 10개(도감)로 바뀜. 별 ID = quest id. `is_outside`·`category`·`verify_type`·`place_type`·`description`도 JSON에 있음 | 별 ID를 코드에 직접 적지 않기. 문구를 고치면 JSON만 고치고 스크립트 실행 (`--check`로 어긋남 확인) |
 | 하위 퀘스트 | 별마다 `easier_title` 1개 → `sub_quests` 40개 (하위 퀘스트 ID = 별 ID) | 없음 |
 | 별 칸 추가 | `stars.focus`(daily·outing·relation·work), `stars.tags`(TEXT[], outdoor·social·career·learning·rest) | 아직 API에서 안 씀. 정책 추천·추천 이유에 쓸 수 있음 |
 | 포인트 뷰 | `v_star_points`(별 점수 = 난이도 × 10), `v_user_points`(처음 밝힌 별만 합산). 테이블 구조 변경 없음 | 시도 저장·밤하늘 응답에 반영 완료 |
@@ -852,6 +865,21 @@ node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-ai-live.
 - ⚠ 별 ID가 바뀌어 **`star_attempts`·`daily_recommendations`·`user_constellations`·`sub_quests`를 비우고 다시 넣는다** (데모 사용자의 시도·회고·오늘 추천이 사라짐. 사용자·체크인·문의 초안·센터 기록은 유지). 팀에 알린 뒤, 시연 직전이 아닐 때 적용한다.
 - 적용 전까지 Neon에서는 새 코드의 시도 저장·밤하늘이 뷰가 없어 실패한다 → 이 브랜치를 배포하기 전에 적용해야 한다.
 - (선택, 남은 결정) 별마다 추천 범위 칸: 지금은 stage로 정해서 3·4단계의 집 안 활동도 "집 앞"으로 분류됨 (고민기록 #31) → `ALTER TABLE stars ADD COLUMN scope VARCHAR(5) CHECK (scope IN ('home', 'near', 'out'));`
+
+## DB 변경 — 별자리를 도감 10개로 (`feat/points`, `db/migrations/20261121_quests_sync.sql`, 기록 유지)
+
+`20261120_points.sql` 다음에 실행한다 (없으면 처음에 멈추고 아무것도 바꾸지 않음). **기록을 지우지 않는다.** `web/scripts/gen-quest-seed.mts`가 `quests.json`으로 만드는 파일이라, 문구를 고칠 때마다 다시 만들어 실행하면 된다. 여러 번 실행해도 결과가 같다.
+
+| 변경 | 내용 | API에서 할 일 |
+| ---- | ---- | ------------- |
+| 별자리 | 12개 → **10개 = 도감 캐릭터** (ID 1 카시오페이아 · 2 돌고래 · 3 거문고 · 4 작은곰 · 5 토끼 · 6 여우 · 7 카멜레온 · 8 백조 · 9 독수리 · 10 화가). 단계별 2·3·2·3개 | 없음 (API는 DB를 읽음) |
+| 별 | 소속 별자리·순서만 바뀜. 별 ID·단계·문구는 그대로 → 포인트도 그대로 | 없음 |
+| 하위 퀘스트 | 문구 덮어쓰기 (ID = 별 ID 그대로) | 없음 |
+| 지우는 것 | 별이 없는 옛 별자리 11·12번, 그 별자리를 가리키는 `user_constellations` 줄 | 없음 |
+
+- 폐기한 별자리 6개(안드로메다·북쪽왕관·페가수스·목동·오리온·큰곰)와 그전 12개 묶음은 루트 `quests.retired.json`에 보관 (DB·스크립트는 읽지 않음).
+- `quests.json`에 없는 별이 DB에 있으면 멈춘다 (별을 지우면 시도 기록이 깨지므로 자동으로 지우지 않음).
+- 확인: `SELECT id, stage, name, star_count FROM constellations ORDER BY id;` → 10줄, `SELECT count(*) FROM stars;` → 40
 
 ## 실행 환경
 
