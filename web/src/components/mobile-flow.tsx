@@ -8,6 +8,7 @@ import CentersScreen from './centers-screen';
 import SkyPanorama from '@/app/sky-preview/sky-panorama';
 import { StartQuestions } from './profile-form';
 import ProfileHome from './profile-home';
+import { PendingNextLink } from './next-step-card';
 import QuestScreen from './quest-screen';
 import StarScreen from './star-screen';
 import { HelpContext } from './screen-kit';
@@ -119,6 +120,7 @@ export default function MobileFlow({screen='sky',starId,centerId}:{screen?:strin
        <div className="sky-top-right">
          <Link className="sky-pill gold" href="/policies"><span aria-hidden="true">✦</span> 정책추천</Link>
          <Link className="sky-pill small-pill" href="/centers"><span aria-hidden="true">⌖</span> 청년센터</Link>
+         <PendingNextLink mode={mode} />
        </div>
      </header>
    : ready

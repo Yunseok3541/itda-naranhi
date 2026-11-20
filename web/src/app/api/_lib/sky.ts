@@ -3,7 +3,8 @@
 import { db as pool } from "@/lib/db";
 import { type ApiResult, type Db, fail, KST_DATE, ok } from "./http";
 
-type Memory = { attemptId: number; date: string; status: "bright" | "dim"; reflection: string | null };
+type Memory = { attemptId: number; date: string; status: "bright" | "dim"; reflection: string | null;
+  parentAttemptId: number | null; subQuestId: number | null; customTitle: string | null };
 
 export async function getSky(userId: number, db: Db = pool): Promise<ApiResult> {
   try {
@@ -35,7 +36,8 @@ export async function getSky(userId: number, db: Db = pool): Promise<ApiResult> 
 
     const attempts = (
       await db.query<Memory & { star_id: number }>(
-        `SELECT id AS "attemptId", star_id, ${KST_DATE("created_at")} AS date, status, reflection
+        `SELECT id AS "attemptId", star_id, ${KST_DATE("created_at")} AS date, status, reflection,
+          parent_attempt_id AS "parentAttemptId", sub_quest_id AS "subQuestId", custom_title AS "customTitle"
          FROM star_attempts WHERE user_id = $1
          ORDER BY created_at DESC, id DESC`,
         [userId],
