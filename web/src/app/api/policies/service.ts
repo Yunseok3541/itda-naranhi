@@ -4,7 +4,8 @@
 // AI에는 식별 정보 없이 선택값(부담 상황·필요한 것)과 후보 정책 요약만 보낸다. 정책 신청 정보(취업·소득 등)는 보내지 않는다
 import { db as pool } from "@/lib/db";
 import { generateJson } from "@/lib/gemini";
-import { isSafeAiText } from "@/lib/safety";
+import { isSafeAiText, ruleHelp } from "@/lib/safety";
+import { FEEDBACK_REASONS, isLoopReason, type FeedbackReason } from "@/lib/policy-feedback-loop";
 import { BURDEN_LABEL, type Burden } from "@/lib/policy-classify";
 import { DEMO_REGION, DEMO_REGION_NAME } from "@/lib/policy-sync";
 import { CONDITION_COLUMNS, checkEligibility, type PolicyConditions } from "@/lib/policy-eligibility";
@@ -205,6 +206,9 @@ export async function recommendPolicies(userId: number, db: Db = pool, generate:
   try {
     profile = await loadProfile(userId, db, today);
     open = (await db.query<PolicyRow>(OPEN_SQL, [today, profile.region, profile.age])).rows;
+    // "나랑 안 맞아요"로 알려 준 정책은 이 사용자에게 다시 추천하지 않음 (오늘 저장된 추천에서도 바로 빠짐)
+    const excluded = new Set((await db.query<{ policy_id: number }>("SELECT policy_id FROM policy_feedback WHERE user_id = $1", [userId])).rows.map((r) => r.policy_id));
+    if (excluded.size) open = open.filter((p) => !excluded.has(p.id));
 
     // 하루 한 번 저장한 추천이 있으면 그대로 (마감된 정책은 빠짐)
     const saved = (
@@ -310,5 +314,46 @@ export async function recordClick(userId: number, policyIdRaw: unknown, db: Db =
   } catch (error) {
     console.error("[policies] 클릭 기록 실패", errorCode(error));
     return fail(500, "SAVE_FAILED", "기록하지 못했어요. 원문은 그대로 열 수 있어요.");
+  }
+}
+
+const FEEDBACK_MESSAGE: Record<FeedbackReason, string> = {
+  region: "알려 주셔서 고마워요. 이 정책은 다시 추천하지 않을게요. 지역 정보가 맞는지도 확인해 둘게요.",
+  eligibility: "알려 주셔서 고마워요. 이 정책은 다시 추천하지 않을게요. 조건 정보가 맞는지도 확인해 둘게요.",
+  not_needed: "알겠어요. 이 정책은 다시 추천하지 않을게요.",
+  too_hard: "알겠어요. 이 정책은 다시 추천하지 않을게요. 부담이 덜한 정책부터 볼 수 있게 할게요.",
+  other: "알려 주셔서 고마워요. 이 정책은 다시 추천하지 않을게요. 정보가 맞는지도 확인해 둘게요.",
+};
+
+/**
+ * "나랑 안 맞아요" (피드백 루프의 입구, 고민기록 #38). 응답 201 { feedbackId, excluded, loop, message, help }
+ * - 즉시: 이 사용자에게 그 정책을 다시 추천하지 않음
+ * - 지역·조건·기타 이유는 루프 대기열(pending)에 넣어, 데이터 오류인지 판정 → 검증 → 승인 후 모든 사용자에게 반영
+ * - 직접 쓴 문장은 위기 표현 규칙을 거쳐 help를 함께 돌려줌
+ */
+export async function submitFeedback(userId: number, policyIdRaw: unknown, body: unknown, db: Db = pool): Promise<ApiResult> {
+  const b = (body ?? {}) as { reason?: unknown; text?: unknown };
+  const help = ruleHelp(b.text);
+  const policyId = toId(policyIdRaw);
+  if (policyId === null) return fail(400, "INVALID", "policyId가 올바르지 않아요.", { help });
+  if (!(FEEDBACK_REASONS as readonly unknown[]).includes(b.reason)) return fail(400, "INVALID", "이유를 골라 주세요.", { help });
+  const reason = b.reason as FeedbackReason;
+  const text = typeof b.text === "string" && b.text.trim() ? b.text.trim() : null;
+  if (b.text !== undefined && b.text !== null && typeof b.text !== "string") return fail(400, "INVALID", "한 줄은 글자로 적어 주세요.", { help });
+  if (text && text.length > 200) return fail(400, "INVALID", "200자 이하로 적어 주세요.", { help });
+  try {
+    const exists = (await db.query("SELECT 1 FROM policies WHERE id = $1", [policyId])).rowCount;
+    if (!exists) return fail(404, "NOT_FOUND", "정책을 찾을 수 없어요.", { help });
+    const loop = isLoopReason(reason) ? "pending" : "personal";
+    const id = (
+      await db.query<{ id: number }>(
+        "INSERT INTO policy_feedback (user_id, policy_id, reason, text, loop_status) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+        [userId, policyId, reason, text, loop],
+      )
+    ).rows[0].id;
+    return ok({ feedbackId: id, excluded: true, loop, message: FEEDBACK_MESSAGE[reason], help }, 201);
+  } catch (error) {
+    console.error("[policies] 피드백 저장 실패", errorCode(error));
+    return fail(500, "SAVE_FAILED", "지금은 저장하지 못했어요. 잠시 후 다시 알려 주세요.", { help });
   }
 }

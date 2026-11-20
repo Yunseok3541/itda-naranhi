@@ -31,18 +31,23 @@ export async function generateJson<T>(opts: {
   fallback: T;
   /** 응답을 기다리는 시간. 기본 10초 (화면 요청). 미리 돌리는 일괄 분류처럼 화면이 기다리지 않는 작업만 늘린다 */
   timeoutMs?: number;
+  /** 무작위성. 분류처럼 매번 같은 답이 나와야 하는 작업은 0 (지정하지 않으면 모델 기본값) */
+  temperature?: number;
+  /** 이 호출에만 다른 모델 (예: 수정 승인은 판정과 다른 모델로). 지정하지 않으면 GEMINI_MODEL */
+  model?: string;
 }): Promise<GenerateResult<T>> {
   if (!ai) return { data: opts.fallback, usedFallback: true, modelVersion: null, fallbackReason: "no_key" };
 
   try {
     const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
+      model: opts.model ?? GEMINI_MODEL,
       contents: opts.prompt,
       config: {
         systemInstruction: opts.system,
         responseMimeType: "application/json",
         responseJsonSchema: opts.schema,
         abortSignal: AbortSignal.timeout(opts.timeoutMs ?? TIMEOUT_MS),
+        ...(opts.temperature === undefined ? {} : { temperature: opts.temperature }),
       },
     });
     let parsed: unknown = null;
@@ -55,7 +60,7 @@ export async function generateJson<T>(opts: {
       return {
         data: parsed,
         usedFallback: false,
-        modelVersion: response.modelVersion ?? GEMINI_MODEL,
+        modelVersion: response.modelVersion ?? opts.model ?? GEMINI_MODEL,
         fallbackReason: null,
       };
     }

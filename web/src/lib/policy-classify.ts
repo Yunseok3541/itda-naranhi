@@ -83,7 +83,9 @@ const SYSTEM = `너는 사회적으로 고립된 청년을 돕는 앱에서 청�
 정책마다 아래를 정한다.
 - actionable: 청년 개인이 이 정책으로 신청·가입·이용·상담·방문 중 하나라도 할 수 있으면 true. 실태조사, 시스템·플랫폼 개발, 시범 설치, 제도 개선, 모니터링, 홍보, 기업·기관 대상 지원처럼 개인이 할 수 있는 게 없으면 false.
 - summary: 쉬운 말 요약 1~2문장, 100자 이내. 원문에 있는 사실만 쓰고, 원문에 없는 금액·날짜·숫자는 쓰지 않는다. 권유·과장 표현 금지.
+- applyEvidence: 신청 방식을 판단한 원문 구절을 그대로 옮김 (40자 이내, 없으면 "원문에 없음"). 이 구절을 먼저 쓰고 applyMode를 정한다.
 - applyMode: 신청 단계에서 해야 하는 것 중 가장 부담 큰 것. online(온라인·앱), visit(기관 직접 방문·서류 제출), phone(전화·상담·면접), group(설명회 등 여럿이 모이는 자리).
+- useEvidence: 이용 방식을 판단한 원문 구절을 그대로 옮김 (40자 이내, 없으면 "원문에 없음"). 이 구절을 먼저 쓰고 useMode를 정한다.
 - useMode: 신청 뒤 지원을 받거나 참여할 때 해야 하는 것 중 가장 부담 큰 것. online(현금·바우처·카드 지급, 온라인 이용만), visit(기관·장소에 직접 가서 이용), phone(상담·코칭·사례관리·동행처럼 사람과 1:1 대화), group(강좌·특강·교육 과정·캠프·워크숍·모임·팀 활동). 예: 재무상담 → phone, 찾아가는 특강·교육생 모집 → group, 수당 지급 → online.
 - difficulty: 참여 난이도 1~6 (신청과 이용 중 더 어려운 쪽 기준). 1 집에서 온라인으로 끝 / 2 온라인 + 문자·메일 연락 / 3 혼자 한 번 방문 / 4 기관 이용·여러 번 방문 / 5 전화·상담·면접 등 사람과 대화 / 6 집단 프로그램·정기 참여. 애매하면 더 높은 쪽.
 - difficultyNote: 난이도를 그렇게 정한 이유 한 줄, 40자 이내 (신청과 이용 중 어느 단계 때문인지).
@@ -102,14 +104,16 @@ const schema = {
           id: { type: "integer" },
           actionable: { type: "boolean" },
           summary: { type: "string" },
+          applyEvidence: { type: "string" },
           applyMode: { type: "string", enum: [...BURDENS] },
+          useEvidence: { type: "string" },
           useMode: { type: "string", enum: [...BURDENS] },
           difficulty: { type: "integer" },
           difficultyNote: { type: "string" },
           relevance: { type: "integer" },
           tags: { type: "array", items: { type: "string", enum: [...TAGS] } },
         },
-        required: ["id", "actionable", "summary", "applyMode", "useMode", "difficulty", "difficultyNote", "relevance", "tags"],
+        required: ["id", "actionable", "summary", "applyEvidence", "applyMode", "useEvidence", "useMode", "difficulty", "difficultyNote", "relevance", "tags"],
       },
     },
   },
@@ -219,6 +223,7 @@ export async function classifyRows(
       validate: isOutput,
       fallback: { items: [] },
       timeoutMs: 60_000, // 화면이 기다리지 않는 일괄 작업
+      temperature: 0, // 같은 정책이면 같은 분류 (실행마다 흔들리지 않게)
     });
     if (result.modelVersion) modelVersion = result.modelVersion;
     const byId = new Map(result.data.items.map((i) => [i.id, i]));

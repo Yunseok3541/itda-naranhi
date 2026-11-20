@@ -595,6 +595,19 @@ const { cheer, help } = await processReflection({
 - 화면 문구: "자격은 원문에서 확인해 주세요. 요약은 AI가 만들어 틀릴 수 있어요." / 상단 "예시 지역: 서울 마포구 · 정책 정보 기준 {basis.updatedAt}"
 - 데이터 수집·분류: `web/scripts/sync-policies.mts` (새·바뀐 정책만 분류). 검증: `web/scripts/verify-policies.mts` (트랜잭션 롤백, 가짜 AI).
 
+```jsonc
+// POST /api/policies/{policyId}/feedback — "나랑 안 맞아요" (피드백 루프 입구, 고민기록 #38)
+// 요청
+{ "reason": "region", "text": "저는 서울인데 부산 게 왔어요" }   // reason: region | eligibility | not_needed | too_hard | other, text는 선택 200자 이하
+// 201
+{ "feedbackId": 12, "excluded": true, "loop": "pending",          // pending: 데이터 오류인지 루프에서 확인 / personal: 이 사용자 추천만 조정
+  "message": "알려 주셔서 고마워요. 이 정책은 다시 추천하지 않을게요. 지역 정보가 맞는지도 확인해 둘게요.", "help": null }
+// 400 이유 없음·잘못된 ID·200자 넘음 / 404 없는 정책 / 401 세션 없음 / 500·503 SAVE_FAILED — 모두 text에 위기 표현이 있으면 help 포함
+```
+
+- 피드백을 저장하는 즉시 그 사용자의 추천(오늘 저장된 추천 포함)에서 빠진다. "모든 정책 보기"에서는 그대로 보인다.
+- 모든 사용자의 데이터 수정은 판정 → 검증 → 승인 루프를 통과한 경우만 (`scripts/run-feedback-loop.mts`, 무료 한도 때문에 시연에서는 실행하지 않음).
+
 ### 8. 프로필 — `GET /api/profile`, `PUT /api/profile` (윤석, 기획: `docs/기획/프로필.md`)
 
 모든 칸은 선택이다. `null` = 답하지 않음. 유형 이름은 만들지 않는다. 화면 `/profile` "내 정보"와 첫 화면 시작 질문이 사용한다.
