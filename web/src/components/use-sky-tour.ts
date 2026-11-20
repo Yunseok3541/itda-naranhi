@@ -38,7 +38,7 @@ export function useSkyTour(centers: Vec3[], skies: { points: Vec3[] }[], freeBan
 
     function visit() {
       const frame = skyView.frame();
-      if (!frame || skyView.isFlying() || document.querySelector('dialog[open], .night :is(.sheet, .night-list[open], .char-bubble), .sky-locked > .help')) {
+      if (!frame || skyView.isFlying() || document.querySelector('dialog[open], .night :is(.sheet, .night-list[open], .char-bubble, .nstar-label, .sky-guide), .sky-locked > .help')) {
         schedule(800);
         return;
       }

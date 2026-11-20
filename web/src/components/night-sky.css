@@ -47,7 +47,7 @@ html.sky-night-page body {
 .sky-mode .help { background: rgba(246, 207, 125, .14); border: 1px solid var(--star-gold-soft); color: var(--starlight); }
 .sky-mode .error { background: rgba(255, 120, 150, .16); color: #ffd3dd; }
 .sky-mode footer { color: rgba(238, 233, 255, .45); }
-.sky-mode button:not(.nstar):not(.sky-pill):not(.char-hotspot):not(.recent-pill):not(.text-button):not(.ghost):not(.sky-minimap):not(.sky-map-target):not(.pager-arrow):not(.pager-dots button):not(.night-row),
+.sky-mode button:not(.nstar):not(.sky-pill):not(.char-hotspot):not(.recent-pill):not(.text-button):not(.ghost):not(.sky-minimap):not(.sky-map-target):not(.pager-arrow):not(.night-row):not(.dock-main):not(.quest-dialog button),
 .sky-mode .primary { background: linear-gradient(180deg, #ffe3a3, var(--star-gold)); color: #24183f; box-shadow: 0 0 24px rgba(246, 207, 125, .35); }
 .sky-mode .ghost { background: transparent; color: var(--starlight-dim); border: 1px solid var(--glass-line); }
 .night-loading { margin-top: 40vh; text-align: center; color: var(--starlight-dim); }
@@ -58,52 +58,91 @@ html.sky-night-page body {
 .sky-mode .intro p { color: var(--starlight-dim); }
 .sky-mode .welcome-icon { background: var(--glass); border: 1px solid var(--glass-line); color: var(--star-gold); border-radius: 50%; width: 72px; height: 72px; font-size: 30px; box-shadow: 0 0 40px rgba(246, 207, 125, .25); }
 .sky-mode .onboarding summary { color: var(--starlight-dim); text-align: center; }
-.sky-mode .onboarding .card { border: 1px solid var(--glass-line); border-radius: 16px; padding: 16px; background: var(--glass); }
+.sky-mode :is(.onboarding .card, .onboarding-step) { border: 1px solid var(--glass-line); border-radius: 16px; padding: 16px; background: var(--glass); }
+.sky-mode .onboarding-step { margin-top: min(12dvh, 100px); }
+.onboarding-step h2 span { margin-left: 6px; color: var(--starlight-dim); font-size: .75em; }
 .sky-mode .onboarding label, .sky-mode .onboarding legend { color: var(--starlight); }
 
-/* The home navigation uses equal slots and leaves a clear area above it. */
-.sky-mode .bottom-nav.dock {
+.sky-mode .sky-actions {
+  position: fixed;
   z-index: 2;
-  width: 100%;
-  min-height: calc(var(--sky-dock-height) + env(safe-area-inset-bottom));
+  inset: auto 0 calc(12px + env(safe-area-inset-bottom));
+  width: min(calc(100% - 32px), 488px);
+  margin-inline: auto;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: center;
-  padding: 5px max(16px, calc((100vw - 520px) / 2)) calc(5px + env(safe-area-inset-bottom));
+  align-items: end;
+  justify-items: center;
+  pointer-events: none;
+}
+.sky-mode .sky-actions :is(a, button) {
+  pointer-events: auto;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  width: max-content;
+  padding: 0;
+  margin: 0;
   border: 0;
-  border-top: 1px solid rgba(255,255,255,.1);
-  border-radius: 0;
-  background: rgba(15,12,32,.85);
-  backdrop-filter: blur(12px);
-}
-.sky-mode .dock a {
-  position: relative;
-  align-content: center;
-  gap: 3px;
-  min-height: 48px;
-  color: #e1d9f5;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.2;
-}
-.sky-mode .dock a:is([aria-current="page"], :focus-visible, :active) {
-  color: #ffe082;
+  border-radius: 18px;
   background: transparent;
+  color: #f8f2ff;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 16px;
+  text-decoration: none;
+  text-shadow: 0 1px 4px #0c081c;
 }
-.sky-mode .dock a:is([aria-current="page"], :focus-visible, :active)::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  width: 16px;
-  height: 2px;
-  border-radius: 2px;
-  background: currentColor;
+.sky-actions .dock-side:first-child { justify-self: start; }
+.sky-actions .dock-side:last-child { justify-self: end; }
+.sky-actions .dock-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid #ae9abe;
+  background: radial-gradient(circle at 38% 24%, #51435e, #261e38 82%);
+  box-shadow: inset 0 0 0 3px #2e243e, 0 3px 8px #10091e80;
 }
+.sky-actions .dock-icon svg { width: 22px; height: 22px; }
+.sky-mode .sky-actions .dock-main { color: #ffedbd; }
+.sky-actions .dock-main .dock-icon {
+  width: 60px;
+  height: 60px;
+  color: #51354e;
+  border-color: #ffe4a5;
+  background: radial-gradient(circle at 38% 26%, #fff4cc, #edc27e 72%);
+  box-shadow: inset 0 0 0 3px #715567, inset 0 0 0 4px #ffe4a5, 0 0 14px #f3c17838;
+}
+.sky-actions .dock-main svg { width: 30px; height: 30px; }
+.sky-mode .sky-actions :is(a, button):hover { filter: brightness(1.1); }
+.sky-mode .sky-actions :is(a, button):active { transform: translateY(1px); }
+.sky-mode .sky-actions :is(a, button):focus-visible { outline: 2px solid #ffe8b4; outline-offset: 3px; }
 
 /* 무대 */
 .night { position: relative; min-height: calc(100dvh - 96px); }
-.night-dust { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: -1; }
-.night-dust i { position: absolute; border-radius: 50%; background: var(--starlight); opacity: .25; }
+.sky-points { position: fixed; z-index: 1; top: calc(clamp(18px, 3.3dvh, 32px) + 49px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); font-size: .8rem; color: #e4d8f2; pointer-events: none; }
+.sky-points span, .checkin-reward { color: #ffe4a0; }
+.sky-mode button.sky-pill.sky-meteor {
+  position: fixed; z-index: 1; top: 36dvh; left: calc(50% + min(31vw, 152px)); display: grid;
+  place-items: center; width: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 50%;
+  background: transparent; color: #fff0bb; text-shadow: 0 0 12px #ffe4a1; pointer-events: auto;
+}
+.sky-meteor::before {
+  content: ''; position: absolute; inset: 21px auto auto 26px; width: 45px; height: 2px;
+  background: linear-gradient(90deg, #fff3ce, transparent); transform: rotate(-26deg); transform-origin: left;
+}
+.sky-mode button.sky-pill.sky-meteor:disabled { pointer-events: none; opacity: .55; }
+.sky-meteor-reward { position: fixed; z-index: 2; left: 50%; top: 35dvh; transform: translateX(-50%); color: #ffe29a; font-weight: 700; text-shadow: 0 2px 10px #110b25; pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .sky-meteor { animation: sky-meteor-pass 5.2s linear both; }
+  @keyframes sky-meteor-pass {
+    from { transform: translate(30px, -30px); opacity: 0; }
+    12%, 85% { opacity: 1; }
+    to { transform: translate(calc(-1 * min(54vw, 260px)), 17dvh); opacity: 0; }
+  }
+}
 .night-toolbar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 44px; }
 .night-toolbar p { grid-column: 2; margin: 0; font-size: .75rem; letter-spacing: .24em; color: var(--starlight-dim); }
 .catalog-link {
@@ -136,11 +175,15 @@ html.sky-night-page body {
 .burst i { position: absolute; width: 5px; height: 5px; margin: -2.5px; border-radius: 50%; background: var(--star-gold); box-shadow: 0 0 8px var(--star-gold); opacity: 0; }
 
 /* 별자리 넘기기 */
-.pager { display: flex; align-items: center; justify-content: center; gap: 14px; }
-.pager-arrow { width: 44px; min-height: 44px; padding: 0; background: transparent; color: var(--starlight-dim); font-size: 1.6rem; }
-.pager-dots { display: flex; gap: 10px; }
-.pager-dots button { width: 10px; min-height: 10px; height: 10px; padding: 0; border-radius: 50%; background: rgba(238, 233, 255, .25); }
-.pager-dots button[aria-current] { background: var(--star-gold); box-shadow: 0 0 10px var(--star-gold); }
+.night-heading-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 8px; width: min(100%, 300px); margin-inline: auto; }
+.night-heading-row h1 { grid-column: 2; }
+.pager-arrow {
+  display: grid; place-items: center; flex: none; width: 44px; min-height: 44px; padding: 0;
+  border-radius: 50%; background: transparent; color: var(--starlight-dim); pointer-events: auto;
+}
+.pager-arrow svg { padding: 5px; box-sizing: content-box; border: 1px solid #bca9df43; border-radius: 50%; background: #261d3c91; }
+.pager-arrow:is(:hover, :focus-visible) { background: var(--glass); color: var(--starlight); }
+.pager-arrow svg, .night-list summary svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .night-hint { text-align: center; color: rgba(238, 233, 255, .45); font-size: .8125rem; margin: 6px 0 0; }
 
 /* 기억 시트 (아래에서 올라옴) */
@@ -168,7 +211,7 @@ html.sky-night-page body {
 .night-actions { align-self: center; display: flex; align-items: center; gap: 8px; margin-top: 8px; position: relative; z-index: 1; }
 .night-list { position: relative; }
 .night-list summary {
-  list-style: none; display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; cursor: pointer;
+  list-style: none; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px; cursor: pointer;
   border-radius: 999px; border: 1px solid var(--glass-line); background: var(--glass);
   color: var(--starlight-dim); font-size: .875rem; font-weight: 650; text-align: center;
 }
@@ -207,7 +250,7 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
   flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
   padding-bottom: calc(var(--person-height) - 4px); /* 별자리가 캐릭터와 겹치지 않게 */
 }
-.sky-locked .night-toolbar, .sky-locked .night-title, .sky-locked .pager { flex: none; }
+.sky-locked .night-toolbar, .sky-locked .night-title { flex: none; }
 .sky-locked .night-title { margin-top: 16px; }
 .sky-locked .night-hint { flex: none; margin: 0; }
 .sky-locked .night-space { flex: 1 1 auto; min-height: 0; }
@@ -227,10 +270,13 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .sky-constellation-character {
   position: absolute;
   pointer-events: none;
+  opacity: var(--companion-opacity);
   filter: drop-shadow(0 0 16px var(--companion-light));
 }
 .sky-constellation-character img { object-fit: contain; filter: saturate(.78); }
 @media (prefers-reduced-motion: no-preference) {
+  .sky-constellation-character { animation: sky-companion-appear .45s ease-out; }
+  @keyframes sky-companion-appear { from { opacity: 0; } }
   .sky-constellation-character img { animation: sky-companion-light 7s ease-in-out infinite alternate; }
   @keyframes sky-companion-light { from { opacity: .74; } to { opacity: 1; } }
 }
@@ -252,7 +298,7 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 /* 지금 별자리라도 축소해서 작게 보이면 이름 없이 작게 (night-sky.tsx DETAIL_SPAN) */
 .sky-anchors .nstar.far { opacity: .8; transform: translate(-50%, -50%) scale(.7); }
 /* 지금 별자리 별 이름 */
-/* 자리(left·top·width·정렬)는 night-sky.tsx의 placeLabels가 겹치지 않게 정함 */
+/* 위치는 가려지는 별과 미니맵을 피해 정한다. */
 .nstar-label {
   position: absolute; box-sizing: border-box; padding: 5px 10px; max-width: 140px; border: 1px solid rgba(255,255,255,.14); border-radius: 8px;
   font-size: 12px; font-weight: 500; letter-spacing: -.01em; line-height: 1.35; color: var(--starlight); text-align: center;
@@ -266,10 +312,6 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 
 /* 움직임 (줄이기 설정을 켠 사용자에게는 멈춤) */
 @media (prefers-reduced-motion: no-preference) {
-  .night-dust i { animation: twinkle ease-in-out infinite alternate; }
-  @keyframes twinkle { from { opacity: .08; } to { opacity: .55; } }
-  .shooting { position: absolute; top: 12%; left: 110%; width: 120px; height: 1px; background: linear-gradient(90deg, rgba(255, 255, 255, .9), transparent); transform: rotate(-24deg); animation: shoot 16s 4s linear infinite; }
-  @keyframes shoot { 0%, 88% { left: 110%; top: 8%; opacity: 0; } 89% { opacity: 1; } 96% { left: -30%; top: 34%; opacity: 0; } 100% { opacity: 0; } }
   .nstar.bright .glow { animation: breathe 3.6s ease-in-out infinite; animation-delay: inherit; }
   @keyframes breathe { 50% { transform: scale(1.18); opacity: .7; } }
   .nstar:active .core { transform: scale(1.35); transition: transform .12s; }
@@ -299,6 +341,9 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .sky-mode .sky-pill.small-pill { min-height: 36px; padding: 0 13px; font-size: .8125rem; font-weight: 650; color: var(--starlight-dim); border-color: var(--glass-line); }
 .sky-mode button.sky-pill, .night-ui button.sky-pill { background: rgba(24, 16, 52, .62); color: var(--starlight-dim); }
 .sky-mode .sky-pill[aria-expanded="true"], .night-ui .sky-pill[aria-expanded="true"] { color: var(--starlight); border-color: var(--star-gold-soft); }
+.sky-control-icon { flex: none; }
+.sky-icon-action { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.sky-icon-action .sky-control-icon { width: 16px; height: 16px; }
 /* 메인에서는 도움 안내를 모서리 버튼 아래 뜨는 불투명한 창으로 (뒤 별자리와 겹쳐 읽기 어렵지 않게, 배치를 밀지 않게) */
 .sky-locked > .help {
   position: fixed; z-index: 6; top: calc(68px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
@@ -317,6 +362,12 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
   padding: 0; border-radius: 40px; background: transparent; pointer-events: auto; cursor: pointer;
 }
 .char-hotspot:focus-visible { outline: 2px dashed var(--star-gold-soft); outline-offset: 2px; }
+.sky-character-prompt {
+  position: absolute; display: grid; place-items: center; width: 29px; height: 27px; top: 3px; right: -7px;
+  border: 1px solid #af92df79; border-radius: 10px 10px 10px 3px; color: #e2caff;
+  background: #2c1e48df; box-shadow: 0 3px 12px #0b071dad;
+}
+.sky-character-prompt .sky-control-icon { width: 18px; height: 18px; }
 .char-bubble {
   position: fixed; z-index: 3; left: 50%; transform: translateX(-42%); bottom: calc(var(--person-bottom) + var(--person-height) + 6px);
   width: max-content; max-width: min(250px, calc(100% - 48px)); padding: 10px 14px 9px;
@@ -330,6 +381,25 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .char-question { margin: 0; font-weight: 750; font-size: .95rem; }
 .char-sub { margin: 2px 0 6px; font-size: .78rem; color: var(--starlight-dim); }
 .char-link { display: inline-block; font-size: .82rem; font-weight: 750; color: var(--star-gold); }
+.sky-guide {
+  position: fixed; z-index: 2; left: 50%; bottom: calc(var(--person-bottom) + min(var(--person-height), 124px) + 9px);
+  transform: translateX(-50%); width: min(278px, calc(100% - 32px)); padding: 15px 16px 7px;
+  border: 1px solid #bfa1df73; border-radius: 18px;
+  background: linear-gradient(155deg, #2e2048, #1e1731); box-shadow: 0 8px 35px #09051677;
+  color: var(--starlight); text-align: center; pointer-events: auto;
+}
+.sky-guide::after {
+  content: ''; position: absolute; z-index: -1; width: 12px; height: 12px; bottom: -7px; left: calc(50% - 6px); transform: rotate(45deg);
+  border-bottom: 1px solid #bfa1df73; border-right: 1px solid #bfa1df73; background: #1e1731;
+}
+.sky-guide h2 { margin: 0; font-size: 1rem; line-height: 1.45; }
+.sky-guide p { margin: 5px 0 12px; color: #d7c9ef; font-size: .8125rem; }
+.sky-guide .sky-guide-primary { display: flex; justify-content: center; align-items: center; gap: 7px; min-height: 44px; margin: 0; font-size: .875rem; }
+.sky-guide .text-button { display: inline-flex; align-items: center; width: auto; min-height: 40px; margin: 2px 0 0; border: 0; background: transparent; font-size: .8125rem; }
+@media (max-height: 540px) {
+  .sky-guide { bottom: calc(var(--sky-dock-height) + 14px + env(safe-area-inset-bottom)); }
+  .sky-guide::after { content: none; }
+}
 @media (prefers-reduced-motion: no-preference) {
   .char-bubble { animation: bubble-in .22s ease-out; }
   @keyframes bubble-in { from { opacity: 0; transform: translate(-42%, 6px); } }
@@ -395,6 +465,41 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .night-ui .error { background: rgba(255, 120, 150, .16); color: #ffd3dd; }
 .night-ui > p[role="status"] { color: var(--starlight); }
 
+.quest-dialog {
+  position: fixed; inset: auto 0 var(--quest-keyboard-inset, 0px);
+  width: min(100%, 520px); max-width: 100%;
+  max-height: min(84dvh, calc(var(--quest-viewport-height, 100dvh) - 14px), 740px);
+  padding: 0; margin: 0 auto; overflow: hidden;
+  border: 1px solid #ac92db6b; border-bottom: 0; border-radius: 24px 24px 0 0;
+  background: #1a142d; box-shadow: 0 -12px 45px #0a061a9c;
+}
+.quest-dialog[open] { display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.quest-dialog::backdrop { background: #09061775; }
+.quest-dialog-header {
+  position: relative; display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 16px 10px 20px; gap: 10px; border-bottom: 1px solid #c4abe22d;
+  background: linear-gradient(125deg, #352349, #241a38);
+}
+.quest-dialog-grip { position: absolute; top: 5px; left: calc(50% - 16px); width: 32px; height: 3px; border-radius: 2px; background: #d4bced5c; }
+.quest-dialog-header h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.075rem; }
+.quest-dialog-header h2 svg { color: var(--star-gold); }
+.sky-mode .quest-dialog .quest-dialog-close {
+  display: grid; place-items: center; flex: none; width: 44px; min-height: 44px; padding: 0;
+  border: 1px solid #bfaae343; border-radius: 50%; background: #e6cbff14;
+}
+.quest-dialog-body {
+  min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  padding: 4px 16px calc(16px + env(safe-area-inset-bottom));
+}
+.quest-dialog-body textarea { min-height: 90px; font-size: 1rem; }
+.quest-dialog-body .card { margin-block: 10px; }
+.quest-dialog-body :is(h2, [tabindex="-1"]) { scroll-margin-top: 10px; }
+.quest-dialog-body [tabindex="-1"]:focus { outline: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .quest-dialog[open] { animation: quest-dialog-rise .22s ease-out; }
+  @keyframes quest-dialog-rise { from { transform: translateY(22px); opacity: .55; } }
+}
+
 /* 멀리서 볼 때 별자리 선을 눌러도 확대되도록 보이지 않는 굵은 선 (night-sky.tsx edge-hit) */
 .sky-anchors svg .edge-hit { stroke: transparent; stroke-width: 28; stroke-linecap: round; pointer-events: stroke; cursor: zoom-in; }
 .sky-anchors :is(.nstar, .edge-hit) { touch-action: none; user-select: none; }
@@ -411,7 +516,7 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .shell.night-ui { padding-bottom: calc(32px + env(safe-area-inset-bottom)); }
 
 
-.sky-locked .sky-top { flex-wrap: nowrap; align-items: center; }
+.sky-locked .sky-top { display: grid; grid-template-columns: repeat(2, minmax(0, 140px)); align-items: center; }
 .sky-locked .sky-top .sky-pill {
   min-height: 32px;
   padding-inline: 9px;
@@ -429,34 +534,35 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .sky-locked .night-actions { margin-top: 4px; flex-wrap: wrap; justify-content: center; }
 .night-next { pointer-events: auto; }
 .night-next:empty { display: none; }
-.sky-mode .night-next .sky-pill {
-  min-height: 34px;
-  padding-inline: 10px;
-  font-size: .75rem;
+.sky-locked .night-actions :is(.recent-pill, summary, .sky-pill) {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px; padding: 0 12px; gap: 6px;
+  border-radius: 14px; font-size: 13px; font-weight: 600;
 }
-.sky-locked .night-list summary { font-size: 11px; }
+.sky-locked .night-actions svg { width: 16px; height: 16px; }
 
 .sky-mode .sky-minimap {
-  --minimap-size: clamp(76px, 20vw, 94px);
+  --minimap-size: clamp(70px, 19vw, 88px);
   position: fixed;
   z-index: 2;
   right: max(16px, calc((100vw - 488px) / 2), env(safe-area-inset-right));
   bottom: calc(var(--sky-dock-height) + 14px + env(safe-area-inset-bottom));
   width: var(--minimap-size);
-  height: var(--minimap-size);
   min-height: 0;
   padding: 0;
-  overflow: hidden;
-  border-radius: 50%;
-  background: radial-gradient(ellipse at 34% 19%, #34294d, #1a142f 75%);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(224,222,240,.32);
-  box-shadow: inset 0 1px 1px rgba(255,255,255,.14), 0 4px 12px #08051648;
-  opacity: .88;
+  display: grid; justify-items: center; gap: 4px;
+  border: 0; border-radius: 14px; background: transparent; color: #e8dcf6;
   pointer-events: auto;
-  transition: opacity .25s ease;
 }
-.sky-minimap[data-revealed="true"], .sky-minimap:focus-visible { opacity: 1; }
+.sky-map-face {
+  display: block; overflow: hidden;
+  width: var(--minimap-size); height: var(--minimap-size); border-radius: 50%;
+  background: radial-gradient(ellipse at 34% 19%, #3d3157, #1a142f 75%);
+  border: 1px solid #c4afee75;
+  box-shadow: inset 0 1px 1px #f0dfff38, 0 4px 12px #0805166b;
+}
+.sky-map-caption { color: #eee5fa; font-size: .6875rem; font-weight: 700; text-shadow: 0 1px 6px #11091e; }
+.sky-minimap:is(:hover, :focus-visible) .sky-map-face { border-color: #e4caff; }
 .minimap-chart { display: block; width: 100%; height: 100%; }
 .minimap-grid { fill: none; stroke: #c0afd9; stroke-opacity: .25; stroke-width: .65; }
 .minimap-rim { fill: none; stroke: #c0afd9; stroke-opacity: .6; stroke-width: .85; }
@@ -488,7 +594,6 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .sky-map-dialog h2 { margin-top: 0; }
 .sky-map-dialog .ghost { margin-top: 8px; }
 .sky-map-dialog .ghost[aria-current] { color: #ffe082; border-color: #c9aa63; }
-@media (prefers-reduced-motion: reduce) { .sky-mode .sky-minimap { transition: none; } }
 .sky-map-overview {
   position: relative; width: min(100%, 228px); aspect-ratio: 1; margin: 0 auto; border-radius: 50%;
   background: radial-gradient(ellipse at 32% 20%, #33274d, #1d1633 78%);
@@ -507,36 +612,16 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .sky-mode .sky-map-dialog .sky-map-target:is(:hover, :focus-visible) { background: #dbc8fa44; outline: 1px solid #e5d3ff; }
 
 .night-space { position: relative; }
-.sky-resource-link {
-  display: block;
-  padding: 10px 12px;
-  border-radius: 10px;
-  text-align: center;
-  margin-top: 8px;
+.sky-mode .sky-resource-dialog .sky-resource-link {
+  display: flex; align-items: center; gap: 11px;
+  min-height: 54px; margin-top: 8px; padding: 7px 12px;
+  border: 1px solid #a9a0cf4f; border-radius: 13px;
+  background: #2a2343; color: var(--starlight); font-weight: 650; text-decoration: none;
 }
+.sky-mode .sky-resource-dialog .sky-resource-link:is(:hover, :focus-visible) { background: #382c53; border-color: #bbabd4; }
+.sky-resource-dialog .sky-resource-link .sky-utility-symbol { color: #bbeddf; background: #30444a; border-radius: 9px; }
+.sky-resource-dialog .sky-resource-link[href="/policies"] .sky-utility-symbol { color: #e6d3ff; background: #483763; }
 .sky-locked .sky-pill { background: rgba(194,185,223,.16); border: 1px solid rgba(255,255,255,.24); }
-.sky-mode .dock .dock-main { color: #ffe8b4; }
-.sky-mode .dock .dock-main::before {
-  content: "";
-  position: absolute;
-  top: -6px;
-  width: 32px;
-  height: 2px;
-  border-radius: 2px;
-  background: #ffe8b4;
-  box-shadow: 0 0 10px #ffe8b477;
-}
-.sky-locked .pager { gap: 5px; }
-.sky-locked .pager-arrow { width: 36px; min-height: 32px; line-height: 1; }
-.sky-locked .pager-dots { gap: 3px; }
-.sky-locked .pager-dots button {
-  width: 18px; height: 28px; min-height: 28px; background: transparent; box-shadow: none;
-  display: grid; place-items: center;
-}
-.sky-locked .pager-dots button::before {
-  content: ""; width: 6px; height: 6px; border-radius: 50%; background: #dcd3f360;
-}
-.sky-locked .pager-dots button[aria-current]::before { background: #ffe082; box-shadow: 0 0 8px #ffe08290; }
 .sky-anchors .nstar svg.core {
   position: static; grid-area: 1 / 1; width: 21px; height: 21px;
   fill: #e7defc; stroke: #fff7fd; stroke-width: 1.25; stroke-linejoin: round;
@@ -550,17 +635,43 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .sky-anchors .nstar .glow { border-color: transparent; }
 
 /* Match the visual proportions of the main-screen reference. */
-html.sky-locked-page { --sky-dock-height: 70px; --person-height: 15dvh; }
+html.sky-locked-page { --sky-dock-height: 96px; --person-height: 15dvh; }
 .sky-mode.sky-locked { padding-top: calc(clamp(16px, 3.3dvh, 32px) + env(safe-area-inset-top)); }
 .sky-locked .night-title { margin-top: clamp(20px, 3.8dvh, 38px); }
 .sky-locked .night-title h1 { font-size: clamp(27px, 7.2vw, 38px); color: #fffaff; }
 .sky-locked .night-title h1.complete { color: var(--star-gold); }
 .sky-locked .night-title p { font-size: clamp(13px, 3.5vw, 17px); }
-.sky-locked .sky-top .sky-pill {
-  min-height: 36px;
-  padding-inline: 12px;
-  background: rgba(216,208,239,.19);
+.sky-locked .sky-top .sky-pill.sky-utility {
+  height: 44px; width: 100%; justify-content: center; padding: 0 8px; gap: 8px;
+  border-radius: 14px; font-size: 13px;
   color: #fffaff;
+  border: 1px solid var(--sky-utility-border);
+  background: var(--sky-utility-surface);
+  box-shadow: 0 3px 13px #08041546;
+}
+.sky-locked .sky-top .sky-utility:is(:hover, :focus-visible, [aria-expanded="true"]) { border-color: var(--sky-utility-ink); }
+.sky-help-button {
+  --sky-utility-border: #a986d57a;
+  --sky-utility-surface: linear-gradient(118deg, #3c2756dc, #231932ed);
+  --sky-utility-ink: #f0d3ff;
+}
+.sky-resource-button {
+  --sky-utility-border: #84b6ae75;
+  --sky-utility-surface: linear-gradient(118deg, #253e48ed, #20293deb);
+  --sky-utility-ink: #c0eadf;
+}
+
+.sky-utility-symbol {
+  display: grid; place-items: center; flex: none; width: 32px; height: 32px; color: var(--sky-utility-ink);
+}
+.sky-help-button .sky-utility-symbol { border-radius: 50%; background: #70509678; }
+.sky-resource-button .sky-utility-symbol { border-radius: 9px; background: #42726772; }
+.sky-utility-symbol .sky-control-icon { width: 19px; height: 19px; }
+@media (max-width: 360px) {
+
+  .sky-top .sky-utility-symbol { width: 29px; height: 29px; }
+  .sky-locked .night-heading-row h1 { font-size: 1.5rem; }
+  .night-heading-row { gap: 2px; }
 }
 .sky-locked .night-hint { color: #ded7eaad; margin-top: 2px; }
 .sky-locked .night-list summary {
@@ -669,7 +780,3 @@ html.sky-locked-page { --sky-dock-height: 70px; --person-height: 15dvh; }
   @keyframes constellation-star-in { from { opacity: 0; transform: scale(.64); } }
   @keyframes constellation-award-out { to { opacity: 0; } }
 }
-.sky-mode .bottom-nav.dock {
-  background: linear-gradient(90deg, rgba(30,25,47,.92), rgba(57,43,78,.86));
-}
-.sky-mode .dock a { font-size: 13px; }

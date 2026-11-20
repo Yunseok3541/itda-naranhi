@@ -1,6 +1,6 @@
 "use client";
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import {ApiError, client, type Mode, type Star, type Help} from '@/lib/mobile-data';
 import NightSky from './night-sky';
 import PoliciesScreen from './policies-screen';
@@ -15,18 +15,20 @@ import { HelpContext } from './screen-kit';
 import { EMPTY_START, type StartAnswers } from '@/lib/profile';
 import { getCompletedConstellationIds, getStarConstellationId } from '@/lib/constellations';
 import { consumeConstellationCelebration, queueConstellationCelebration } from '@/lib/constellation-celebration';
+import SkyControlIcon from './sky-control-icon';
 import './night-sky.css';
-// 하단 버튼 3개(메인에서만): 왼쪽 프로필 · 가운데 도감(큰 버튼) · 오른쪽 퀘스트(오늘의 별)
+// 하단 버튼 3개(메인에서만): 프로필 · 오늘의 별 · 도감
 // 정책추천·청년센터는 메인 오른쪽 위, 도움받을 곳은 메인 왼쪽 위, 홈(내 밤하늘)은 다른 화면 머리글의 "나란히"
-const icon = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true } as const;
-const ProfileIcon = () => <svg {...icon}><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" /></svg>;
-const BookIcon = () => <svg {...icon}><path d="M3 5.5C5.5 4.5 8.5 4.5 12 6.5c3.5-2 6.5-2 9-1V19c-2.5-1-5.5-1-9 1-3.5-2-6.5-2-9-1z" /><path d="M12 6.5V20" /></svg>;
-const QuestIcon = () => <svg {...icon}><path d="M5 17l4-6 5 3 5-8" /><circle cx="5" cy="17" r="1.6" fill="currentColor" /><circle cx="9" cy="11" r="1.6" fill="currentColor" /><circle cx="14" cy="14" r="1.6" fill="currentColor" /><circle cx="19" cy="6" r="1.6" fill="currentColor" /></svg>;
 const navigation = [
-  { href: '/profile', label: '프로필', Icon: ProfileIcon, kind: 'side' },
-  { href: '/catalog', label: '도감', Icon: BookIcon, kind: 'main' },
-  { href: '/checkin', label: '퀘스트', Icon: QuestIcon, kind: 'side' },
+  { href: '/profile', label: '프로필', icon: 'person', kind: 'side' },
+  { href: '/checkin', label: '오늘의 별', icon: 'star', kind: 'main' },
+  { href: '/catalog', label: '도감', icon: 'book', kind: 'side' },
 ] as const;
+const skyGuideKey = (mode: Mode) => `naranhi-sky-guide-${mode}`;
+function shouldShowSkyGuide(mode: Mode, stars: Star[]) {
+  return stars.length > 0 && stars.every(star => star.status === 'untried' && !star.memories.length)
+    && localStorage.getItem(skyGuideKey(mode)) !== 'seen';
+}
 const HELP = {
   title: '도움받을 곳',
   lines: [
@@ -37,15 +39,23 @@ const HELP = {
   ],
 };
 
-export default function MobileFlow({screen='sky',starId,centerId,completionAttemptId}:{
-  screen?:string;starId?:number;centerId?:number;completionAttemptId?:number;
+export default function MobileFlow({screen='sky',starId,centerId,completionAttemptId,memoryStarId}:{
+  screen?:string;starId?:number;centerId?:number;completionAttemptId?:number;memoryStarId?:number;
 }){
  const resources = useRef<HTMLDialogElement>(null);
+ const questDialog = useRef<HTMLDialogElement>(null);
+ const questTrigger = useRef<HTMLButtonElement>(null);
+ const questTitle = useId();
  const [mode,M]=useState<Mode>('example'),[ready,R]=useState(false),[loaded,L]=useState(false),[busy,B]=useState(false),[error,E]=useState('');const lock=useRef(false);
  const [stars,S]=useState<Star[]>([]),[selected,SS]=useState<Star|null>(null),[help,H]=useState<Help>(null);
+ const [totalPoints,setTotalPoints]=useState<number>();
  const [completedId,setCompletedId]=useState<number>();
+ const [showSkyGuide,setShowSkyGuide]=useState(false);
+ const [questOpen,setQuestOpen]=useState(false);
  const [needsSession,setNeedsSession]=useState(false);
  const [startAnswers,setStartAnswers]=useState<StartAnswers>(EMPTY_START);
+ const [startStep,setStartStep]=useState<number | null>(null);
+ const startSaved=useRef(false);
  const [notice,U]=useState('');
  function reportError(error: unknown) {
    if (error instanceof ApiError) {
@@ -67,6 +77,11 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
          const sky = await client(mode).sky();
          if (active) {
            S(sky.stars);
+           setTotalPoints(sky.totalPoints);
+           if (screen === 'sky') {
+             SS(sky.stars.find(star => star.starId === memoryStarId && star.memories.length > 0) ?? null);
+             setShowSkyGuide(shouldShowSkyGuide(mode, sky.stars));
+           }
            if (screen === 'sky' && completionAttemptId !== undefined) {
              const id = consumeConstellationCelebration(mode, completionAttemptId);
              if (id !== undefined && getCompletedConstellationIds(sky.stars).has(id)) setCompletedId(id);
@@ -81,7 +96,38 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
    }
    void Promise.resolve().then(() => { if (active) return load(); });
    return () => { active = false; };
- }, [screen, completionAttemptId]);
+ }, [screen, completionAttemptId, memoryStarId]);
+ function dismissSkyGuide() {
+   setShowSkyGuide(false);
+   try { localStorage.setItem(skyGuideKey(mode), 'seen'); } catch { /* Keep the guide closed for this visit. */ }
+ }
+ function openQuest() {
+   if (!questDialog.current || questDialog.current.open) return;
+   dismissSkyGuide();
+   questDialog.current.showModal();
+   setQuestOpen(true);
+ }
+ function closeQuest() {
+   questDialog.current?.close();
+   setQuestOpen(false);
+ }
+ useEffect(() => {
+   const dialog = questDialog.current;
+   const viewport = window.visualViewport;
+   if (!questOpen || !dialog || !viewport) return;
+   function fitViewport() {
+     if (!dialog || !viewport) return;
+     dialog.style.setProperty('--quest-viewport-height', `${viewport.height}px`);
+     dialog.style.setProperty('--quest-keyboard-inset', `${Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)}px`);
+   }
+   fitViewport();
+   viewport.addEventListener('resize', fitViewport);
+   viewport.addEventListener('scroll', fitViewport);
+   return () => {
+     viewport.removeEventListener('resize', fitViewport);
+     viewport.removeEventListener('scroll', fitViewport);
+   };
+ }, [questOpen]);
  async function run(fn: () => Promise<void>) {
    if (lock.current) return;
    lock.current = true;
@@ -94,15 +140,35 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
    await client('api').start();
    SS(null);
    setNeedsSession(false);
-   S((await client('api').sky()).stars);
+   const sky = await client('api').sky();
+   S(sky.stars);
+   setTotalPoints(sky.totalPoints);
    R(true);
    U('데모를 다시 시작했어요. 작성한 내용으로 다시 시도해 주세요.');
+ }
+ async function finishOnboarding() {
+   const api = client(mode);
+   if (!startSaved.current) {
+     await api.start();
+     const current = (await api.profile()).startAnswers;
+     const { range, burden, with: approach } = startAnswers;
+     const extra = current && (current.support !== null || current.living !== null || current.needs !== null)
+       ? { support: current.support, living: current.living, needs: current.needs } : {};
+     await api.saveProfile({ startAnswers: { ...extra, range, burden, with: approach } });
+     startSaved.current = true;
+   }
+   const sky = await api.sky();
+   S(sky.stars);
+   setTotalPoints(sky.totalPoints);
+   if (screen === 'sky') setShowSkyGuide(shouldShowSkyGuide(mode, sky.stars));
+   R(true);
  }
  const star=stars.find(s=>s.starId===starId);
  async function reloadSky(result?: { attemptId: number; status: string }) {
    try {
-     const { stars: refreshed } = await client(mode).sky();
+     const { stars: refreshed, totalPoints } = await client(mode).sky();
      S(refreshed);
+     setTotalPoints(totalPoints);
      if (result?.status === 'bright' && star && star.status !== 'bright') {
        const constellationId = getStarConstellationId(star);
        const savedStar = refreshed.find(item => item.starId === star.starId);
@@ -134,37 +200,85 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
    root.classList.add('sky-locked-page');
    return () => root.classList.remove('sky-locked-page');
  }, [locked]);
- const footer = <footer>시연용 서비스 · 실제 개인정보를 입력하지 마세요.{ready&&<button className="text-button" disabled={busy} onClick={()=>{localStorage.removeItem('naranhi-mode');R(false);H(null);SS(null);E('');setNeedsSession(false);}}>체험 방식 다시 선택</button>}</footer>;
+ const footer = <footer>시연용 서비스 · 실제 개인정보를 입력하지 마세요.{ready&&<button className="text-button" disabled={busy} onClick={()=>{localStorage.removeItem('naranhi-mode');R(false);H(null);SS(null);E('');setNeedsSession(false);setStartStep(null);setStartAnswers(EMPTY_START);startSaved.current=false;}}>체험 방식 다시 선택</button>}</footer>;
+ const feedback = <>
+   {help && <aside className="help" role="alert"><h2>{help.title}</h2>{help.lines.map(line => <p key={line}>{line}</p>)}<button type="button" className="text-button" onClick={() => H(null)}>닫기</button></aside>}
+   {error && <p className="error" role="alert">{error}</p>}
+   {needsSession && <section className="card"><p>데모 세션을 다시 시작해 주세요. 작성한 글은 이 화면에 그대로 있어요.</p><button disabled={busy} onClick={() => run(restartSession)}>데모 다시 시작</button></section>}
+ </>;
  if(!loaded)return <main className="shell sky-mode"><p className="night-loading">밤하늘을 준비하고 있어요…</p></main>;
  return <HelpContext.Provider value={helpToggle}>{night&&<SkyPanorama background dome={locked}/>}<main className={night?`shell sky-mode panorama-content${locked?' sky-locked':''}`:'shell night-ui'} lang="ko">{locked
    // 메인: 왼쪽 위 도움받을 곳, 오른쪽 위 정책추천·청년센터 (머리글 대신 모서리 버튼)
    ? <header className="sky-top">
-       <button type="button" className="sky-pill" aria-expanded={help?.title===HELP.title} onClick={()=>H(h=>h?.title===HELP.title?null:HELP)}><span aria-hidden="true">♡</span> 도움받을 곳</button>
-       <button type="button" className="sky-pill gold" aria-haspopup="dialog" onClick={() => resources.current?.showModal()}>
-         <span aria-hidden="true">✦</span> 정책·청년센터
+       <button type="button" className="sky-pill sky-utility sky-help-button" aria-expanded={help?.title===HELP.title} onClick={()=>H(h=>h?.title===HELP.title?null:HELP)}>
+         <span className="sky-utility-symbol"><SkyControlIcon name="heart" /></span><span>도움받을 곳</span>
        </button>
-       <dialog className="sky-map-dialog sky-resource-dialog" ref={resources} aria-label="정책·청년센터">
-         <h2>정책·청년센터</h2>
-         <Link className="ghost sky-resource-link" href="/policies" onClick={() => resources.current?.close()}>정책추천</Link>
-         <Link className="ghost sky-resource-link" href="/centers" onClick={() => resources.current?.close()}>청년센터</Link>
-         <form method="dialog"><button className="ghost">닫기</button></form>
+       <button type="button" className="sky-pill sky-utility sky-resource-button" aria-haspopup="dialog" onClick={() => resources.current?.showModal()}>
+         <span className="sky-utility-symbol"><SkyControlIcon name="center" /></span><span>청년센터·정책</span>
+       </button>
+       <dialog className="sky-map-dialog sky-resource-dialog" ref={resources} aria-label="청년센터·정책">
+         <h2>청년센터·정책</h2>
+         <Link className="ghost sky-resource-link" href="/centers" onClick={() => resources.current?.close()}>
+           <span className="sky-utility-symbol"><SkyControlIcon name="center" /></span> 청년센터
+         </Link>
+         <Link className="ghost sky-resource-link" href="/policies" onClick={() => resources.current?.close()}>
+           <span className="sky-utility-symbol"><SkyControlIcon name="policy" /></span> 나에게 맞는 정책
+         </Link>
+         <form method="dialog"><button className="ghost sky-icon-action"><SkyControlIcon name="close" /> 닫기</button></form>
        </dialog>
      </header>
    : ready
    // 다른 화면: 머리글 없음. 각 화면이 공통 틀의 제목 줄(screen-kit.tsx ScreenBar: ‹ 뒤로 · 제목 · ♡ 도움받을 곳)을 그림
    ? null
    : <header><Link className="brand" href="/">✧ 나란히</Link>{ready&&mode==='example'&&<span className="small">예시 기록</span>}{!ready&&<Link className="text-button" href="/catalog">별자리 도감</Link>}{ready&&<Link className="text-button" href="/sky">내 밤하늘</Link>}<button className="text-button" onClick={()=>H(h=>h?.title===HELP.title?null:HELP)}>도움받을 곳</button></header>}
- {help&&<aside className="help" role="alert"><h2>{help.title}</h2>{help.lines.map(line=><p key={line}>{line}</p>)}<button type="button" className="text-button" onClick={()=>H(null)}>닫기</button></aside>}
- {error&&<p className="error" role="alert">{error}</p>}
- {needsSession&&<section className="card"><p>데모 세션을 다시 시작해 주세요. 작성한 글은 이 화면에 그대로 있어요.</p><button disabled={busy} onClick={()=>run(restartSession)}>데모 다시 시작</button></section>}
- {!ready?<><div className="intro"><span className="welcome-icon" aria-hidden="true">✦<sup>✧</sup></span><h1>오늘의 작은 시도가<br/>별이 되는 곳</h1><p>다 해내지 않아도 괜찮아요.<br/>손을 뻗은 순간도 하늘에 남아요.</p><button disabled={busy} onClick={()=>run(async()=>{await client(mode).start();if(Object.values(startAnswers).some(v=>v!==null)){try{await client(mode).saveProfile({startAnswers});}catch{U('시작 질문 답은 저장하지 못했어요. 내 정보에서 다시 저장할 수 있어요.');}}S((await client(mode).sky()).stars);R(true);})}>{busy?'준비 중…':'데모 시작'}</button><p className="small">{mode==='example'?'예시 모드 · 이 브라우저에 기록해요':'실제 API 모드 · 서버 세션에 기록해요'}</p></div><details className="onboarding"><summary>시작 질문과 체험 방식</summary><section className="card"><h2>가상 내용으로 체험해 주세요</h2><p>실제 개인정보를 입력하지 마세요.</p><label>체험 방식<select value={mode} onChange={e=>M(e.target.value as Mode)}><option value="example">예시 모드 · 브라우저 저장</option><option value="api">실제 API · 서버 세션</option></select></label><StartQuestions value={startAnswers} onChange={setStartAnswers} disabled={busy}/><p className="small">모든 질문은 선택이에요. 답하지 않아도 시작할 수 있고, 시작한 뒤 내 정보에서 더 알려 주거나 고칠 수 있어요. {mode==='api'?'답과 기록은 데모 세션에 저장돼요.':'답과 예시 기록은 이 브라우저에 저장돼요.'}</p></section></details></>:<>
+ {!questOpen && feedback}
+ {!ready ? startStep === null ? <>
+   <div className="intro"><span className="welcome-icon" aria-hidden="true">✦<sup>✧</sup></span><h1>오늘의 작은 시도가<br/>별이 되는 곳</h1><p>다 해내지 않아도 괜찮아요.<br/>손을 뻗은 순간도 하늘에 남아요.</p>
+     <button type="button" onClick={() => setStartStep(0)}>데모 시작</button>
+     <p className="small">{mode === 'example' ? '예시 모드 · 이 브라우저에 기록해요' : '실제 API 모드 · 서버 세션에 기록해요'}</p>
+   </div>
+   <details className="onboarding"><summary>체험 방식</summary><section className="card">
+     <p>가상 내용으로 체험해 주세요. 실제 개인정보는 입력하지 마세요.</p>
+     <label>체험 방식<select value={mode} onChange={e => M(e.target.value as Mode)}><option value="example">예시 모드 · 브라우저 저장</option><option value="api">실제 API · 서버 세션</option></select></label>
+   </section></details>
+ </> : <section className="card onboarding-step" aria-label={`시작 질문 ${startStep + 1}/3`}>
+   <h2>시작 질문 <span>{startStep + 1}/3</span></h2>
+   <p className="small">모든 질문은 건너뛸 수 있어요.</p>
+   <StartQuestions value={startAnswers} onChange={setStartAnswers} step={startStep} disabled={busy} />
+   <div className="choices">
+     <button type="button" className="ghost" disabled={busy} onClick={() => { E(''); setStartStep(startStep === 0 ? null : startStep - 1); }}>이전</button>
+     <button type="button" disabled={busy} onClick={() => startStep < 2 ? setStartStep(startStep + 1) : run(finishOnboarding)}>{busy ? '준비 중…' : startStep < 2 ? '다음' : '밤하늘 열기'}</button>
+   </div>
+ </section> : <>
  {/* 하단 이동 버튼은 메인에서만. 다른 화면은 하나의 일에 집중하고 왼쪽 위 "← 내 밤하늘"로 돌아감 (도감 화면과 같은 구조) */}
- {locked&&<nav className="bottom-nav dock" aria-label="주 메뉴">
-   {navigation.map(tab => <Link key={tab.href} href={tab.href} className={tab.kind === 'main' ? 'dock-main' : 'dock-side'}>
-     <tab.Icon /><span>{tab.label}</span>
-   </Link>)}
+ {locked&&<nav className="sky-actions" aria-label="주 메뉴">
+   {navigation.map(tab => tab.kind === 'main'
+     ? <button key={tab.href} type="button" className="dock-main" ref={questTrigger} aria-haspopup="dialog" onClick={openQuest}>
+         <span className="dock-icon"><SkyControlIcon name={tab.icon} /></span><span>{tab.label}</span>
+       </button>
+     : <Link key={tab.href} href={tab.href} className="dock-side">
+         <span className="dock-icon"><SkyControlIcon name={tab.icon} /></span><span>{tab.label}</span>
+       </Link>)}
  </nav>}
- {screen==='sky'&&<NightSky stars={stars} selected={selected} onSelect={SS} busy={busy} onReload={()=>run(async()=>S((await client(mode).sky()).stars))} footer={footer} nextLink={<PendingNextLink mode={mode} />} completedId={completedId}/>}
+ {screen==='sky'&&<NightSky stars={stars} selected={selected} onSelect={SS} busy={busy} onReload={()=>run(async()=>{const sky=await client(mode).sky();S(sky.stars);setTotalPoints(sky.totalPoints);})} footer={footer} nextLink={<PendingNextLink mode={mode} />} completedId={completedId} mode={mode} totalPoints={totalPoints}
+   showGuide={showSkyGuide && !help && !needsSession} onDismissGuide={dismissSkyGuide} onOpenQuest={openQuest}/>}
+ {locked && <dialog className="quest-dialog night-ui" ref={questDialog} aria-labelledby={questTitle}
+   onClick={event => { if (event.target === event.currentTarget) closeQuest(); }}
+   onClose={event => {
+     if (event.currentTarget.open) return;
+     setQuestOpen(false);
+     if (document.activeElement === document.body) questTrigger.current?.focus({ preventScroll: true });
+   }}>
+   <header className="quest-dialog-header">
+     <div className="quest-dialog-grip" aria-hidden="true" />
+     <h2 id={questTitle}><SkyControlIcon name="star" /> 오늘의 별</h2>
+     <button type="button" className="text-button quest-dialog-close" aria-label="오늘의 별 닫기" onClick={closeQuest}><SkyControlIcon name="close" /></button>
+   </header>
+   <div className="quest-dialog-body">
+     {questOpen && feedback}
+     <QuestScreen mode={mode} busy={busy} run={run} onHelp={H} onError={E} onClose={closeQuest} onTotalPoints={setTotalPoints} />
+   </div>
+ </dialog>}
  {screen==='checkin'&&<QuestScreen mode={mode} busy={busy} run={run} onHelp={H} onError={E}/>}
  {screen==='star'&&<StarScreen key={starId} mode={mode} star={star} busy={busy} run={run} onHelp={H} onSaved={reloadSky}/>}
  {screen==='profile'&&<ProfileHome mode={mode}/>}

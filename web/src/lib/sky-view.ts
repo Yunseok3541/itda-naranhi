@@ -18,6 +18,7 @@ let frame: Frame | null = null;
 let version = 0;
 let anim = 0;
 let flying = false;
+let panned = false;
 let panVisible = false;
 let panTimer = 0;
 const listeners = new Set<() => void>();
@@ -38,6 +39,7 @@ export const skyView = {
   frame: () => frame,
   version: () => version,
   isFlying: () => flying,
+  wasPanned: () => panned,
   isPanVisible: () => panVisible,
   showPan() {
     clearTimeout(panTimer);
@@ -60,13 +62,14 @@ export const skyView = {
     skyView.set({ fov: view.fov * factor });
   },
   pan(lon: number, lat: number, hemisphere = false) {
-    skyView.set({ lon: view.lon + lon, lat: Math.max(hemisphere ? 0 : -LAT_LIMIT, view.lat + lat) });
+    skyView.set({ lon: view.lon + lon, lat: Math.max(hemisphere ? 0 : -LAT_LIMIT, view.lat + lat) }, true);
   },
   /** 바로 바꿈 (끌기·확대). 이동 중이던 애니메이션은 멈춤 */
-  set(next: Partial<SkyView>) {
+  set(next: Partial<SkyView>, byPan = false) {
     skyView.stopFlight();
     const position = clampView({ ...view, ...next });
     if (position.lon === view.lon && position.lat === view.lat && position.fov === view.fov) return;
+    panned ||= byPan;
     view = position;
     emit();
   },
@@ -78,6 +81,7 @@ export const skyView = {
   /** 목표 방향으로 돌아본 뒤, 그 별자리에 맞는 시야각으로 다가간다. */
   flyTo(target: SkyView, ms = 600, { onArrival }: { onArrival?: () => void } = {}) {
     skyView.stopFlight();
+    panned = false;
     target = clampView(target);
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduce || ms <= 0) { view = target; emit(); onArrival?.(); return; }
