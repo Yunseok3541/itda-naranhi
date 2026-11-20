@@ -152,6 +152,7 @@ CREATE TABLE policies (
   apply_start    DATE         NULL     COMMENT '신청 시작일',
   apply_end      DATE         NULL     COMMENT '신청 마감일',
   apply_always   BOOLEAN      NOT NULL DEFAULT FALSE COMMENT '상시 모집',
+  apply_unclear  BOOLEAN      NOT NULL DEFAULT FALSE COMMENT '신청 기간 불명확(원문 확인)',
   category       VARCHAR(30)  NULL     COMMENT '원문 분야',
   apply_method   TEXT         NULL     COMMENT '원문 신청 방법',
   raw            JSON         NOT NULL COMMENT '원본 응답',

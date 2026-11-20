@@ -26,6 +26,7 @@ type PolicyRow = PolicyConditions & {
   url: string | null;
   apply_end: string | null; // YYYY-MM-DD
   apply_always: boolean;
+  apply_unclear: boolean;
   region_code: string | null;
 };
 
@@ -53,14 +54,14 @@ export type Profile = {
 const BURDEN_WORDS: Record<string, string> = { people: "사람 만나기", unfamiliar: "낯선 곳 가기", phone: "전화하거나 대화하기", morning: "아침에 일어나기" };
 
 const POLICY_COLUMNS = `p.id, p.title, p.summary, p.burden, p.stage, p.difficulty_note, p.relevance, p.tags, p.url,
-  to_char(p.apply_end, 'YYYY-MM-DD') AS apply_end, p.apply_always, p.region_code, ${CONDITION_COLUMNS}`;
+  to_char(p.apply_end, 'YYYY-MM-DD') AS apply_end, p.apply_always, p.apply_unclear, p.region_code, ${CONDITION_COLUMNS}`;
 
 /** 사용자에게 열려 있는 정책 (분류됨, 신청 가능, 지역·나이 맞음). 순서는 난이도 → 관련도 */
 const OPEN_SQL = `
   SELECT ${POLICY_COLUMNS}
   FROM policies p
   WHERE p.classified_at IS NOT NULL AND p.actionable IS TRUE
-    AND (p.apply_always OR p.apply_end >= $1::date)
+    AND (p.apply_always OR p.apply_unclear OR p.apply_end >= $1::date)
     AND (p.region_code IS NULL OR p.region_code = $2
          OR (right(p.region_code, 3) = '000' AND left(p.region_code, 2) = left($2, 2)))
     AND ($3::int IS NULL OR ((p.age_min IS NULL OR p.age_min <= $3) AND (p.age_max IS NULL OR p.age_max >= $3)))
@@ -115,6 +116,7 @@ export function scorePolicy(p: PolicyRow, profile: Profile, today: string): numb
   if (profile.needs.includes("people") && has("사람과 함께")) s += 1;
   if (profile.support === "no" && has("마음건강")) s += 1; // 기댈 사람이 없다고 답함 → 상담·마음건강을 조금 앞으로
   if (profile.living === "alone" && has("주거", "생활비")) s += 1; // 혼자 지냄 → 생활·주거
+  if (p.apply_unclear) s -= 1; // 신청 기간을 알 수 없는 정책은 기간이 분명한 것보다 조금 뒤로
   if (p.apply_end) {
     const days = (Date.parse(p.apply_end) - Date.parse(today)) / 86_400_000;
     if (days <= 14) s += 1; // 곧 마감
@@ -153,7 +155,7 @@ function toItem(p: PolicyRow, reason: string, profile: Profile) {
     scope: scopeLabel(p),
     applyEnd: p.apply_end,
     applyAlways: p.apply_always,
-    deadline: p.apply_always ? "상시 모집" : p.apply_end ? `${formatDate(p.apply_end)} 마감` : null,
+    deadline: p.apply_always ? "상시 모집" : p.apply_end ? `${formatDate(p.apply_end)} 마감` : p.apply_unclear ? "신청 기간은 원문에서 확인" : null,
     url: p.url,
     // 전화·방문이 필요한 정책은 문의 문장 준비하기(AI ⑥)로 이어 준다
     needsInquiry: p.burden === "phone" || p.burden === "visit",

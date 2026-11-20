@@ -197,6 +197,7 @@ CREATE TABLE policies (
   apply_start    DATE,
   apply_end      DATE,                  -- 지난 정책은 노출하지 않음
   apply_always   BOOLEAN NOT NULL DEFAULT false,  -- 상시 모집 (apply_end 없음)
+  apply_unclear  BOOLEAN NOT NULL DEFAULT false,  -- 신청 기간 코드 0057003: 신청 방법은 있지만 기간 불명확 → "원문에서 확인"
   category       VARCHAR(30),           -- 원문 분야 (예: 주거, 일자리, 금융·복지·문화)
   apply_method   TEXT,                  -- 원문 신청 방법
   raw            JSONB NOT NULL,        -- 원본 응답 (재분류용)

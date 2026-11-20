@@ -22,6 +22,9 @@ export const TAGS = ["생활비", "주거", "일자리", "배움", "마음건강
 export const MIN_DIFFICULTY: Record<Burden, number> = { online: 1, visit: 3, phone: 5, group: 6 };
 
 const BATCH = 8;
+// 무료 등급은 일일 한도와 별개로 분당 요청 한도가 있음 (flash-lite 15회/분, 11/21 수집 중 429로 확인)
+// 미리 돌리는 일괄 작업이라 호출 사이에 간격을 둔다 (4.5초 → 분당 약 13회)
+const PACE_MS = 4_500;
 
 // "개인이 신청·이용할 수 있는가"를 정책 이름으로 보정하는 규칙 (AI 판단이 양쪽으로 틀린 사례가 있어 규칙을 우선)
 // 둘 다 걸리면 사업(false) 우선. 어느 쪽에도 안 걸리면 AI 판단을 그대로 쓴다
@@ -33,6 +36,17 @@ export function actionableByRule(title: string): boolean | null {
   if (PROJECT_WORDS.test(title)) return false;
   if (SERVICE_WORDS.test(title)) return true;
   return null;
+}
+
+/**
+ * AI를 부르기 전에 걸러 내는 정부 사업 (개인이 신청·이용할 수 없음)
+ * - 이름 규칙이 사업(false)이면
+ * - 원문 중분류가 "정책인프라구축"인데 이름에 대출·상담 같은 서비스 말이 없으면
+ */
+export function projectBeforeAi(title: string, raw: Record<string, string>): boolean {
+  const rule = actionableByRule(title);
+  if (rule === false) return true;
+  return rule !== true && (raw.mclsfNm ?? "").includes("정책인프라구축");
 }
 
 /** 이미 분류된 정책에 이름 규칙을 다시 적용한다 (AI 호출 없음). 바뀐 수를 돌려준다 */
@@ -189,19 +203,33 @@ export function sourceFields(r: Row): Record<string, string> {
 /** 분류 안 된 정책을 BATCH개씩 묶어 분류·저장한다 */
 export async function classifyPending(
   db: Db,
-  opts: { generate?: typeof generateJson; limit?: number; log?: (msg: string) => void } = {},
-): Promise<{ classified: number; pending: number; modelVersion: string | null }> {
+  opts: { generate?: typeof generateJson; limit?: number; log?: (msg: string) => void; paceMs?: number } = {},
+): Promise<{ classified: number; skipped: number; pending: number; modelVersion: string | null }> {
   const generate = opts.generate ?? generateJson;
   const log = opts.log ?? (() => {});
-  const rows = (
+  const all = (
     await db.query<Row>(
       `SELECT id, title, raw FROM policies WHERE classified_at IS NULL ORDER BY id LIMIT $1`,
-      [opts.limit ?? 500],
+      [opts.limit ?? 1000],
     )
   ).rows;
+  // 정부 사업은 AI 없이 "개인 신청 불가"로 저장 (호출 수 절약)
+  const rows: Row[] = [];
+  let skipped = 0;
+  for (const r of all) {
+    if (!projectBeforeAi(r.title, r.raw)) { rows.push(r); continue; }
+    await db.query(
+      `UPDATE policies SET actionable = false, difficulty_note = '규칙: 개인이 신청하는 정책이 아님 (AI 분류 생략)', classified_at = now() WHERE id = $1`,
+      [r.id],
+    );
+    skipped++;
+  }
+  if (skipped) log(`정부 사업으로 보고 AI 없이 정리: ${skipped}개`);
   let classified = 0;
   let modelVersion: string | null = null;
+  const pace = opts.paceMs ?? (opts.generate ? 0 : PACE_MS); // 가짜 AI를 넣은 검증에서는 기다리지 않음
   for (let start = 0; start < rows.length; start += BATCH) {
+    if (start > 0 && pace > 0) await new Promise((r) => setTimeout(r, pace));
     const batch = rows.slice(start, start + BATCH);
     const result = await generate<AiOutput>({
       system: SYSTEM,
@@ -228,5 +256,5 @@ export async function classifyPending(
     classified += ok;
     log(`분류 ${start + 1}~${start + batch.length}: ${ok}/${batch.length}${result.usedFallback ? ` (AI 실패: ${result.fallbackReason})` : ""}`);
   }
-  return { classified, pending: rows.length - classified, modelVersion };
+  return { classified, skipped, pending: rows.length - classified, modelVersion };
 }

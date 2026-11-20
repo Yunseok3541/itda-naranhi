@@ -6,7 +6,7 @@ process.env.GEMINI_API_KEY = ""; // 혹시 실제 generateJson이 불려도 호�
 
 const { db } = await import("@/lib/db");
 const { normalizePolicy, upsertPolicies, pickDemoSet } = await import("@/lib/policy-sync");
-const { checkClassification, actionableByRule, sourceFields } = await import("@/lib/policy-classify");
+const { checkClassification, actionableByRule, sourceFields, projectBeforeAi, classifyPending } = await import("@/lib/policy-classify");
 const { recommendPolicies, listPolicies, recordClick, filterByDifficulty, scorePolicy } = await import("@/app/api/policies/service");
 const { todayKst } = await import("@/app/api/_lib/http");
 type Db = import("@/app/api/_lib/http").Db;
@@ -47,13 +47,18 @@ check("나이 제한 없음(N) → 나이 null", n1?.ageMin === null && n1.ageMa
 check("나이 제한(Y) → 19~34", normalizePolicy({ ...base, sprtTrgtAgeLmtYn: "Y" }, today)?.ageMax === 34);
 check("마감 지난 정책 제외", normalizePolicy({ ...base, aplyPrdSeCd: "0057001", aplyYmd: `20260101 ~ ${ymd8(addDays(-1))}` }, today) === null);
 check("마감 전 정책 → 신청 기간 저장", normalizePolicy({ ...base, aplyPrdSeCd: "0057001", aplyYmd: `20260101 ~ ${ymd8(addDays(3))}` }, today)?.applyEnd === addDays(3));
-check("기간 구분 0057003(의미 확인 전) 제외", normalizePolicy({ ...base, aplyPrdSeCd: "0057003" }, today) === null);
+const unclear = normalizePolicy({ ...base, aplyPrdSeCd: "0057003", plcyAplyMthdCn: "온라인 신청", bizPrdEndYmd: ymd8(addDays(30)) }, today);
+check("기간 구분 0057003 + 신청 방법 있음 + 사업 기간 안 끝남 → 기간 불명확으로 포함", unclear?.applyUnclear === true && unclear.applyAlways === false && unclear.applyEnd === null, unclear);
+check("0057003인데 신청 방법이 없거나 사업 기간이 끝났으면 제외",
+  normalizePolicy({ ...base, aplyPrdSeCd: "0057003", plcyAplyMthdCn: "" }, today) === null
+  && normalizePolicy({ ...base, aplyPrdSeCd: "0057003", plcyAplyMthdCn: "온라인 신청", bizPrdEndYmd: ymd8(addDays(-1)) }, today) === null);
+check("0057003 + 사업 기간 없음 → 포함", normalizePolicy({ ...base, aplyPrdSeCd: "0057003", plcyAplyMthdCn: "방문 신청", bizPrdEndYmd: "        " }, today)?.applyUnclear === true);
 check("다른 지역 기관이 모든 지역 코드를 단 정책 제외", normalizePolicy({ ...base, zipCd: "11440,26110,41110", rgtrHghrkInstCd: "6300000" }, today) === null);
 check("중앙부처(1)·산하기관(B) → 전국(null)", normalizePolicy({ ...base, zipCd: "11440,26110", rgtrHghrkInstCd: "1371000" }, today)?.regionCode === null
   && normalizePolicy({ ...base, zipCd: "11440,26110", rgtrHghrkInstCd: "B550000" }, today)?.regionCode === null);
 check("수정 시각 → 한국 시간 ISO", n1?.sourceUpdatedAt === "2026-11-13T09:30:29+09:00");
 const many = Array.from({ length: 40 }, (_, i) => ({ ...n1!, sourceId: `N${i}`, title: `가상 전국 정책 ${i}`, regionCode: null, hint: i % 5 }));
-check("전국 정책은 상한까지만 (지역 정책은 모두)", pickDemoSet([...many, n1!], 30).length === 31);
+check("전국 정책 상한 없음: 지역·전국 모두 넣음 (시험용 상한을 주면 그만큼만)", pickDemoSet([...many, n1!]).length === 41 && pickDemoSet([...many, n1!], 30).length === 31);
 check("이름이 같은 정책(띄어쓰기 무시)은 최근 수정된 하나만", (() => {
   const r = pickDemoSet([{ ...n1!, sourceId: "D1", title: "청년 월세", sourceUpdatedAt: "2026-01-01T00:00:00+09:00" }, { ...n1!, sourceId: "D2", title: "청년  월세", sourceUpdatedAt: "2026-02-01T00:00:00+09:00" }]);
   return r.length === 1 && r[0].sourceId === "D2";
@@ -74,6 +79,9 @@ const input = sourceFields({ id: 1, title: "가상 정책", raw: { plcyNm: "가�
 check("AI 입력: 키워드·분류·추가 자격 조건·나이 포함, 목록에 없는 한글 칸도 포함", input["키워드"] === "맞춤형상담서비스" && input["중분류"] === "취약계층 및 금융지원"
   && input["추가_자격_조건"] === "서울시 거주 고립 청년" && input["나이"] === "19~39세" && input["newTextField"] === "새로 생긴 한글 칸", input);
 check("AI 입력: 빈 칸·숫자 코드·지역 코드·조회수·지원 규모 0은 넣지 않음", !("심사_방법" in input) && !("plcyPvsnMthdCd" in input) && !("zipCd" in input) && !("inqCnt" in input) && !("지원_규모" in input), input);
+check("AI 전 정부 사업 거르기: 이름 규칙, 중분류 '정책인프라구축'(서비스 말이 없을 때)",
+  projectBeforeAi("청년의 삶 실태조사", {}) && projectBeforeAi("청년정책 사회보장협의제도 개선", { mclsfNm: "정책인프라구축" })
+  && !projectBeforeAi("청년 전월세 대출보증", { mclsfNm: "정책인프라구축" }) && !projectBeforeAi("청년인문교실", { mclsfNm: "미래역량강화" }));
 check("actionable 값이 없으면 버림", checkClassification({ summary: "요약입니다요", burden: "online", difficulty: 1, difficultyNote: "", relevance: 1, tags: [] }, src) === null);
 check("전화 방식인데 난이도 2 → 최소 5로 올림, 태그 목록 밖·중복 제거, 이유 기본 문구", floored?.difficulty === 5 && JSON.stringify(floored.tags) === '["마음건강"]' && !!floored.difficultyNote, floored);
 check("없는 방식·범위 밖 난이도 → 버림", checkClassification({ actionable: true, summary: "요약입니다요", burden: "mail", difficulty: 1, difficultyNote: "", relevance: 1, tags: [] }, src) === null
@@ -185,6 +193,21 @@ try {
   const reset = (await client.query("SELECT classified_at IS NULL AS c FROM policies WHERE source_id = 'verify-upsert'")).rows[0].c;
   check("수집 저장: 새 1 → 같은 내용 0/0(분류 유지) → 수정 시각 바뀜 1(분류 지움)",
     u1.inserted === 1 && u2.inserted === 0 && u2.updated === 0 && keep && u3.updated === 1 && reset, { u1, u2, u3, keep, reset });
+
+  // 기간 불명확(0057003) 정책은 목록에 들어가고 "원문에서 확인"으로 표시
+  const u = (await client.query<{ id: number }>(
+    `INSERT INTO policies (source, source_id, title, region_code, apply_always, apply_unclear, raw, summary, burden, stage, relevance, tags, classified_at, actionable)
+     VALUES ('youth_policy', 'verify-P15', '가상 정책 P15', '11000', false, true, '{}', '기간 불명확 요약', 'online', 1, 2, '{}', now(), true) RETURNING id`)).rows[0].id;
+  const allU = (await listPolicies(A, client)).body as Body;
+  const itemU = (allU.items as Body[]).find((i) => i.policyId === u);
+  check("기간 불명확 정책: 목록에 포함, 마감 표시 \"신청 기간은 원문에서 확인\"", itemU?.deadline === "신청 기간은 원문에서 확인", itemU);
+
+  // AI 전 거르기: 정부 사업은 AI 없이 actionable=false로 정리, 나머지만 AI로
+  await client.query(`INSERT INTO policies (source, source_id, title, raw) VALUES ('youth_policy', 'verify-P16', '청년의 삶 실태조사', '{}')`);
+  const genSkip = fakeGen({ items: [] });
+  const cr = await classifyPending(client, { generate: genSkip });
+  const p16 = (await client.query("SELECT actionable, classified_at IS NOT NULL AS done FROM policies WHERE source_id = 'verify-P16'")).rows[0];
+  check("분류: 정부 사업 1개는 AI 없이 정리, 남은 분류 전(P10)만 AI로", cr.skipped === 1 && p16.actionable === false && p16.done && genSkip.calls === 1, { cr, p16, calls: genSkip.calls });
 
   check("DB 장애 → 500 LOAD_FAILED", (await recommendPolicies(A, brokenDb, fakeGen({ items: [] }))).status === 500);
 } finally {
