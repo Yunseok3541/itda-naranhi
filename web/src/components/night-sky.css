@@ -15,13 +15,19 @@
   --star-gold-soft: rgba(246, 207, 125, .45);
   --glass: rgba(255, 255, 255, .07);
   --glass-line: rgba(255, 255, 255, .14);
+  /* 캐릭터 자리: 하단 버튼(약 78px) 바로 위 언덕. 캐릭터·누르는 자리·말풍선·별자리 여백이 함께 씀 */
+  --person-bottom: calc(78px + env(safe-area-inset-bottom));
+  --person-height: 17dvh;
 }
-body:has(.sky-mode) {
+/* 고정 배경(background-attachment: fixed)을 지원하지 않는 브라우저(iOS Safari 등)에서도 흰 부분이 보이지 않게 기본색 */
+html.sky-night-page { background: #0d0820; color-scheme: dark; /* 체크박스·선택 목록 같은 브라우저 기본 입력칸도 어둡게 */ }
+html.sky-night-page body {
   background:
     radial-gradient(120% 70% at 50% 110%, rgba(120, 82, 200, .35), transparent 60%),
     radial-gradient(90% 50% at 15% 10%, rgba(70, 90, 200, .22), transparent 70%),
     linear-gradient(180deg, var(--night-top), var(--night-mid) 55%, var(--night-low));
   background-attachment: fixed;
+  background-color: #0d0820; /* background 축약형 뒤에 둬야 덮어쓰이지 않음 */
   color: var(--starlight);
 }
 .sky-mode { color: var(--starlight); padding-bottom: calc(140px + env(safe-area-inset-bottom)); }
@@ -31,7 +37,7 @@ body:has(.sky-mode) {
 .sky-mode .help { background: rgba(246, 207, 125, .14); border: 1px solid var(--star-gold-soft); color: var(--starlight); }
 .sky-mode .error { background: rgba(255, 120, 150, .16); color: #ffd3dd; }
 .sky-mode footer { color: rgba(238, 233, 255, .45); }
-.sky-mode button:not(.nstar):not(.text-button):not(.ghost):not(.pager-arrow):not(.night-row):not(.pager-dots button),
+.sky-mode button:not(.nstar):not(.sky-pill):not(.char-hotspot):not(.recent-pill):not(.text-button):not(.ghost):not(.pager-arrow):not(.night-row):not(.pager-dots button),
 .sky-mode .primary { background: linear-gradient(180deg, #ffe3a3, var(--star-gold)); color: #24183f; box-shadow: 0 0 24px rgba(246, 207, 125, .35); }
 .sky-mode .ghost { background: transparent; color: var(--starlight-dim); border: 1px solid var(--glass-line); }
 .night-loading { margin-top: 40vh; text-align: center; color: var(--starlight-dim); }
@@ -45,20 +51,29 @@ body:has(.sky-mode) {
 .sky-mode .onboarding .card { border: 1px solid var(--glass-line); border-radius: 16px; padding: 16px; background: var(--glass); }
 .sky-mode .onboarding label, .sky-mode .onboarding legend { color: var(--starlight); }
 
-/* 하단 메뉴: 어두운 유리 + 가운데 큰 "오늘의 별" 버튼 */
-.bottom-nav { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-.bottom-nav a { gap: 0; line-height: 1.2; }
-.nav-icon { font-size: 1.1rem; }
-.sky-mode .bottom-nav { border-top: 0; background: linear-gradient(180deg, transparent, rgba(5, 6, 26, .92) 35%); padding-top: 18px; align-items: end; }
-.sky-mode .bottom-nav a { color: var(--starlight-dim); }
-.sky-mode .bottom-nav a[aria-current] { background: transparent; color: var(--starlight); }
-.sky-mode .bottom-nav a:nth-child(2) {
-  justify-self: center; width: 74px; height: 74px; border-radius: 50%; margin-top: -30px;
-  background: radial-gradient(circle at 50% 35%, #fff1c9, var(--star-gold) 60%, #c9933e);
-  color: #24183f; font-weight: 800; font-size: .75rem;
-  box-shadow: 0 0 0 6px rgba(246, 207, 125, .12), 0 0 34px rgba(246, 207, 125, .55);
+/* 하단 버튼 3개: 왼쪽 프로필(동그라미) · 가운데 도감(금빛 큰 버튼) · 오른쪽 퀘스트(동그라미) */
+.bottom-nav.dock {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: end;
+  padding: 14px 22px calc(12px + env(safe-area-inset-bottom));
+  border-top: 0; background: linear-gradient(180deg, transparent, rgba(247, 245, 250, .96) 40%);
 }
-.sky-mode .bottom-nav a:nth-child(2) .nav-icon { font-size: 1.5rem; }
+.dock a { display: grid; place-items: center; align-content: center; gap: 1px; line-height: 1.15; font-size: .8125rem; font-weight: 750; text-decoration: none; }
+.dock .dock-side {
+  width: 64px; height: 64px; min-height: 64px; border-radius: 50%;
+  border: 1.5px solid #A89BB8; background: white; color: var(--accent);
+}
+.dock .dock-side:last-child { justify-self: end; }
+.dock .dock-main {
+  min-width: 112px; height: 60px; padding: 0 22px; border-radius: 999px; margin-bottom: 2px;
+  background: radial-gradient(circle at 50% 30%, #fff1c9, #f6cf7d 62%, #d9a24c); color: #24183f;
+  box-shadow: 0 4px 18px rgba(201, 147, 62, .35);
+}
+.dock a[aria-current] { box-shadow: 0 0 0 3px rgba(128, 87, 191, .35); }
+.dock .dock-main[aria-current] { box-shadow: 0 0 0 3px rgba(246, 207, 125, .45), 0 4px 18px rgba(201, 147, 62, .35); }
+/* 밤하늘 화면 */
+.sky-mode .bottom-nav.dock, .night-ui .bottom-nav.dock { background: linear-gradient(180deg, transparent, rgba(5, 6, 26, .85) 45%); }
+.sky-mode .dock .dock-side, .night-ui .dock .dock-side { border-color: rgba(190, 160, 255, .75); background: rgba(24, 16, 52, .72); color: var(--starlight); }
+.sky-mode .dock .dock-main, .night-ui .dock .dock-main { box-shadow: 0 0 0 6px rgba(246, 207, 125, .12), 0 0 30px rgba(246, 207, 125, .5); }
 
 /* 무대 */
 .night { position: relative; min-height: calc(100dvh - 96px); }
@@ -127,9 +142,26 @@ body:has(.sky-mode) {
 .memories p { margin: 2px 0 0; }
 .sheet-actions { display: grid; gap: 8px; margin-top: 12px; }
 
-/* 접근성용 전체 목록 */
-.night-list { margin-top: 18px; }
-.night-list summary { text-align: center; color: rgba(238, 233, 255, .5); font-size: .875rem; }
+/* 접근성용 전체 목록: 위쪽 왼편 버튼 → 아래에서 올라오는 창 */
+.night-actions { align-self: center; display: flex; align-items: center; gap: 8px; margin-top: 8px; position: relative; z-index: 1; }
+.night-list { position: relative; }
+.night-list summary {
+  list-style: none; display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; cursor: pointer;
+  border-radius: 999px; border: 1px solid var(--glass-line); background: var(--glass);
+  color: var(--starlight-dim); font-size: .875rem; font-weight: 650; text-align: center;
+}
+.night-list summary::-webkit-details-marker { display: none; }
+/* 열렸을 때 뒤쪽을 어둡게. 어두운 곳을 누르면(= summary 클릭) 닫힘 */
+.night-list[open] > summary::after { content: ""; position: fixed; inset: 0; z-index: 6; background: rgba(5, 6, 26, .6); }
+.night-list-body {
+  position: fixed; z-index: 7; left: 50%; bottom: 0; transform: translateX(-50%);
+  width: min(100%, 520px); max-height: 78dvh; overflow-y: auto; overscroll-behavior: contain;
+  padding: 10px 20px calc(20px + env(safe-area-inset-bottom));
+  border-radius: 22px 22px 0 0; border: 1px solid var(--glass-line); border-bottom: 0;
+  background: #100f30; box-shadow: 0 -10px 40px rgba(0, 0, 0, .45);
+  text-align: left;
+}
+.night-list-body footer { margin-top: 14px; }
 .night-list h3 { margin: 16px 0 6px; font-size: .9rem; color: var(--starlight-dim); }
 .night-row { display: flex; align-items: center; gap: 12px; text-align: left; background: var(--glass); border: 1px solid var(--glass-line); color: var(--starlight); margin-block: 6px; font-weight: 500; }
 .night-row > span:last-child { flex: 1; min-width: 0; }
@@ -137,6 +169,66 @@ body:has(.sky-mode) {
 .dot.dim { background: #f1dfb6; opacity: .75; }
 .dot.bright { background: var(--star-gold); box-shadow: 0 0 8px var(--star-gold); }
 .night-list .ghost { margin-top: 12px; }
+
+/* ───────── 메인 "내 밤하늘": 스크롤 없이 한 화면에 고정 ─────────
+   화면 높이 = 머리글 + 별자리 이름 + 넘기기 + 무대(남는 만큼) + 하단 메뉴
+   무대 아래쪽은 배경 인물(손 끝까지 화면 아래 약 21%)과 겹치지 않게 비워 둔다 */
+html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+.sky-mode.sky-locked {
+  height: 100dvh; min-height: 0; overflow: hidden;
+  display: flex; flex-direction: column;
+  padding-bottom: calc(92px + env(safe-area-inset-bottom));
+}
+.sky-locked > header { flex: none; margin-bottom: 0; }
+.sky-locked > .error, .sky-locked > .card { flex: none; max-height: 28dvh; overflow-y: auto; }
+.sky-locked .night {
+  flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
+  padding-bottom: calc(var(--person-height) - 4px); /* 별자리가 캐릭터와 겹치지 않게 */
+}
+.sky-locked .night-toolbar, .sky-locked .night-title, .sky-locked .pager { flex: none; }
+.sky-locked .night-title { margin-top: 0; }
+.sky-locked .night-hint { flex: none; margin: 0; }
+.sky-locked .night-space { flex: 1 1 auto; min-height: 0; }
+
+/* 가로 모드처럼 아주 낮은 화면에서는 고정하지 않고 스크롤 허용 (별이 잘리지 않게) */
+@media (max-height: 540px) {
+  html.sky-locked-page, html.sky-locked-page body { height: auto; overflow: auto; }
+  .sky-mode.sky-locked { height: auto; min-height: 100dvh; overflow: visible; }
+  .sky-locked .night-space { flex: none; height: 320px; }
+}
+
+/* ───────── 천구 위 퀘스트 별 (night-sky.tsx의 .sky-anchors) ─────────
+   배경 캔버스와 같은 자리·크기의 투명한 층. 제목 글자보다 아래(z-index -1), 배경보다는 위
+   별 단추만 누를 수 있고 나머지 빈 곳은 그대로 배경(하늘 끌기)으로 통과 */
+.sky-anchors { position: fixed; z-index: -1; pointer-events: none; }
+.sky-anchors svg { position: absolute; inset: 0; overflow: visible; }
+.sky-anchors .edge { stroke: rgba(238, 233, 255, .22); stroke-width: 1; stroke-dasharray: none; }
+.sky-anchors .edge.current { stroke: rgba(238, 233, 255, .62); stroke-width: 1.6; }
+.sky-anchors .edge.lit { stroke: rgba(246, 207, 125, .5); }
+.sky-anchors .edge.lit.current { stroke: rgba(246, 207, 125, .95); stroke-width: 2; filter: drop-shadow(0 0 4px rgba(246, 207, 125, .8)); }
+.sky-anchors .nstar { pointer-events: auto; }
+/* 아직 만나기 전: 흐린 점 대신 또렷한 흰 별 + 고리 (배경 별과 구별) */
+.sky-anchors .nstar .core { width: 10px; height: 10px; background: #f6f3ff; box-shadow: 0 0 8px 2px rgba(238, 233, 255, .6); }
+.sky-anchors .nstar .glow { width: 30px; height: 30px; border: 1.5px solid rgba(238, 233, 255, .6); }
+.sky-anchors .nstar.dim .core { width: 12px; height: 12px; background: #f6dfac; box-shadow: 0 0 10px 3px var(--star-gold-soft); opacity: 1; }
+.sky-anchors .nstar.dim .glow { width: 34px; height: 34px; border: 1.5px solid rgba(246, 207, 125, .55); background: radial-gradient(circle, rgba(246, 207, 125, .22), transparent 70%); }
+.sky-anchors .nstar.bright .core { width: 16px; height: 16px; }
+/* 다른 별자리 별: 작고 흐리게, 이름 없음 */
+.sky-anchors .nstar.other { opacity: .5; transform: translate(-50%, -50%) scale(.75); }
+/* 지금 별자리라도 축소해서 작게 보이면 이름 없이 작게 (night-sky.tsx DETAIL_SPAN) */
+.sky-anchors .nstar.far { opacity: .8; transform: translate(-50%, -50%) scale(.7); }
+/* 지금 별자리 별 이름 */
+/* 자리(left·top·width·정렬)는 night-sky.tsx의 placeLabels가 겹치지 않게 정함 */
+.nstar-label {
+  position: absolute; box-sizing: border-box; padding: 1px 6px; border-radius: 6px;
+  font-size: .72rem; font-weight: 600; line-height: 15px; color: var(--starlight); text-align: center;
+  white-space: normal; word-break: keep-all; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  background: rgba(8, 6, 28, .66); text-shadow: 0 1px 3px #08051c;
+}
+.sky-anchors .nstar.bright .nstar-label { color: var(--star-gold); }
+/* .nstar > span(별 점을 동그랗게)이 이름표까지 타원으로 만들어 글자 모서리가 잘리던 것 되돌림 */
+.nstar > .nstar-label { border-radius: 6px; grid-area: auto; }
 
 /* 움직임 (줄이기 설정을 켠 사용자에게는 멈춤) */
 @media (prefers-reduced-motion: no-preference) {
@@ -161,3 +253,129 @@ body:has(.sky-mode) {
   width: min(calc(100% - 32px), 488px); margin: 0; padding: 10px 14px; border-radius: 12px;
   background: rgba(16, 15, 48, .95); border: 1px solid var(--glass-line); color: var(--starlight); font-size: .875rem; text-align: center;
 }
+
+/* ───────── 메인 모서리 버튼 (왼쪽 위 도움받을 곳, 오른쪽 위 정책추천·청년센터) ───────── */
+.sky-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px; position: relative; z-index: 1; }
+.sky-top-right { display: grid; justify-items: end; gap: 6px; }
+.sky-mode .sky-pill, .night-ui .sky-pill {
+  display: inline-flex; align-items: center; gap: 6px; width: auto; min-height: 44px; padding: 0 16px;
+  border-radius: 999px; border: 1.5px solid rgba(190, 160, 255, .7); background: rgba(24, 16, 52, .62);
+  color: var(--starlight); font-size: .875rem; font-weight: 700; box-shadow: none; text-decoration: none;
+}
+.sky-mode .sky-pill.gold span { color: var(--star-gold); font-size: 1.05rem; }
+.sky-mode .sky-pill.small-pill { min-height: 36px; padding: 0 13px; font-size: .8125rem; font-weight: 650; color: var(--starlight-dim); border-color: var(--glass-line); }
+.sky-mode button.sky-pill, .night-ui button.sky-pill { background: rgba(24, 16, 52, .62); color: var(--starlight-dim); }
+.sky-mode .sky-pill[aria-expanded="true"], .night-ui .sky-pill[aria-expanded="true"] { color: var(--starlight); border-color: var(--star-gold-soft); }
+/* 메인에서는 도움 안내를 모서리 버튼 아래 뜨는 불투명한 창으로 (뒤 별자리와 겹쳐 읽기 어렵지 않게, 배치를 밀지 않게) */
+.sky-locked > .help {
+  position: fixed; z-index: 6; top: calc(68px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+  width: min(calc(100% - 32px), 488px); max-height: 62dvh; overflow-y: auto; margin: 0; padding: 14px 16px;
+  background: #171236; border: 1px solid var(--star-gold-soft); border-radius: 16px; box-shadow: 0 12px 36px rgba(0, 0, 0, .5);
+}
+.sky-locked > .help h2 { margin-top: 0; }
+.sky-locked > .help p { margin: 6px 0; }
+.sky-locked > .help .text-button { margin-top: 8px; }
+
+/* ───────── 캐릭터 말풍선 (메인) ─────────
+   배경 인물은 화면 아래 약 21%(손끝)부터 하단 버튼 위까지. 그 자리에 투명 단추를 겹침 */
+.char-hotspot {
+  position: fixed; z-index: 1; left: 50%; transform: translateX(-50%);
+  bottom: var(--person-bottom); height: var(--person-height); width: 92px; min-height: 0;
+  padding: 0; border-radius: 40px; background: transparent; pointer-events: auto; cursor: pointer;
+}
+.char-hotspot:focus-visible { outline: 2px dashed var(--star-gold-soft); outline-offset: 2px; }
+.char-bubble {
+  position: fixed; z-index: 3; left: 50%; transform: translateX(-42%); bottom: calc(var(--person-bottom) + var(--person-height) + 6px);
+  width: max-content; max-width: min(250px, calc(100% - 48px)); padding: 10px 14px 9px;
+  border-radius: 16px; border: 1px solid rgba(190, 160, 255, .55); background: rgba(20, 14, 46, .82);
+  color: var(--starlight); box-shadow: 0 8px 24px rgba(0, 0, 0, .35); pointer-events: auto;
+}
+.char-bubble::after {
+  content: ""; position: absolute; left: 34%; bottom: -7px; width: 12px; height: 12px; transform: rotate(45deg);
+  background: rgba(20, 14, 46, .95); border-right: 1px solid rgba(190, 160, 255, .55); border-bottom: 1px solid rgba(190, 160, 255, .55);
+}
+.char-question { margin: 0; font-weight: 750; font-size: .95rem; }
+.char-sub { margin: 2px 0 6px; font-size: .78rem; color: var(--starlight-dim); }
+.char-link { display: inline-block; font-size: .82rem; font-weight: 750; color: var(--star-gold); }
+@media (prefers-reduced-motion: no-preference) {
+  .char-bubble { animation: bubble-in .22s ease-out; }
+  @keyframes bubble-in { from { opacity: 0; transform: translate(-42%, 6px); } }
+}
+
+/* 세로가 짧은 화면: 안내 한 줄을 숨겨 별자리 자리를 넓힘 (하늘 끌기 안내는 캐릭터·목록으로도 알 수 있음) */
+@media (max-height: 700px) {
+  .sky-locked .night-hint { display: none; }
+  .sky-locked .night-title h1 { margin-bottom: 0; }
+}
+
+/* ───────── 다른 화면(퀘스트·별 기록·정책 추천·청년센터·프로필)도 메인·도감과 같은 밤하늘 분위기 ─────────
+   배경: html.sky-night-page body의 밤하늘 그라데이션 / 카드: 도감 카드와 같은 짙은 보라 유리
+   주요 버튼은 금빛, 보조 버튼은 유리+라벤더 테두리, 고른 것은 금빛 테두리 */
+.night-ui { color: var(--starlight); }
+.night-ui h1 { color: #fff; text-shadow: 0 0 22px rgba(180, 160, 255, .35); }
+.night-ui h2, .night-ui h3, .night-ui legend, .night-ui label { color: var(--starlight); }
+.night-ui p { color: rgba(238, 233, 255, .86); }
+.night-ui .small, .night-ui small { color: var(--starlight-dim); }
+.night-ui a:not([class]) { color: #e3d4ff; text-decoration: underline; text-underline-offset: 3px; }
+.night-ui footer { color: rgba(238, 233, 255, .45); }
+
+/* 머리글: 왼쪽 ← 내 밤하늘 · 오른쪽 도움받을 곳 */
+.sub-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+.sub-back {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; margin-left: -6px;
+  border-radius: 12px; color: #e6d9f1; font-weight: 650; font-size: .9375rem;
+}
+.sub-back:hover { background: rgba(255, 255, 255, .07); }
+.sub-top-right { display: inline-flex; align-items: center; gap: 10px; }
+
+/* 카드 */
+.night-ui .card {
+  padding: 16px; border: 1px solid rgba(255, 255, 255, .14); border-radius: 18px;
+  background: rgba(37, 32, 57, .82); box-shadow: 0 7px 18px rgba(17, 15, 36, .5);
+}
+.night-ui a.card { display: block; color: inherit; }
+.night-ui .recommendation strong { color: var(--star-gold); }
+.night-ui .memory { background: rgba(37, 32, 57, .82); border-color: rgba(255, 255, 255, .14); }
+.night-ui .memory article { border-color: rgba(255, 255, 255, .12); }
+.night-ui .memory time { color: var(--star-gold); }
+
+/* 입력칸 */
+.night-ui input, .night-ui select, .night-ui textarea {
+  background: rgba(10, 8, 30, .55); color: var(--starlight); border: 1px solid rgba(190, 160, 255, .45);
+}
+.night-ui input::placeholder, .night-ui textarea::placeholder { color: rgba(238, 233, 255, .42); }
+.night-ui .check input { accent-color: var(--star-gold); }
+
+/* 버튼 */
+/* 아이콘·그림 단추(제목 줄 아이콘·프로필 그림)는 금빛 큰 버튼에서 뺌 */
+.night-ui button:not(.secondary):not(.text-button):not(.sky-pill):not(.screen-icon):not(.avatar-button):not(.avatar-option), .night-ui .primary {
+  background: linear-gradient(180deg, #ffe3a3, var(--star-gold)); color: #24183f; border: 0;
+  box-shadow: 0 0 22px rgba(246, 207, 125, .28);
+}
+.night-ui .secondary { background: rgba(255, 255, 255, .06); color: var(--starlight); border: 1px solid rgba(190, 160, 255, .5); }
+.night-ui .secondary[aria-pressed="true"] { background: rgba(246, 207, 125, .16); border-color: var(--star-gold); color: #ffe3a3; }
+.night-ui .text-button { background: transparent; color: var(--starlight-dim); }
+.night-ui button:disabled { opacity: .5; }
+
+/* 안내·오류 */
+.night-ui .help { background: rgba(246, 207, 125, .12); border: 1px solid var(--star-gold-soft); color: var(--starlight); }
+.night-ui .error { background: rgba(255, 120, 150, .16); color: #ffd3dd; }
+.night-ui > p[role="status"] { color: var(--starlight); }
+
+/* 멀리서 볼 때 별자리 선을 눌러도 확대되도록 보이지 않는 굵은 선 (night-sky.tsx edge-hit) */
+.sky-anchors svg .edge-hit { stroke: transparent; stroke-width: 28; stroke-linecap: round; pointer-events: stroke; cursor: zoom-in; }
+.sky-anchors .nstar.far, .sky-anchors .nstar.other { cursor: zoom-in; }
+
+/* 먼 별자리로 갈 때 하늘을 휩쓸며 돌리지 않고 잠깐 어두워졌다 밝아짐 (lib/sky-view.ts flyTo) */
+.panorama-canvas, .sky-anchors { transition: opacity .2s ease; }
+html.sky-fading .panorama-canvas, html.sky-fading .sky-anchors { opacity: 0; }
+
+/* 최근 별자리로 돌아가기 (모든 별 보기 옆) */
+.recent-pill {
+  display: inline-flex; align-items: center; gap: 5px; width: auto; min-height: 36px; padding: 0 14px;
+  border-radius: 999px; border: 1px solid var(--star-gold-soft); background: rgba(246, 207, 125, .12);
+  color: #ffe3a3; font-size: .875rem; font-weight: 650;
+}
+
+/* 다른 화면에는 하단 이동 버튼이 없으니 그만큼 비워 둔 아래 여백을 줄임 */
+.shell.night-ui { padding-bottom: calc(32px + env(safe-area-inset-bottom)); }

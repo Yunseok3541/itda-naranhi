@@ -1,4 +1,5 @@
 import type { PolicyInfo, StartAnswers } from './profile';
+import { NO_FACTS, readFacts, type MilestoneFacts } from './milestones';
 export type Mode = 'example' | 'api';
 export type Profile = { startAnswers: StartAnswers | null; policyInfo: PolicyInfo; birthYear: number | null };
 export type ProfileUpdate = { startAnswers?: StartAnswers; policyInfo?: PolicyInfo | null; birthYear?: number | null };
@@ -6,7 +7,7 @@ const profileKey = 'naranhi-example-profile';
 export type Help = { title: string; lines: string[] } | null;
 export type Status = 'untried' | 'dim' | 'bright';
 // constellationId 등은 실제 API(/api/sky)에만 있음. 예시 모드는 별 번호로 별자리를 나눔 (night-sky.tsx)
-export type Star = { starId: number; title: string; status: Status; memories: { attemptId: number; date: string; reflection: string | null }[]; description?: string | null; constellationId?: number; constellationName?: string; position?: number; verifyType?: string };
+export type Star = { starId: number; title: string; status: Status; memories: { attemptId: number; date: string; reflection: string | null; status?: 'dim' | 'bright' }[]; description?: string | null; constellationId?: number; constellationName?: string; position?: number; verifyType?: string };
 // GPS(도착 확인) 별인지: 실제 API는 /api/sky의 verifyType으로 판단 (별 ID는 시드마다 바뀜)
 // 예시 모드 저장 데이터에는 verifyType이 없어 예시 목록의 GPS 별(16 편의점, 17 가상 청년센터)로 판단
 const exampleGpsIds = new Set([16, 17]);
@@ -48,5 +49,28 @@ export function client(mode: Mode) { return {
   // 프로필 (시작 질문·정책 신청 정보). 예시 모드는 이 브라우저에만 저장
   async profile(): Promise<Profile> { if (mode === 'api') return request('profile'); const raw = localStorage.getItem(profileKey); return raw ? JSON.parse(raw) : { startAnswers: null, policyInfo: { job: null, school: null, married: null, income: null, special: null }, birthYear: null }; },
   async saveProfile(update: ProfileUpdate): Promise<Profile> { if (mode === 'api') return request('profile', 'PUT', update); const next = { ...(await this.profile()), ...update }; if (next.policyInfo === null) next.policyInfo = { job: null, school: null, married: null, income: null, special: null }; localStorage.setItem(profileKey, JSON.stringify(next)); return next as Profile; },
-  async attempt(body: { starId: number; status: 'dim' | 'bright'; reflection: string; verifyMethod: string; stopReason?: string }): Promise<{ attemptId: number; starId: number; status: string; cheer: string; help: Help }> { if (mode === 'api') return request('attempts', 'POST', body); const s = read(); const star = s.stars.find(x => x.starId === body.starId); if (!star) throw new Error('별을 찾을 수 없어요.'); const id = Date.now(); star.status = star.status === 'bright' ? 'bright' : body.status; star.memories.push({ attemptId: id, date: new Date().toISOString(), reflection: body.reflection }); write(s); return { attemptId: id, starId: body.starId, status: body.status, cheer: '오늘 손을 뻗은 순간도 당신의 하늘에 남아요.', help: null }; }
+  // 프로필 배지 판정용 사실들 (규칙: lib/milestones.ts). 예시 모드는 이 브라우저의 예시 기록으로 어림
+  async milestones(): Promise<MilestoneFacts> {
+    if (mode === 'api') return readFacts((await request<{ facts: unknown }>('milestones')).facts);
+    const s = read();
+    const tried = s.stars.filter(x => x.status !== 'untried' || x.memories.length > 0);
+    const has = (fn: (st: Star) => boolean) => tried.some(fn);
+    const choices = Object.values(s.checkins).map(c => c.todayChoice);
+    let inquiry = false;
+    try { inquiry = Object.keys(localStorage).some(k => k.startsWith('naranhi-example-inquiry-')); } catch { /* 저장소를 못 쓰면 없음 */ }
+    return {
+      ...NO_FACTS,
+      firstAttempt: tried.length > 0,
+      checkin: choices.length > 0,
+      reflection: has(st => st.memories.some(m => !!m.reflection?.trim())),
+      dim: has(st => st.status === 'dim' || st.memories.some(m => m.status === 'dim')),
+      retried: has(st => { const i = st.memories.findIndex(m => m.status === 'dim'); return i >= 0 && st.memories.slice(i + 1).some(m => m.status === 'bright'); }),
+      rested: choices.includes('rest'),
+      nearTried: has(st => st.starId >= 11), // 예시: 11번부터 집 앞 별자리(거문고)
+      outsideTried: has(st => st.starId === 16 || st.starId === 17), // 예시: 편의점·청년센터 앞 (바깥 별)
+      centerBright: s.stars.some(st => st.starId === 17 && st.status === 'bright'),
+      inquiryDrafted: inquiry,
+    };
+  },
+  async attempt(body: { starId: number; status: 'dim' | 'bright'; reflection: string; verifyMethod: string; stopReason?: string }): Promise<{ attemptId: number; starId: number; status: string; cheer: string; help: Help }> { if (mode === 'api') return request('attempts', 'POST', body); const s = read(); const star = s.stars.find(x => x.starId === body.starId); if (!star) throw new Error('별을 찾을 수 없어요.'); const id = Date.now(); star.status = star.status === 'bright' ? 'bright' : body.status; star.memories.push({ attemptId: id, date: new Date().toISOString(), reflection: body.reflection, status: body.status }); write(s); return { attemptId: id, starId: body.starId, status: body.status, cheer: '오늘 손을 뻗은 순간도 당신의 하늘에 남아요.', help: null }; }
 }; }
