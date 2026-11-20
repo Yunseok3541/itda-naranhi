@@ -175,3 +175,7 @@
 
 /* 폰 키보드가 올라오면 --kb(가려진 높이)만큼 창을 올리고 줄임 (apply-helper.tsx가 visualViewport로 계산) */
 .apply-helper { margin-bottom: var(--kb, 0px); height: var(--dh, min(88dvh, 760px)); max-height: calc(100dvh - var(--kb, 0px) - 8px); }
+
+/* AI 답 안전 안내 (고민기록 #46): 첫 말풍선 강조 + 입력창 아래 항상 보이는 한 줄 */
+.apply-helper .apply-helper-safety { margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: rgba(246, 207, 125, .08); color: #ffe9bf; line-height: 1.5; }
+.apply-helper .apply-helper-disclaimer { margin: 6px 0 0; font-size: .75rem; line-height: 1.4; color: var(--starlight-dim, #b9b0d6); text-align: center; }
