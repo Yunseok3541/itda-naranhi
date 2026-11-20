@@ -2,6 +2,7 @@
 
 import { useId, useRef, type MouseEvent } from 'react';
 import { screenRay, toLonLat, unit, RAD, type Frame, type SkyView, type Vec3 } from '@/lib/sky-view';
+import SkyControlIcon from './sky-control-icon';
 
 type Constellation = { points: Vec3[]; edges: [number, number][] };
 const rim = 45;
@@ -116,7 +117,8 @@ export default function SkyMinimap({ groups, centers, skies, view, frame, active
     <>
       <button type="button" className="sky-minimap" data-revealed={revealed} aria-label="밤하늘 지도 열기"
         aria-haspopup="dialog" onClick={() => dialog.current?.showModal()}>
-        <SkyChart {...chart} />
+        <span className="sky-map-face"><SkyChart {...chart} /></span>
+        <span className="sky-map-caption">하늘 지도</span>
       </button>
       <dialog className="sky-map-dialog sky-dome-dialog" ref={dialog} aria-labelledby={title}>
         <h2 id={title}>밤하늘 지도</h2>
@@ -135,8 +137,8 @@ export default function SkyMinimap({ groups, centers, skies, view, frame, active
             aria-current={index === active ? 'true' : undefined} onClick={() => select(index)}>{group.name}</button>)}
         </div>
         <div className="sky-map-actions">
-          <button type="button" className="ghost" onClick={() => { dialog.current?.close(); onHorizon(); }}>수평선 보기</button>
-          <form method="dialog"><button className="ghost">닫기</button></form>
+          <button type="button" className="ghost sky-icon-action" onClick={() => { dialog.current?.close(); onHorizon(); }}><SkyControlIcon name="horizon" /> 수평선 보기</button>
+          <form method="dialog"><button className="ghost sky-icon-action"><SkyControlIcon name="close" /> 닫기</button></form>
         </div>
       </dialog>
     </>

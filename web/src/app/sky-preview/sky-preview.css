@@ -12,7 +12,6 @@ body:has(.panorama-shell:not(.panorama-background)) { background: #0d0820; }
 .panorama-content .night { pointer-events: none; }
 .panorama-content .night .stage,
 .panorama-content .night .night-toolbar,
-.panorama-content .night .pager,
 .panorama-content .night .sheet,
 .panorama-content .night .night-list,
 .panorama-content .night .recent-pill { pointer-events: auto; }

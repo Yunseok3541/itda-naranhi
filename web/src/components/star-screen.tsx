@@ -81,8 +81,8 @@ export default function StarScreen({ mode, star, busy, run, onHelp, onSaved }: {
           <p>{saved}</p>
           <p className="small">{mode === 'example' ? '가상 기록을 이 브라우저에 저장했어요.' : 'AI가 만든 응원은 틀릴 수 있어요.'}</p>
           {busy ? <p role="status">밤하늘을 다시 읽고 있어요…</p> : (
-            <Link className="primary" href={completionHref ?? '/sky'}>
-              {completionHref ? '별자리 완성 보기 →' : '내 밤하늘에서 기억 보기 →'}
+            <Link className="primary" href={completionHref ?? `/sky?memory=${star.starId}`}>
+              {completionHref ? '별자리 완성 보기' : '내 밤하늘에서 기억 보기'}
             </Link>
           )}
         </section>
