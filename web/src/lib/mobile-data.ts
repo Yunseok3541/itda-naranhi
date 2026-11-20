@@ -10,7 +10,7 @@ import { ruleHelp } from './safety';
 export type Mode = 'example' | 'api';
 export type Profile = { startAnswers: StartAnswers | null; policyInfo: PolicyInfo; birthYear: number | null };
 export type ProfileUpdate = { startAnswers?: Partial<StartAnswers>; policyInfo?: PolicyInfo | null; birthYear?: number | null };
-export type ProfileAvatar = { avatarConstellationId: number | null; constellations: { constellationId: number; name: string; acquired: boolean }[] };
+export type ProfileAvatar = { avatarConstellationId: number | null; constellations: { constellationId: number; name: string; acquired: boolean }[] | null };
 export type Points = { totalPoints: number; serverTime: string; meteor: { caughtToday: number; dailyLimit: number; currentMeteorId: number; nextMeteorAt: string; intervalSeconds: number } };
 export type MeteorClaim = { pointsEarned: number; totalPoints: number; meteor: { caughtToday: number; dailyLimit: number } };
 const profileKey = 'naranhi-example-profile';

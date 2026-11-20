@@ -49,7 +49,8 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
     setAvatarBusy(true);
     setAvatarError('');
     try {
-      setAvatarChoices(await (id === undefined ? client(mode).avatar() : client(mode).saveAvatar(id)));
+      const next = await (id === undefined ? client(mode).avatar() : client(mode).saveAvatar(id));
+      setAvatarChoices(previous => ({ ...next, constellations: next.constellations ?? previous?.constellations ?? null }));
       if (id !== undefined) setPicking(false);
     } catch (error) {
       setAvatarError(error instanceof Error ? error.message : '프로필 그림을 저장하지 못했어요.');
@@ -105,7 +106,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
       <div className="avatar-grid">
         {[{ id: DEFAULT_AVATAR, constellationId: null, nickname: '기본' }, ...characters].map(choice => <button key={choice.id} type="button"
           className={`avatar-option${choice.id === avatar ? ' chosen' : ''}`} aria-pressed={choice.id === avatar}
-          disabled={avatarBusy || (choice.constellationId !== null && !avatarChoices.constellations.some(item => item.constellationId === choice.constellationId && item.acquired))}
+          disabled={avatarBusy || (choice.constellationId !== null && !avatarChoices.constellations?.some(item => item.constellationId === choice.constellationId && item.acquired))}
           onClick={() => void updateAvatar(choice.constellationId)}>
           <Avatar id={choice.id} size={56} />
           <small>{choice.nickname}</small>
