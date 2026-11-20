@@ -326,7 +326,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   }, [detailed, groups, namedStar, positions, frame, safeIndex]);
 
   return <section className="night" aria-label="내 밤하늘">
-    <MeteorRewards key={mode} mode={mode} skyTotal={totalPoints} />
+    <MeteorRewards key={mode} mode={mode} skyTotal={totalPoints} fov={view.fov} />
 
     {frame && <div className="sky-anchors" style={{ left: frame.left, top: frame.top, width: frame.width, height: frame.height }}>
       <div className="sky-companion-layer">

@@ -195,6 +195,8 @@ html.sky-night-page body {
   position: fixed; z-index: 1; top: 36dvh; left: calc(50% + min(31vw, 152px)); display: grid;
   place-items: center; width: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 50%;
   background: transparent; color: #fff0bb; text-shadow: 0 0 12px #ffe4a1; pointer-events: auto;
+  /* 하늘을 확대할수록 커짐 (meteor-rewards.tsx의 meteorScale). 지나가는 움직임(transform)과 따로 적용되는 scale 속성 */
+  scale: var(--meteor-scale, 1); transition: scale .18s ease-out;
 }
 .sky-meteor::before {
   content: ''; position: absolute; inset: 21px auto auto 26px; width: 45px; height: 2px;
