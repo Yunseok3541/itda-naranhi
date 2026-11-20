@@ -2,7 +2,8 @@
 
 > API는 Next.js 앱(`web/src/app/api/`)의 Route Handler로 구현한다 (고민기록 #27).
 > 화면은 같은 앱에서 `fetch('/api/...')`로 호출한다. 화면 쪽 내용은 [화면설계.md](화면설계.md), 문구는 [기능 완료 기준](기획/기능완료기준과_콘텐츠.md), 세션 사용법은 [web/README.md](../web/README.md) "데모 세션"
-> 마지막 갱신: 2026-11-20 오후 (별자리를 도감 캐릭터 10개로 맞춤, Neon 동기화 SQL `20261121_quests_sync.sql`. 담당 고은비, 브랜치 `feat/points`)
+> 마지막 갱신: 2026-11-20 (유성 터치 +1·데일리 체크인 +100 포인트: `POST /api/meteors`, `GET /api/points`, 체크인 응답 `pointsEarned`·`totalPoints`, 총점에 합산. Neon 변경 SQL `20261121_reward_points.sql`. 담당 고은비, 브랜치 `feat/meteor-points`)
+> 이전 갱신: 2026-11-20 오후 (별자리를 도감 캐릭터 10개로 맞춤, Neon 동기화 SQL `20261121_quests_sync.sql`. 담당 고은비, 브랜치 `feat/points`)
 > 이전 갱신: 2026-11-19 18시 (포인트: 시도 저장 `pointsEarned`·`totalPoints`, 밤하늘 `totalPoints`·별 `points`, 시드를 루트 `quests.json` 기준 별자리 12개·별 40개로 교체, 별 `focus`·`tags` 칸. 담당 고은비, 브랜치 `feat/points`)
 > 이전 갱신: 2026-11-19 13시 (청년센터·문의 초안 화면 연결 계약, 초안 `sent` 칸, 문의 API 세션 장애 503, 실데이터 전환 계획, AI 실호출 기록)
 >
@@ -23,6 +24,7 @@
 | 밤하늘 `GET /api/sky` | 윤석 | `api/sky/route.ts`, `api/_lib/sky.ts` | ⚠ 고은비가 먼저 구현해 둠 → 위와 같음 |
 | 청년센터 `GET /api/centers`, `/api/centers/{id}` | 고은비 | `api/centers/`, `api/_lib/centers*.ts` | 가상 센터 1곳으로 HTTP 검증 완료. 실데이터는 인증키 대기 |
 | 문의 초안 `POST·GET /api/inquiries`, `PATCH /api/inquiries/{id}` (AI ⑥) | 고은비 | `api/inquiries/`, `api/_lib/inquiries.ts` | 생성·수정·재조회·보냄 기록 HTTP 검증 완료 |
+| 유성 포인트 `POST /api/meteors`, 포인트 합계 `GET /api/points`, 체크인 +100 | 고은비 | `api/meteors/`, `api/points/`, `api/_lib/points.ts`, 규칙 숫자 `lib/points.ts` | 구현·검증 (`feat/meteor-points`). 화면 연결은 화면 담당 |
 
 - `api/_lib/http.ts`는 새 API가 함께 쓰는 응답 형식·날짜 도우미다 (밑줄 폴더라 라우트가 되지 않음).
 - 위기 표현 규칙 `lib/safety.ts`는 공용이다. 고은비가 AI 출력 검사(`isSafeAiText`)와 규칙 안내(`ruleHelp`)를 추가했다.
@@ -108,12 +110,18 @@
   "weather": "cloudy",          // sunny | partly_cloudy | cloudy | rainy | foggy (참고 기록)
   "todayChoice": "home",
   "risk": "normal",             // normal | caution | danger
+  "pointsEarned": 100,          // feat/meteor-points 추가. 오늘(한국 날짜) 첫 체크인이면 100, 이미 받았으면 0, 저장 실패면 null
+  "totalPoints": 100,           // feat/meteor-points 추가. 이 체크인까지 포함한 총 포인트 (별 + 유성 + 체크인), 저장 실패면 null
   "help": null,                 // risk가 normal이 아니면 { title, lines[] }
   "usedFallback": false,        // AI 대신 기본값을 썼는지
   "modelVersion": "gemini-3.5-flash-lite"   // 실제 응답한 모델 버전, 기본값이면 null (검증용, 화면에서 쓰지 않음)
 }
 // 401 세션 없음 (위기 표현이면 help 포함)
 ```
+
+- **데일리 체크인 포인트 (고민기록 #32):** 체크인이 저장됐을 때(`checkinId`가 있을 때)만, 한국 날짜 기준 하루 한 번 +100. 같은 날 다시 체크인하면 0. 위험도와 관계없이 준다.
+  - 포인트는 체크인과 따로 저장한다. 포인트 저장만 실패하면(예: Neon에 변경 SQL 적용 전) 체크인 응답은 그대로 나가고 `pointsEarned`·`totalPoints`만 `null`이다.
+  - 화면: `pointsEarned > 0`일 때만 "+100" 피드백을 띄운다. `0`·`null`이면 아무것도 띄우지 않는다.
 
 **`PATCH /api/checkin/weather`** — 마음 날씨 직접 고치기
 
@@ -330,7 +338,7 @@ const { cheer, help } = await processReflection({
 ```jsonc
 // 200 (새 시드 기준 예시)
 {
-  "totalPoints": 0,             // feat/points 추가. 밝힌 별 점수의 합 (= 뷰 v_user_points)
+  "totalPoints": 0,             // feat/points 추가. feat/meteor-points부터 별 + 유성 + 체크인 합계 (= 뷰 v_user_points.total_points)
   "stars": [
     {
       "starId": 28, "title": "집 근처 산책로 한 바퀴 돌기", "description": "집 근처 산책로를 천천히 한 바퀴 걸어요. 중간에 돌아와도 괜찮아요.",
@@ -355,6 +363,7 @@ const { cheer, help } = await processReflection({
 
 - 별 목록은 **시드의 모든 별**(현재 40개, 별자리 10개)을 단계·별자리·순서대로 준다. 별자리 ID·이름은 도감(`catalog/characters.ts`)과 같다 (별자리 선택 API가 생기면 바꿈).
 - `totalPoints`·`points`는 위 "3. 별 시도 저장"의 포인트 규칙과 같은 뷰로 계산한다. 별자리 하나를 다 따면 1단계 30, 2단계 40, 3단계 90, 4단계 160.
+  - `feat/meteor-points`부터 `totalPoints`에는 유성·체크인 포인트도 들어간다 (아래 "9. 포인트"). 별 포인트만 필요하면 `stars[].points`를 더한다. 시도 저장 응답의 `totalPoints`도 같은 합계다.
 - `status`는 뷰 `v_user_star_status` 기준(최종 상태), `memories`는 개별 시도. 회고 없이 저장한 시도는 `reflection: null`.
 - 별 상세 화면 URL(예: `/stars/12`)로 바로 들어와도 이 응답에서 `starId`로 제목을 얻는다.
 - 센터 "앞까지 가 본 별"은 새 시드에서 **별 17 "청년센터 방문해서 둘러보기"**(4단계 작은곰자리 1번째, GPS, `category: center`)다. v4 시드와 ID가 같아 화면의 `/stars/17` 링크는 그대로 맞는다 (제목·별자리는 바뀜). GPS 확인이면 `placeId`에 `center:{centerId}`, `placeName`에 센터 이름을 보낸다.
@@ -627,6 +636,63 @@ const { cheer, help } = await processReflection({
 
 ---
 
+### 9. 포인트 — `POST /api/meteors`, `GET /api/points` (고민기록 #32, 고은비, `feat/meteor-points`)
+
+포인트는 세 곳에서 모인다. **총점 = 별 + 유성 + 체크인** (뷰 `v_user_points.total_points`). 밤하늘·시도 저장·체크인·유성 응답의 `totalPoints`는 모두 이 합계다.
+
+| 출처 | 포인트 | 중복 방지 | 저장 |
+| ---- | ------ | --------- | ---- |
+| 별 처음 따기 | 별자리 난이도 × 10 | (사용자, 별)당 한 번 | 뷰 `v_star_points` (기존) |
+| 유성 터치 | +1 | (사용자, 유성 번호)당 한 번, **하루 20개까지** | `point_events` (source `meteor`) |
+| 데일리 체크인 | +100 | (사용자, 한국 날짜)당 한 번 | `point_events` (source `checkin`) |
+
+규칙 숫자는 `web/src/lib/points.ts` 한 곳에 있다 (서버 전용 코드를 가져오지 않아 화면에서도 import 가능).
+
+#### 유성 번호 — 화면과 서버가 같은 유성을 가리키는 방법
+
+- 유성은 **서버 시각 기준 16초마다 1개** 떨어진다. 유성 번호 `meteorId = floor(유닉스 초 / 16)`.
+- 화면은 `GET /api/points`의 `serverTime`으로 기기 시계와의 차이를 구해 두고, 번호가 바뀔 때마다(= `nextMeteorAt`부터 16초마다) 유성을 하나 그린다. 터치하면 그 유성의 번호를 보낸다.
+- 서버는 **떨어진 지 60초 안의 유성과 다음 1개**까지만 받는다 (네트워크 지연·애니메이션 여유, 기기 시계가 조금 빠른 경우). 그 밖의 번호는 `EXPIRED`.
+- 하루 한도: 화면을 켜 두기만 해도 시간당 225개가 쌓일 수 있어 하루(한국 날짜) 20개까지만 준다 → 유성 하루 최대 20 < 체크인 100. 숫자는 `lib/points.ts`의 `METEOR_DAILY_LIMIT`에서 바꾼다.
+
+**`POST /api/meteors`** — 떨어지는 유성 터치
+
+```jsonc
+// 요청
+{ "meteorId": 112196904 }
+// 201 이번에 받음
+{ "meteorId": 112196904, "pointsEarned": 1, "reason": null, "totalPoints": 101,
+  "meteor": { "caughtToday": 1, "dailyLimit": 20 } }
+// 200 받지 못함 (오류 아님) — 같은 유성 다시 / 하루 한도 / 지난·아직 안 온 유성
+{ "meteorId": 112196904, "pointsEarned": 0, "reason": "ALREADY_CAUGHT", "totalPoints": 101,
+  "meteor": { "caughtToday": 1, "dailyLimit": 20 } }
+// reason: null(받음) | ALREADY_CAUGHT | DAILY_LIMIT | EXPIRED
+// 400 { "error": "meteorId가 필요해요.", "code": "INVALID", "help": null }   // 양의 정수가 아님
+// 401 NO_SESSION / 500 SAVE_FAILED "지금은 유성을 담지 못했어요." / 503 SAVE_FAILED (세션 조회 DB 장애)
+```
+
+- 같은 유성을 다시 보내도(재시도·연타·동시 요청) 한 번만 적립된다 (DB `UNIQUE (user_id, source, ref_key)`). 2026-11-20 HTTP로 같은 유성 6번 동시 요청 → 201 1번, 200 5번.
+- 화면: `pointsEarned > 0`일 때만 "+1"을 띄운다. `DAILY_LIMIT`이면 그날은 유성을 그리지 않거나 터치만 막아도 된다 (`GET /api/points`의 `caughtToday`·`dailyLimit`). 응답을 기다리지 않고 유성은 바로 사라지게 해도 된다.
+- ⚠ 하루 한도는 서로 다른 유성을 동시에 보내면 받을 수 있는 유성 수(최대 6개)만큼 넘을 수 있다. 같은 유성 중복은 생기지 않는다.
+
+**`GET /api/points`** — 포인트 합계와 출처별 내역, 유성 일정
+
+```jsonc
+// 200 (2026-11-20 로컬 HTTP 검증 실제 응답: 체크인 1번 + 유성 1개 + 1단계 별 1개)
+{
+  "totalPoints": 111,                                  // = stars.points + meteor.points + checkin.points
+  "stars":   { "points": 10, "brightStars": 1 },
+  "meteor":  { "points": 1, "caughtToday": 1, "dailyLimit": 20, "pointsEach": 1,
+               "intervalSeconds": 16, "graceSeconds": 60,
+               "currentMeteorId": 112196904, "nextMeteorAt": "2026-11-20T04:54:40.000Z" },
+  "checkin": { "points": 100, "doneToday": true, "pointsEach": 100 },
+  "serverTime": "2026-11-20T04:54:27.815Z"
+}
+// 401 NO_SESSION / 500 LOAD_FAILED "지금은 포인트를 불러오지 못했어요." / 503 LOAD_FAILED
+```
+
+- 화면 문구는 기존 포인트 원칙을 따른다: 순위·다른 사람과 비교·연속 기록(며칠 연속 체크인 등) 표현을 쓰지 않는다. 그래서 체크인 일수·연속 일수는 응답에 넣지 않았다.
+
 ## 만들 것 (기획: `docs/기획/아이디어_v4.md`)
 
 | API | 기능 | 비고 |
@@ -720,11 +786,22 @@ node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-star-api
 node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-star-api.mts --ai-fail  # 잘못된 키
 GEMINI_MODEL=gemini-3.5-flash-lite node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-star-api.mts
 GEMINI_MODEL=gemini-3.5-flash-lite node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-safety.mts
+node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-points.mts            # 유성·체크인 포인트, 합산 밸런스 (20261121_reward_points.sql 적용된 DB)
 # 서버를 띄운 뒤 (npm run build && npx next start -p 3107)
 node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-http.mts --base=http://localhost:3107
 node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-inquiry-http.mts --base=http://localhost:3107   # 센터·문의 초안
 node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-ai-live.mts --base=http://localhost:3107       # AI 실호출 기록 (공개 주소는 1번만)
 ```
+
+### 2026-11-20 유성·체크인 포인트 검증 (브랜치 `feat/meteor-points` = `master` 761c820 + 이번 변경, 로컬 Docker만, 키 없음)
+
+| 검증 | 결과 | 비고 |
+| ---- | ---- | ---- |
+| 새 DB(`db/init`) — `verify-points.mts` | **44 / 44 통과** | 유성 +1·같은 유성 중복 0·지난 유성·하루 한도(어제 것은 세지 않음)·사용자별 판단·UNIQUE 거절, 체크인 +100·같은 날 0·다음 날 다시, 별 + 유성 + 체크인 = 총점 = 응답 적립 합 = 뷰 = 밤하늘, DB 실패 시 500 |
+| 새 DB — `verify-star-api.mts --no-key` | **81 / 81 통과** | 기존 별 포인트·추천·시도 회귀 없음 |
+| Neon 경로: master `db/init` + 가상 시도(별 포인트 20) → `20261121_reward_points.sql` 2번 | 에러 없음, 기록 그대로 | 20점 유지. `point_events`·`v_user_points` 정의가 새 DB와 같음 |
+| HTTP (쿠키 세션, `next dev`) | 기대대로 | 세션 없음 401, 체크인 100→0, 유성 201→중복 200·지난 유성 EXPIRED·잘못된 번호 400, 시도 총점 111 = `GET /api/points` = 밤하늘, `/api/health`의 `pointEvents: ready`, 같은 유성 동시 6번 → 적립 1번 |
+| `tsc --noEmit`, eslint (바꾼 파일) | 통과 | |
 
 ### 2026-11-20 오후 별자리를 도감 10개로 맞춘 뒤 재검증 (브랜치 `feat/points`, 로컬 Docker만, 키 없음)
 
@@ -880,6 +957,18 @@ node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-ai-live.
 - 폐기한 별자리 6개(안드로메다·북쪽왕관·페가수스·목동·오리온·큰곰)와 그전 12개 묶음은 루트 `quests.retired.json`에 보관 (DB·스크립트는 읽지 않음).
 - `quests.json`에 없는 별이 DB에 있으면 멈춘다 (별을 지우면 시도 기록이 깨지므로 자동으로 지우지 않음).
 - 확인: `SELECT id, stage, name, star_count FROM constellations ORDER BY id;` → 10줄, `SELECT count(*) FROM stars;` → 40
+
+## DB 변경 — 유성·체크인 포인트 (`feat/meteor-points`, `db/migrations/20261121_reward_points.sql`, 기록 유지)
+
+`20261120_points.sql` 다음에 실행한다 (없으면 처음에 멈추고 아무것도 바꾸지 않음). `20261121_quests_sync.sql`과는 순서 상관없다. **기록을 지우지 않는다.** 여러 번 실행해도 결과가 같다.
+
+| 변경 | 내용 | API에서 할 일 |
+| ---- | ---- | ------------- |
+| 테이블 추가 | `point_events` (user_id, source `meteor`·`checkin`, ref_key = 유성 번호·한국 날짜, points, earned_date). `UNIQUE (user_id, source, ref_key)`로 중복 지급 방지, 사용자 삭제 시 함께 삭제 | 반영 완료 (`_lib/points.ts`) |
+| 뷰 변경 | `v_user_points.total_points` = 별 + 유성 + 체크인. 칸 `star_points`·`meteor_points`·`checkin_points`를 뒤에 덧붙임 (앞 세 칸은 그대로). 별 없이 유성·체크인만 있어도 행이 생김 | 시도 저장·밤하늘 `totalPoints`가 자동으로 합계가 됨 |
+
+- ⚠ **적용 전에 이 브랜치를 배포하면** 유성 API·포인트 조회는 500, 체크인은 정상이지만 `pointsEarned`·`totalPoints`가 `null`. `GET /api/health`의 `pointEvents`로 적용 여부를 확인할 수 있다.
+- 지난 체크인에 포인트를 소급해 주지 않는다 (적용한 뒤 체크인부터).
 
 ## 실행 환경
 

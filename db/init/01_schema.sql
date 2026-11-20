@@ -178,6 +178,23 @@ CREATE TABLE daily_recommendations (
   PRIMARY KEY (user_id, rec_date)
 );
 
+-- 별 말고 다른 곳에서 받은 포인트 적립 기록 (고민기록 #32)
+-- 별 포인트는 지금처럼 뷰(v_star_points)로 계산하고, 여기에는 유성(+1)과 데일리 체크인(+100)만 쌓는다
+-- 중복 지급 방지는 UNIQUE (user_id, source, ref_key) 하나로 한다
+--   meteor : ref_key = 유성 번호 (서버 시각 기준 METEOR_INTERVAL_SECONDS마다 1개, web/src/lib/points.ts)
+--   checkin: ref_key = 한국 날짜 'YYYY-MM-DD' (하루 한 번)
+-- 점수는 받은 시점의 값을 그대로 저장 (규칙 숫자를 바꿔도 이미 받은 포인트는 그대로)
+CREATE TABLE point_events (
+  id           SERIAL PRIMARY KEY,
+  user_id      INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  source       VARCHAR(10) NOT NULL CHECK (source IN ('meteor', 'checkin')),
+  ref_key      VARCHAR(40) NOT NULL,
+  points       SMALLINT NOT NULL CHECK (points > 0),
+  earned_date  DATE NOT NULL DEFAULT ((now() AT TIME ZONE 'Asia/Seoul')::date),  -- 한국 날짜 (유성 하루 한도 집계용)
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, source, ref_key)
+);
+
 ------------------------------------------------------------
 -- 4. 공공 데이터 (미리 수집·분류해 저장)
 ------------------------------------------------------------
@@ -311,6 +328,7 @@ CREATE INDEX idx_center_events       ON center_events (center_id, event);
 CREATE INDEX idx_center_events_user  ON center_events (user_id);
 CREATE INDEX idx_attempts_parent     ON star_attempts (parent_attempt_id) WHERE parent_attempt_id IS NOT NULL;
 CREATE INDEX idx_attempts_sub_quest  ON star_attempts (sub_quest_id) WHERE sub_quest_id IS NOT NULL;
+CREATE INDEX idx_point_events_day    ON point_events (user_id, source, earned_date);
 
 ------------------------------------------------------------
 -- 6. 뷰 (화면과 발표 지표에서 바로 쓰는 조회)
@@ -332,17 +350,33 @@ SELECT s.id AS star_id,
 FROM stars s
 JOIN constellations c ON c.id = s.constellation_id;
 
--- 사용자별 총 포인트: 밝힌(bright) 별마다 한 번만 더함 (적립 기록 테이블 없음)
--- v_user_star_status가 (사용자, 별)당 한 줄이라 같은 별을 다시 완료하거나 하위 퀘스트(더 작게 해 보기)로 밝혀도 중복 적립되지 않음
--- 희미한 별(dim)은 0점이고 감점도 없다. 포인트가 없는 사용자는 행이 없음 (0으로 처리)
+-- 사용자별 총 포인트 = 별 포인트 + 유성 포인트 + 체크인 포인트 (고민기록 #31, #32)
+-- 별: 밝힌(bright) 별마다 한 번만 더함. v_user_star_status가 (사용자, 별)당 한 줄이라
+--     같은 별을 다시 완료하거나 하위 퀘스트(더 작게 해 보기)로 밝혀도 중복 적립되지 않음. dim은 0점, 감점 없음
+-- 유성·체크인: point_events 합계 (UNIQUE로 중복 적립 없음)
+-- 포인트가 하나도 없는 사용자는 행이 없음 (0으로 처리). 앞 세 칸(user_id, total_points, bright_stars)은 처음 정의와 같음
 CREATE VIEW v_user_points AS
-SELECT v.user_id,
-       sum(p.points)::int AS total_points,
-       count(*)::int      AS bright_stars
-FROM v_user_star_status v
-JOIN v_star_points p ON p.star_id = v.star_id
-WHERE v.status = 'bright'
-GROUP BY v.user_id;
+WITH star AS (
+  SELECT v.user_id, sum(p.points)::int AS star_points, count(*)::int AS bright_stars
+  FROM v_user_star_status v
+  JOIN v_star_points p ON p.star_id = v.star_id
+  WHERE v.status = 'bright'
+  GROUP BY v.user_id
+), ev AS (
+  SELECT user_id,
+         COALESCE(sum(points) FILTER (WHERE source = 'meteor'), 0)::int  AS meteor_points,
+         COALESCE(sum(points) FILTER (WHERE source = 'checkin'), 0)::int AS checkin_points
+  FROM point_events
+  GROUP BY user_id
+)
+SELECT COALESCE(s.user_id, e.user_id)                                                       AS user_id,
+       (COALESCE(s.star_points, 0) + COALESCE(e.meteor_points, 0) + COALESCE(e.checkin_points, 0))::int AS total_points,
+       COALESCE(s.bright_stars, 0)::int                                                     AS bright_stars,
+       COALESCE(s.star_points, 0)::int                                                      AS star_points,
+       COALESCE(e.meteor_points, 0)::int                                                    AS meteor_points,
+       COALESCE(e.checkin_points, 0)::int                                                   AS checkin_points
+FROM star s
+FULL JOIN ev e ON e.user_id = s.user_id;
 
 -- 같은 하늘의 별: 오늘(한국 시간) 별마다 시도한 사람 수 (동의한 사용자만, 구 단위, 5명 미만은 숨김)
 CREATE VIEW v_sky_today AS
