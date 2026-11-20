@@ -1,4 +1,4 @@
-// 신청 도우미 실제 Gemini 확인 (AI 4번: 대본 1 · 연습 1 · 질문 2). 무료 한도를 쓰므로 필요할 때만, 공개 주소 말고 로컬에서
+// 신청 도우미 실제 AI 확인 — AI_PROVIDER에 따라 Gemini 또는 GMS gpt-4o-mini (AI 4번: 대본 1 · 연습 1 · 질문 2). 무료 한도를 쓰므로 필요할 때만, 공개 주소 말고 로컬에서
 // 정책은 로컬 DB의 실제 정책(읽기만), 챗봇은 DB에 쓰지 않음. 결과 기록: docs/고민기록.md #39
 // 실행 (web/에서):
 //   DATABASE_URL=postgres://app:app@localhost:55440/starquest node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-apply-helper-live.mts --a=161 --b=156
@@ -10,8 +10,10 @@ const { applyHelper, HELPER_MODEL } = await import("@/app/api/policies/helper");
 type Body = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY가 없어요");
-console.log(`모델 ${HELPER_MODEL}\n`);
+const { AI_PROVIDER, OPENAI_MODEL } = await import("@/lib/gemini");
+const keyName = AI_PROVIDER === "openai" ? "OPENAI_API_KEY" : "GEMINI_API_KEY";
+if (!process.env[keyName]) throw new Error(`${keyName}가 없어요 (AI_PROVIDER=${AI_PROVIDER})`);
+console.log(`제공자 ${AI_PROVIDER} · 모델 ${AI_PROVIDER === "openai" ? OPENAI_MODEL : HELPER_MODEL}\n`);
 const only = process.argv.includes("--two");
 const all: [string, number, Body][] = [
   ["문의 대본 (내 질문 포함)", A, { intent: "script", text: "혼자 사는데 신청할 수 있어요" }],

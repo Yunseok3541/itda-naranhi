@@ -2,6 +2,7 @@
 // 키·DB 주소·오류 원문은 응답에 넣지 않는다 (오류는 코드만)
 import { db } from "@/lib/db";
 import { HELPER_MODEL } from "@/app/api/policies/helper";
+import { ACTIVE_MODEL, AI_PROVIDER, OPENAI_MODEL } from "@/lib/gemini";
 
 export async function GET() {
   let dbStatus = "ok";
@@ -30,9 +31,13 @@ export async function GET() {
     constellations,
     demoSessions,
     pointEvents,
+    // AI 제공자: gemini(배포, 무료) / openai(개발·시연, GMS). 키 값은 넣지 않고 있는지만
+    aiProvider: AI_PROVIDER,
+    aiModel: ACTIVE_MODEL,
+    aiKey: (AI_PROVIDER === "openai" ? process.env.OPENAI_API_KEY : process.env.GEMINI_API_KEY) ? "key set" : "no key (기본값으로 동작)",
     gemini: process.env.GEMINI_API_KEY ? "key set" : "no key (기본값으로 동작)",
     geminiModel: process.env.GEMINI_MODEL ?? "(기본값)",
     // 신청 도우미 챗봇 모델 (키가 없으면 AI 버튼은 기본 문장, 응답 aiStatus = no_key)
-    helperModel: HELPER_MODEL,
+    helperModel: AI_PROVIDER === "openai" ? OPENAI_MODEL : HELPER_MODEL,
   });
 }
