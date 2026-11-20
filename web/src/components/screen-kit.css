@@ -81,3 +81,25 @@
 /* 정책 카드의 추천 이유 */
 .policy-reason { padding: 8px 12px; border-radius: 12px; background: rgba(246, 207, 125, .08); color: #ffe9bf !important; font-size: .9rem; }
 .policy-reason span { color: var(--star-gold); }
+
+/* 정책 카드의 원문 근거 칩: 있음은 밝게, 확인 필요는 점선으로 흐리게 */
+.policy-evidence { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.policy-evidence span { padding: 3px 9px; border-radius: 999px; font-size: .75rem; font-weight: 600; }
+.policy-evidence .yes { color: #c9f2dc; background: rgba(120, 220, 170, .14); }
+.policy-evidence .unknown { color: var(--starlight-dim); border: 1px dashed rgba(255, 255, 255, .22); }
+
+/* [나랑 안 맞아요] */
+.night-ui .policy-not-for-me {
+  display: block; margin: 10px 0 0 auto; padding: 6px 10px; min-height: 44px; border: 0 !important; background: none !important;
+  box-shadow: none !important; color: var(--starlight-dim) !important; font-size: .875rem; font-weight: 600; text-decoration: underline !important;
+}
+.policy-feedback { margin: 12px 0 0; padding: 12px; border: 1px solid rgba(255, 255, 255, .12); border-radius: 12px; }
+.policy-feedback legend { padding: 0 4px; font-weight: 650; }
+.policy-feedback > label { display: flex; align-items: center; gap: 8px; min-height: 40px; }
+.policy-feedback > label.small { display: block; margin-top: 6px; }
+.policy-feedback input[type="text"] { display: block; width: 100%; margin-top: 4px; }
+.policy-feedback-actions { display: flex; gap: 8px; margin-top: 10px; }
+.policy-feedback-actions button { flex: 1; }
+.policy-feedback p { margin: 4px 0; }
+.policy-feedback > label { justify-content: flex-start; text-align: left; }
+.policy-feedback input[type="radio"] { flex: 0 0 auto; width: 20px; height: 20px; min-height: 0; margin: 0; padding: 0; accent-color: var(--star-gold); }
