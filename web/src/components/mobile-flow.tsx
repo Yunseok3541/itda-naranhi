@@ -1,17 +1,18 @@
 "use client";
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState } from 'react';
 import {ApiError, client, type Mode, type Star, type Help} from '@/lib/mobile-data';
 import NightSky from './night-sky';
 import PoliciesScreen from './policies-screen';
 import CentersScreen from './centers-screen';
 import SkyPanorama from '@/app/sky-preview/sky-panorama';
-import { StartQuestions } from './profile-form';
+import { ProfileScreen, StartQuestions, StartResult } from './profile-form';
 import ProfileHome from './profile-home';
 import { PendingNextLink } from './next-step-card';
 import QuestScreen from './quest-screen';
 import StarScreen from './star-screen';
-import { HelpContext } from './screen-kit';
+import { HelpContext, ScreenBar } from './screen-kit';
 import { EMPTY_START, type StartAnswers } from '@/lib/profile';
 import { getCompletedConstellationIds, getStarConstellationId } from '@/lib/constellations';
 import { consumeConstellationCelebration, queueConstellationCelebration } from '@/lib/constellation-celebration';
@@ -24,11 +25,6 @@ const navigation = [
   { href: '/checkin', label: '오늘의 별', icon: 'star', kind: 'main' },
   { href: '/catalog', label: '도감', icon: 'book', kind: 'side' },
 ] as const;
-const skyGuideKey = (mode: Mode) => `naranhi-sky-guide-${mode}`;
-function shouldShowSkyGuide(mode: Mode, stars: Star[]) {
-  return stars.length > 0 && stars.every(star => star.status === 'untried' && !star.memories.length)
-    && localStorage.getItem(skyGuideKey(mode)) !== 'seen';
-}
 const HELP = {
   title: '도움받을 곳',
   lines: [
@@ -42,6 +38,7 @@ const HELP = {
 export default function MobileFlow({screen='sky',starId,centerId,completionAttemptId,memoryStarId}:{
   screen?:string;starId?:number;centerId?:number;completionAttemptId?:number;memoryStarId?:number;
 }){
+ const router = useRouter();
  const resources = useRef<HTMLDialogElement>(null);
  const questDialog = useRef<HTMLDialogElement>(null);
  const questTrigger = useRef<HTMLButtonElement>(null);
@@ -50,12 +47,11 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  const [stars,S]=useState<Star[]>([]),[selected,SS]=useState<Star|null>(null),[help,H]=useState<Help>(null);
  const [totalPoints,setTotalPoints]=useState<number>();
  const [completedId,setCompletedId]=useState<number>();
- const [showSkyGuide,setShowSkyGuide]=useState(false);
  const [questOpen,setQuestOpen]=useState(false);
  const [needsSession,setNeedsSession]=useState(false);
  const [startAnswers,setStartAnswers]=useState<StartAnswers>(EMPTY_START);
  const [startStep,setStartStep]=useState<number | null>(null);
- const startSaved=useRef(false);
+ const [showStartResult,setShowStartResult]=useState(false);
  const [notice,U]=useState('');
  function reportError(error: unknown) {
    if (error instanceof ApiError) {
@@ -74,13 +70,13 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
        if (mode === 'api' || mode === 'example') {
          M(mode);
          R(true);
+         if (screen === 'policy-criteria') return;
          const sky = await client(mode).sky();
          if (active) {
            S(sky.stars);
            setTotalPoints(sky.totalPoints);
            if (screen === 'sky') {
              SS(sky.stars.find(star => star.starId === memoryStarId && star.memories.length > 0) ?? null);
-             setShowSkyGuide(shouldShowSkyGuide(mode, sky.stars));
            }
            if (screen === 'sky' && completionAttemptId !== undefined) {
              const id = consumeConstellationCelebration(mode, completionAttemptId);
@@ -97,13 +93,8 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
    void Promise.resolve().then(() => { if (active) return load(); });
    return () => { active = false; };
  }, [screen, completionAttemptId, memoryStarId]);
- function dismissSkyGuide() {
-   setShowSkyGuide(false);
-   try { localStorage.setItem(skyGuideKey(mode), 'seen'); } catch { /* Keep the guide closed for this visit. */ }
- }
  function openQuest() {
    if (!questDialog.current || questDialog.current.open) return;
-   dismissSkyGuide();
    questDialog.current.showModal();
    setQuestOpen(true);
  }
@@ -148,19 +139,19 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  }
  async function finishOnboarding() {
    const api = client(mode);
-   if (!startSaved.current) {
-     await api.start();
-     const current = (await api.profile()).startAnswers;
-     const { range, burden, with: approach } = startAnswers;
-     const extra = current && (current.support !== null || current.living !== null || current.needs !== null)
-       ? { support: current.support, living: current.living, needs: current.needs } : {};
-     await api.saveProfile({ startAnswers: { ...extra, range, burden, with: approach } });
-     startSaved.current = true;
-   }
-   const sky = await api.sky();
+   await api.start(false);
+   const current = (await api.profile()).startAnswers;
+   const { range, burden, with: approach } = startAnswers;
+   const extra = current && (current.support !== null || current.living !== null || current.needs !== null)
+     ? { support: current.support, living: current.living, needs: current.needs } : {};
+   await api.saveProfile({ startAnswers: { ...extra, range, burden, with: approach } });
+   localStorage.setItem('naranhi-mode', mode);
+   setShowStartResult(true);
+ }
+ async function enterAfterOnboarding() {
+   const sky = await client(mode).sky();
    S(sky.stars);
    setTotalPoints(sky.totalPoints);
-   if (screen === 'sky') setShowSkyGuide(shouldShowSkyGuide(mode, sky.stars));
    R(true);
  }
  const star=stars.find(s=>s.starId===starId);
@@ -200,9 +191,9 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
    root.classList.add('sky-locked-page');
    return () => root.classList.remove('sky-locked-page');
  }, [locked]);
- const footer = <footer>시연용 서비스 · 실제 개인정보를 입력하지 마세요.{ready&&<button className="text-button" disabled={busy} onClick={()=>{localStorage.removeItem('naranhi-mode');R(false);H(null);SS(null);E('');setNeedsSession(false);setStartStep(null);setStartAnswers(EMPTY_START);startSaved.current=false;}}>체험 방식 다시 선택</button>}</footer>;
+ const footer = <footer>시연용 서비스 · 실제 개인정보를 입력하지 마세요.{ready&&<button className="text-button" disabled={busy} onClick={()=>{localStorage.removeItem('naranhi-mode');R(false);H(null);SS(null);E('');setNeedsSession(false);setStartStep(null);setStartAnswers(EMPTY_START);setShowStartResult(false);}}>체험 방식 다시 선택</button>}</footer>;
  const feedback = <>
-   {help && <aside className="help" role="alert"><h2>{help.title}</h2>{help.lines.map(line => <p key={line}>{line}</p>)}<button type="button" className="text-button" onClick={() => H(null)}>닫기</button></aside>}
+   {help && <aside className="help help-panel" role="alert"><h2>{help.title}</h2>{help.lines.map(line => <p key={line}>{line}</p>)}<button type="button" className="text-button" onClick={() => H(null)}>닫기</button></aside>}
    {error && <p className="error" role="alert">{error}</p>}
    {needsSession && <section className="card"><p>데모 세션을 다시 시작해 주세요. 작성한 글은 이 화면에 그대로 있어요.</p><button disabled={busy} onClick={() => run(restartSession)}>데모 다시 시작</button></section>}
  </>;
@@ -232,7 +223,10 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
    ? null
    : <header><Link className="brand" href="/">✧ 나란히</Link>{ready&&mode==='example'&&<span className="small">예시 기록</span>}{!ready&&<Link className="text-button" href="/catalog">별자리 도감</Link>}{ready&&<Link className="text-button" href="/sky">내 밤하늘</Link>}<button className="text-button" onClick={()=>H(h=>h?.title===HELP.title?null:HELP)}>도움받을 곳</button></header>}
  {!questOpen && feedback}
- {!ready ? startStep === null ? <>
+ {!ready ? showStartResult ? <>
+   <StartResult answers={startAnswers} demo />
+   <button type="button" disabled={busy} onClick={() => run(enterAfterOnboarding)}>{busy ? '준비 중…' : screen === 'sky' ? '내 밤하늘 열기' : '계속하기'}</button>
+ </> : startStep === null ? <>
    <div className="intro"><span className="welcome-icon" aria-hidden="true">✦<sup>✧</sup></span><h1>오늘의 작은 시도가<br/>별이 되는 곳</h1><p>다 해내지 않아도 괜찮아요.<br/>손을 뻗은 순간도 하늘에 남아요.</p>
      <button type="button" onClick={() => setStartStep(0)}>데모 시작</button>
      <p className="small">{mode === 'example' ? '예시 모드 · 이 브라우저에 기록해요' : '실제 API 모드 · 서버 세션에 기록해요'}</p>
@@ -242,12 +236,12 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
      <label>체험 방식<select value={mode} onChange={e => M(e.target.value as Mode)}><option value="example">예시 모드 · 브라우저 저장</option><option value="api">실제 API · 서버 세션</option></select></label>
    </section></details>
  </> : <section className="card onboarding-step" aria-label={`시작 질문 ${startStep + 1}/3`}>
-   <h2>시작 질문 <span>{startStep + 1}/3</span></h2>
+   <h2 aria-live="polite">시작 질문 <span>{startStep + 1}/3</span></h2>
    <p className="small">모든 질문은 건너뛸 수 있어요.</p>
    <StartQuestions value={startAnswers} onChange={setStartAnswers} step={startStep} disabled={busy} />
    <div className="choices">
      <button type="button" className="ghost" disabled={busy} onClick={() => { E(''); setStartStep(startStep === 0 ? null : startStep - 1); }}>이전</button>
-     <button type="button" disabled={busy} onClick={() => startStep < 2 ? setStartStep(startStep + 1) : run(finishOnboarding)}>{busy ? '준비 중…' : startStep < 2 ? '다음' : '밤하늘 열기'}</button>
+     <button type="button" disabled={busy} onClick={() => startStep < 2 ? setStartStep(startStep + 1) : run(finishOnboarding)}>{busy ? '저장 중…' : startStep < 2 ? '다음' : '저장하고 결과 보기'}</button>
    </div>
  </section> : <>
  {/* 하단 이동 버튼은 메인에서만. 다른 화면은 하나의 일에 집중하고 왼쪽 위 "← 내 밤하늘"로 돌아감 (도감 화면과 같은 구조) */}
@@ -261,7 +255,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
        </Link>)}
  </nav>}
  {screen==='sky'&&<NightSky stars={stars} selected={selected} onSelect={SS} busy={busy} onReload={()=>run(async()=>{const sky=await client(mode).sky();S(sky.stars);setTotalPoints(sky.totalPoints);})} footer={footer} nextLink={<PendingNextLink mode={mode} />} completedId={completedId} mode={mode} totalPoints={totalPoints}
-   showGuide={showSkyGuide && !help && !needsSession} onDismissGuide={dismissSkyGuide} onOpenQuest={openQuest}/>}
+   onOpenQuest={openQuest}/>}
  {locked && <dialog className="quest-dialog night-ui" ref={questDialog} aria-labelledby={questTitle}
    onClick={event => { if (event.target === event.currentTarget) closeQuest(); }}
    onClose={event => {
@@ -270,7 +264,6 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
      if (document.activeElement === document.body) questTrigger.current?.focus({ preventScroll: true });
    }}>
    <header className="quest-dialog-header">
-     <div className="quest-dialog-grip" aria-hidden="true" />
      <h2 id={questTitle}><SkyControlIcon name="star" /> 오늘의 별</h2>
      <button type="button" className="text-button quest-dialog-close" aria-label="오늘의 별 닫기" onClick={closeQuest}><SkyControlIcon name="close" /></button>
    </header>
@@ -282,6 +275,10 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  {screen==='checkin'&&<QuestScreen mode={mode} busy={busy} run={run} onHelp={H} onError={E}/>}
  {screen==='star'&&<StarScreen key={starId} mode={mode} star={star} busy={busy} run={run} onHelp={H} onSaved={reloadSky}/>}
  {screen==='profile'&&<ProfileHome mode={mode}/>}
+ {screen==='policy-criteria' && <>
+   <ScreenBar title="추천 기준" back="/policies" backLabel="정책 추천으로 돌아가기" />
+   <ProfileScreen mode={mode} onSaved={() => router.replace('/policies')} />
+ </>}
  {screen==='policies'&&<PoliciesScreen mode={mode} onError={reportError} onClearError={()=>E('')}/>}
  {screen==='centers'&&<CentersScreen mode={mode} centerId={centerId} onError={reportError} onHelp={H} onClearError={()=>E('')}/>}
  </>}{notice&&<p role="status">{notice}</p>}{!locked&&footer}</main></HelpContext.Provider>;

@@ -2,8 +2,9 @@
    이 파일에는 Tailwind 지시문을 넣지 않는다 (night-sky.css 머리말 참고) */
 
 /* 상단: 뒤로가기 + 제목 + 오른쪽 아이콘(화면별 + 도움받을 곳) */
-.screen-bar { display: grid; grid-template-columns: 88px 1fr 88px; align-items: center; margin: -4px 0 4px; }
-.screen-bar h1 { margin: 0; text-align: center; font-size: 1.2rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.screen-bar { --side: 44px; display: grid; grid-template-columns: var(--side) minmax(0, 1fr) var(--side); align-items: center; margin: -4px 0 4px; }
+.screen-bar:has(.screen-bar-right > :nth-child(2)) { --side: 88px; }
+.screen-bar h1 { margin: 0; text-align: center; font-size: 1.2rem; word-break: keep-all; }
 /* 제목 빛 번짐이 잘려 글자 뒤에 네모가 보이지 않게 */
 .night-ui .screen-bar h1 { text-shadow: none; }
 .screen-bar-right { display: inline-flex; justify-content: flex-end; }
@@ -28,7 +29,7 @@
 /* 그림 (캐릭터) */
 .avatar { position: relative; display: grid; place-items: center; overflow: hidden; border-radius: 50%; background: radial-gradient(circle at 50% 40%, #3a2c6e, #1a1338); border: 2px solid rgba(190, 160, 255, .55); box-shadow: 0 0 24px rgba(186, 142, 229, .35); }
 .avatar img { width: 86%; height: 86%; object-fit: contain; }
-.avatar-person { position: absolute; left: 50%; top: 14%; width: 104%; transform: translateX(-50%); }
+.avatar-person { position: absolute; inset: 0; }
 .avatar-person .sky-person { width: 100%; height: auto; filter: none; animation: none; }
 
 /* 요약 최대 3칸 */
@@ -63,7 +64,7 @@
 .screen-more a::after, .screen-more button::after { content: "›"; color: var(--starlight-dim); font-size: 1.2rem; }
 
 /* 메인 밖 화면에서도 도움받을 곳 안내는 위에 뜨는 불투명한 창 */
-.night-ui > .help {
+.night-ui > .help.help-panel {
   position: fixed; z-index: 6; top: calc(64px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
   width: min(calc(100% - 32px), 488px); max-height: 62dvh; overflow-y: auto; margin: 0; padding: 14px 16px;
   background: #171236; border: 1px solid var(--star-gold-soft); border-radius: 16px; box-shadow: 0 12px 36px rgba(0, 0, 0, .5);
@@ -79,6 +80,13 @@
 .memory-list p { margin: 2px 0 0; white-space: pre-wrap; }
 
 /* 정책 카드의 추천 이유 */
+.policy-screen-header {
+  position: sticky; z-index: 4; top: 0; padding: env(safe-area-inset-top) 0 4px;
+  background: #15122d; border-radius: 0 0 12px 12px;
+}
+.policy-filter-status { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.policy-filters .choices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.policy-filters .choices label { min-width: 0; margin-block: 0; }
 .policy-reason { padding: 8px 12px; border-radius: 12px; background: rgba(246, 207, 125, .08); color: #ffe9bf !important; font-size: .9rem; }
 .policy-reason span { color: var(--star-gold); }
 
@@ -89,8 +97,10 @@
 .policy-evidence .unknown { color: var(--starlight-dim); border: 1px dashed rgba(255, 255, 255, .22); }
 
 /* [나랑 안 맞아요] */
+.policy-support-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.policy-support-actions .secondary { flex: 1 1 max-content; width: auto; margin: 0; font-size: .875rem; }
 .night-ui .policy-not-for-me {
-  display: block; margin: 10px 0 0 auto; padding: 6px 10px; min-height: 44px; border: 0 !important; background: none !important;
+  display: block; width: fit-content; margin: 4px 0 0 auto; padding: 6px 10px; min-height: 44px; border: 0 !important; background: none !important;
   box-shadow: none !important; color: var(--starlight-dim) !important; font-size: .875rem; font-weight: 600; text-decoration: underline !important;
 }
 .policy-feedback { margin: 12px 0 0; padding: 12px; border: 1px solid rgba(255, 255, 255, .12); border-radius: 12px; }

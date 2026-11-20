@@ -95,7 +95,7 @@ export async function request<T>(path: string, method = 'GET', body?: unknown): 
   return data as T;
 }
 export function client(mode: Mode) { return {
-  async start() { if (mode === 'api') { const r = await request<{ ready: boolean }>('demo/session', 'POST', {}); if (!r.ready) throw new Error('데모 세션을 시작하지 못했어요.'); } else write(read()); localStorage.setItem('naranhi-mode', mode); },
+  async start(rememberMode = true) { if (mode === 'api') { const r = await request<{ ready: boolean }>('demo/session', 'POST', {}); if (!r.ready) throw new Error('데모 세션을 시작하지 못했어요.'); } else write(read()); if (rememberMode) localStorage.setItem('naranhi-mode', mode); },
   async sky(): Promise<{ stars: Star[]; totalPoints?: number }> {
     if (mode === 'api') return request('sky');
     const store = read();

@@ -30,6 +30,8 @@ const reasons: { value: FeedbackReason; label: string }[] = [
   { value: 'other', label: '다른 이유' },
 ];
 type Result = { items: Policy[]; usedFallback?: boolean; basis: { region: string; updatedAt: string | null } };
+const pageSize = 24;
+const emptyFilters = { query: '', scope: '', method: '' };
 
 const example: Result = {
   items: [{ policyId: 1, title: '예시 생활 지원 정책', summary: '정책 화면을 체험하기 위한 가상 정보예요. 실제 모집 중인 정책이 아니에요.',
@@ -47,6 +49,8 @@ const exampleHelperPolicy: HelperPolicy = {
 
 export default function PoliciesScreen({ mode, onError, onClearError }: { mode: Mode; onError: (error: unknown) => void; onClearError: () => void }) {
   const [view, setView] = useState<'recommended' | 'all'>('recommended');
+  const [filters, setFilters] = useState(emptyFilters);
+  const [visibleCount, setVisibleCount] = useState(pageSize);
   const [result, setResult] = useState<Result | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -75,14 +79,37 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
   const items = (result?.items ?? []).filter(p => view === 'all' || !sent[p.policyId] || sent[p.policyId].help);
   const sentNotes = view === 'all' ? [] : Object.entries(sent).filter(([, r]) => !r.help);
   const all = view === 'all';
+  const scopes = [...new Set(items.map(policy => policy.scope).filter(Boolean))];
+  const methods = [...new Set(items.map(policy => policy.burdenLabel).filter(Boolean))];
+  const query = filters.query.trim().toLocaleLowerCase();
+  const filtered = all ? items.filter(policy =>
+    (!filters.scope || policy.scope === filters.scope) &&
+    (!filters.method || policy.burdenLabel === filters.method) &&
+    (!query || [policy.title, policy.summary, ...policy.tags].join(' ').toLocaleLowerCase().includes(query))
+  ) : items;
+
+  function updateFilters(next: typeof emptyFilters) {
+    setFilters(next);
+    setVisibleCount(pageSize);
+  }
+
+  function changeView() {
+    setView(all ? 'recommended' : 'all');
+    updateFilters(emptyFilters);
+    window.scrollTo(0, 0);
+  }
+
   return <>
-    <ScreenBar title={all ? '모든 정책' : '정책 추천'} {...(all ? { onBack: () => setView('recommended'), backLabel: '맞춤 추천으로' } : {})} />
+    <div className="policy-screen-header">
+      <ScreenBar title={all ? '모든 정책' : '정책 추천'} {...(all ? { onBack: changeView, backLabel: '맞춤 추천으로' } : {})} />
+    </div>
     <Hero
       visual={<HeroIcon>✦</HeroIcon>}
       title={all ? '지금 신청할 수 있는 정책' : '내 속도에 맞는 지원'}
       message={all ? '단계와 관계없이 모두 살펴볼 수 있어요.' : '부담 없이 확인해 볼 만한 지원을 골랐어요. 천천히 살펴보세요.'}
       chip={result ? [result.basis.region, result.basis.updatedAt && `${result.basis.updatedAt} 기준`, result.usedFallback && '기본 추천'].filter(Boolean).join(' · ') : undefined}
     />
+    {!all && <button className="secondary" type="button" onClick={changeView}>모든 정책 보기</button>}
     {items.length > 0 && <Summary label="정책 요약" items={[
       { value: items.length, label: all ? '신청 가능' : '맞춤 추천' },
       { value: items.filter(p => p.burdenLabel.includes('온라인')).length, label: '온라인 신청' },
@@ -92,7 +119,23 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
     {loading && <p role="status">정책을 불러오고 있어요…</p>}
     {error && <section className="card"><p>잠시 후 다시 불러와 주세요.</p><button onClick={() => setRetry(value => value + 1)}>다시 불러오기</button></section>}
     {result && items.length === 0 && <section className="card"><h2>지금 보여드릴 정책이 없어요</h2><p>다른 정책을 살펴보거나 내 정보를 확인해 주세요.</p></section>}
-    {items.map(policy => <article className="card" key={policy.policyId}>
+    {all && result && items.length > 0 && <section className="card policy-filters" aria-label="정책 필터">
+      <label>정책 검색<input type="search" placeholder="예: 월세, 일자리" value={filters.query} onChange={event => updateFilters({ ...filters, query: event.target.value })} /></label>
+      <div className="choices">
+        <label>지원 지역<select value={filters.scope} onChange={event => updateFilters({ ...filters, scope: event.target.value })}>
+          <option value="">전체 지역</option>{scopes.map(scope => <option key={scope}>{scope}</option>)}
+        </select></label>
+        <label>신청 방식<select value={filters.method} onChange={event => updateFilters({ ...filters, method: event.target.value })}>
+          <option value="">전체 방식</option>{methods.map(method => <option key={method}>{method}</option>)}
+        </select></label>
+      </div>
+      <div className="policy-filter-status">
+        <span role="status">{filtered.length}개 정책</span>
+        {(query || filters.scope || filters.method) && <button className="text-button" onClick={() => updateFilters(emptyFilters)}>필터 초기화</button>}
+      </div>
+      {filtered.length === 0 && <p>조건에 맞는 정책이 없어요.</p>}
+    </section>}
+    {(all ? filtered.slice(0, visibleCount) : filtered).map(policy => <article className="card" key={policy.policyId}>
       <div className="card-tags">
         {[policy.scope, policy.burdenLabel].filter(Boolean).map(t => <span key={t}>{t}</span>)}
         {policy.deadline && <span className="gold">{policy.deadline}</span>}
@@ -113,19 +156,21 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
       </details>}
       {policy.url && /^https?:\/\//i.test(policy.url) && <a className="primary" href={policy.url} target="_blank" rel="noopener noreferrer"
         onClick={() => { if (mode === 'api') void request(`policies/${policy.policyId}/click`, 'POST', {}).catch(() => {}); }}>정책 원문 확인</a>}
-      <button type="button" className="secondary" onClick={() => setHelping(policy)}>신청 도와줘</button>
-      {policy.needsInquiry && <Link className="secondary" href="/centers">청년센터에서 문의 준비하기</Link>}
+      <div className="policy-support-actions">
+        <button type="button" className="secondary" onClick={() => setHelping(policy)}>신청 도와줘</button>
+        {policy.needsInquiry && <Link className="secondary" href="/centers">청년센터에서 문의 준비하기</Link>}
+      </div>
       {sent[policy.policyId]
         ? <SentNote result={sent[policy.policyId]} />
         : <NotForMe policyId={policy.policyId} mode={mode} onSent={r => setSent(prev => ({ ...prev, [policy.policyId]: r }))} />}
     </article>)}
+    {all && visibleCount < filtered.length && <button className="secondary" onClick={() => setVisibleCount(count => count + pageSize)}>정책 더 보기</button>}
     {sentNotes.length > 0 && <section className="card" aria-live="polite">
       {sentNotes.map(([id, r]) => <p key={id} className="small">{r.message}</p>)}
     </section>}
     {helping && <ApplyHelper policyId={helping.policyId} title={helping.title} mode={mode} examplePolicy={exampleHelperPolicy} onClose={() => setHelping(null)} />}
     <MoreLinks>
-      <button type="button" onClick={() => setView(all ? 'recommended' : 'all')}>{all ? '맞춤 추천 보기' : '모든 정책 보기'}</button>
-      <Link href="/profile#settings">추천 기준 바꾸기 (내 정보)</Link>
+      <Link href="/policies/criteria">추천 기준 바꾸기</Link>
       <Link href="/centers">청년센터 살펴보기</Link>
     </MoreLinks>
   </>;

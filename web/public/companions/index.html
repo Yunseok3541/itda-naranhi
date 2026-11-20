@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#19162d">
+<title>별자리 친구들 · 나란히</title>
+<link rel="stylesheet" href="./studio.css">
+<main>
+  <header><a href="/" aria-label="나란히 홈">✦&nbsp; 나란히</a><span>내 밤하늘</span></header>
+  <h1>별자리 친구들</h1>
+  <section class="studio" aria-label="3D 캐릭터 미리보기">
+    <div class="sky">
+      <div class="stars" aria-hidden="true"></div>
+      <span class="constellation" id="constellation">카시오페이아자리</span>
+      <canvas tabindex="0" aria-label="3D 새빛. 드래그하거나 방향키로 돌려 보세요."></canvas>
+      <p id="status" role="status">별빛을 모으는 중…</p>
+      <div class="orbit"><button id="left" aria-label="왼쪽으로 회전">↶</button><span>돌려 보기</span><button id="right" aria-label="오른쪽으로 회전">↷</button></div>
+    </div>
+    <div class="info">
+      <nav aria-label="친구 선택">
+        <button data-id="saebit" aria-pressed="true">새빛</button><button data-id="yunseul" aria-pressed="false">윤슬</button><button data-id="doran" aria-pressed="false">도란</button>
+      </nav>
+      <div class="story" aria-live="polite"><p id="theme">하루를 여는 작은 습관</p><h2 id="name">새빛</h2><p id="description">날개를 펼치면 다섯 별이 작은 왕관이 돼요. 창가에 아침빛이 들 때면 새빛도 살며시 눈을 떠요.</p></div>
+      <div class="actions"><button id="greet" disabled>인사하기 <span aria-hidden="true">✧</span></button><a id="download" href="saebit.glb" download>3D 모델 받기 ↓</a></div>
+    </div>
+  </section>
+</main>
+<script type="module" src="./studio.js"></script>
+</html>
