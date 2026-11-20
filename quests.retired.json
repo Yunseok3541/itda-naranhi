@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "description": "폐기한 별자리 보관 (2026-11-20). 도감 캐릭터 10명(web/src/app/catalog/characters.ts) 기준으로 별자리를 10개로 바꾸면서, 그전 12개 묶음을 기록으로 남김. DB·생성 스크립트는 이 파일을 읽지 않음. 퀘스트 자체는 모두 quests.json에 남아 있고 별자리만 다시 묶었음 (고민기록 #31).",
+  "retired": [
+    {"name": "안드로메다자리", "stage": 1, "theme": "나를 돌보는 하루", "quests": [1, 21, 22, 2]},
+    {"name": "북쪽왕관자리", "stage": 2, "theme": "동네 한 바퀴", "quests": [7, 28, 8, 9]},
+    {"name": "페가수스자리", "stage": 3, "theme": "조금 멀리 가 보기", "quests": [12, 33, 14, 15]},
+    {"name": "목동자리", "stage": 3, "theme": "혼자서도 즐거운 시간", "quests": [32, 13, 31]},
+    {"name": "오리온자리", "stage": 4, "theme": "사람 곁으로, 천천히", "quests": [19, 38, 40]},
+    {"name": "큰곰자리", "stage": 4, "theme": "일과 나눔 경험하기", "quests": [20, 39, 36]}
+  ],
+  "previous_constellations": [
+    {"id": 1, "stage": 1, "name": "안드로메다자리", "theme": "나를 돌보는 하루", "quests": [1, 21, 22, 2]},
+    {"id": 2, "stage": 1, "name": "카시오페이아자리", "theme": "해 보고 싶은 일 떠올리기", "quests": [3, 24, 23]},
+    {"id": 3, "stage": 1, "name": "작은곰자리", "theme": "바깥과 사람에게 한 뼘", "quests": [5, 4, 25]},
+    {"id": 4, "stage": 2, "name": "북쪽왕관자리", "theme": "동네 한 바퀴", "quests": [7, 28, 8, 9]},
+    {"id": 5, "stage": 2, "name": "거문고자리", "theme": "동네 가게 들르기", "quests": [6, 26, 27, 30]},
+    {"id": 6, "stage": 2, "name": "독수리자리", "theme": "잠깐 머무는 곳", "quests": [10, 11, 29]},
+    {"id": 7, "stage": 3, "name": "페가수스자리", "theme": "조금 멀리 가 보기", "quests": [12, 33, 14, 15]},
+    {"id": 8, "stage": 3, "name": "목동자리", "theme": "혼자서도 즐거운 시간", "quests": [32, 13, 31]},
+    {"id": 9, "stage": 3, "name": "백조자리", "theme": "배우고 구경하기", "quests": [35, 34, 16]},
+    {"id": 10, "stage": 4, "name": "돌고래자리", "theme": "청년센터와 가까워지기", "quests": [17, 37, 18]},
+    {"id": 11, "stage": 4, "name": "오리온자리", "theme": "사람 곁으로, 천천히", "quests": [19, 38, 40]},
+    {"id": 12, "stage": 4, "name": "큰곰자리", "theme": "일과 나눔 경험하기", "quests": [20, 39, 36]}
+  ]
+}

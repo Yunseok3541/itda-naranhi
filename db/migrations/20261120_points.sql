@@ -1,5 +1,5 @@
 -- 변경 SQL: quests.json 기준 별자리 12개·별 40개로 콘텐츠 교체 + 별 focus·tags 칸 + 포인트 뷰 (feat/points, 고민기록 #31)
--- ⚠ 자동 생성 파일: 직접 고치지 말고 루트 quests.json을 고친 뒤 web/에서 `node node_modules/tsx/dist/cli.mjs scripts/gen-quest-seed.mts`
+-- ⚠ 2026-11-20 Neon에 적용 완료된 파일. 더 이상 생성·수정하지 않음 (한 번 적용한 내용을 그대로 남김). 이후 콘텐츠 변경은 20261121_quests_sync.sql (기록을 지우지 않음)
 -- 대상: 이미 운영 중인 DB (팀 공용 Neon). 새로 만드는 DB는 db/init/01_schema.sql·02_seed.sql에 이미 포함되어 있음
 -- 순서: ⚠ 20261120_erd_v4_alignment.sql을 먼저 적용한 뒤에 실행 (is_outside·sub_quests가 필요). 없으면 처음에 멈추고 아무것도 바꾸지 않음
 -- ⚠ 되돌릴 수 없음: 별 내용과 ID가 바뀌므로 별을 가리키는 진행 기록을 모두 비운다

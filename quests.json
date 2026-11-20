@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "description": "나란히 퀘스트(별) 목록. DB constellations·stars·sub_quests의 원본 데이터 (id = DB 별 ID). 고친 뒤에는 web/에서 `node node_modules/tsx/dist/cli.mjs scripts/gen-quest-seed.mts`로 db/init/02_seed.sql과 db/migrations/20261120_points.sql을 다시 만들고, Neon에는 그 변경 SQL로 반영.",
+  "description": "나란히 퀘스트(별) 목록. DB constellations·stars·sub_quests의 원본 데이터 (quest id = DB 별 ID, constellations id = DB 별자리 ID = 도감 캐릭터 순서). 고친 뒤에는 web/에서 `node node_modules/tsx/dist/cli.mjs scripts/gen-quest-seed.mts`로 db/init/02_seed.sql과 db/migrations/20261121_quests_sync.sql을 다시 만들고, Neon에는 그 동기화 SQL을 실행 (기록을 지우지 않음).",
   "fields": {
     "description": "별 카드·AI 추천에 쓰는 한 줄 설명",
     "easier_title": "더 작게 해 보기(sub_quests)로 들어가는 쉬운 버전",
@@ -94,18 +94,16 @@
     "4": "사람·청년센터"
   },
   "constellations": [
-    {"id": 1, "stage": 1, "name": "안드로메다자리", "theme": "나를 돌보는 하루", "quests": [1, 21, 22, 2]},
-    {"id": 2, "stage": 1, "name": "카시오페이아자리", "theme": "해 보고 싶은 일 떠올리기", "quests": [3, 24, 23]},
-    {"id": 3, "stage": 1, "name": "작은곰자리", "theme": "바깥과 사람에게 한 뼘", "quests": [5, 4, 25]},
-    {"id": 4, "stage": 2, "name": "북쪽왕관자리", "theme": "동네 한 바퀴", "quests": [7, 28, 8, 9]},
-    {"id": 5, "stage": 2, "name": "거문고자리", "theme": "동네 가게 들르기", "quests": [6, 26, 27, 30]},
-    {"id": 6, "stage": 2, "name": "독수리자리", "theme": "잠깐 머무는 곳", "quests": [10, 11, 29]},
-    {"id": 7, "stage": 3, "name": "페가수스자리", "theme": "조금 멀리 가 보기", "quests": [12, 33, 14, 15]},
-    {"id": 8, "stage": 3, "name": "목동자리", "theme": "혼자서도 즐거운 시간", "quests": [32, 13, 31]},
-    {"id": 9, "stage": 3, "name": "백조자리", "theme": "배우고 구경하기", "quests": [35, 34, 16]},
-    {"id": 10, "stage": 4, "name": "돌고래자리", "theme": "청년센터와 가까워지기", "quests": [17, 37, 18]},
-    {"id": 11, "stage": 4, "name": "오리온자리", "theme": "사람 곁으로, 천천히", "quests": [19, 38, 40]},
-    {"id": 12, "stage": 4, "name": "큰곰자리", "theme": "일과 나눔 경험하기", "quests": [20, 39, 36]}
+    {"id": 1, "stage": 1, "name": "카시오페이아자리", "theme": "하루를 여는 작은 습관", "quests": [1, 22, 2, 5, 21]},
+    {"id": 2, "stage": 1, "name": "돌고래자리", "theme": "나를 돌보는 시간", "quests": [24, 3, 23, 4, 25]},
+    {"id": 3, "stage": 2, "name": "거문고자리", "theme": "현관 너머 한 걸음", "quests": [6, 26, 27, 30]},
+    {"id": 4, "stage": 4, "name": "작은곰자리", "theme": "고요히 쉬는 저녁", "quests": [17, 37, 18]},
+    {"id": 5, "stage": 2, "name": "토끼자리", "theme": "마음에 드는 것 하나", "quests": [10, 11, 29]},
+    {"id": 6, "stage": 2, "name": "여우자리", "theme": "눈에 담아 둔 풍경", "quests": [7, 28, 8, 9]},
+    {"id": 7, "stage": 4, "name": "카멜레온자리", "theme": "오늘의 색 발견하기", "quests": [19, 38, 40]},
+    {"id": 8, "stage": 3, "name": "백조자리", "theme": "내 속도로 흘러가는 시간", "quests": [12, 33, 32, 13, 31]},
+    {"id": 9, "stage": 4, "name": "독수리자리", "theme": "바람을 잠깐 느껴 보기", "quests": [20, 39, 36]},
+    {"id": 10, "stage": 3, "name": "화가자리", "theme": "하루에 색 한 방울", "quests": [14, 15, 35, 34, 16]}
   ],
   "quests": [
     {"id": 1, "stage": 1, "focus": "daily", "title": "창문 열고 5분 바깥 공기 쐬기", "description": "창문을 열고 바깥 공기를 5분 느껴 봐요. 나가지 않아도 괜찮아요.", "easier_title": "커튼만 열어 두기", "tags": ["rest"], "is_outside": false},

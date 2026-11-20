@@ -1,4 +1,4 @@
-// 루트 quests.json(별 원본) → db/init/02_seed.sql + db/migrations/20261120_points.sql 생성 (고민기록 #31)
+// 루트 quests.json(별 원본) → db/init/02_seed.sql(새 DB) + db/migrations/20261121_quests_sync.sql(Neon 동기화, 기록 유지) 생성 (고민기록 #31)
 // 실행 (web/에서):
 //   node node_modules/tsx/dist/cli.mjs scripts/gen-quest-seed.mts           두 SQL 파일을 다시 씀
 //   node node_modules/tsx/dist/cli.mjs scripts/gen-quest-seed.mts --check   쓰지 않고, 파일이 JSON과 다르면 실패 (커밋 전 확인용)
@@ -104,9 +104,10 @@ for (const st of Object.keys(data.stages).map(Number)) {
     });
   }
 }
-// 마지막 값 줄의 쉼표를 세미콜론으로
+// 마지막 값 줄의 쉼표를 없앤 목록 (새 DB 시드는 뒤에 ";", 동기화 SQL은 뒤에 ON CONFLICT)
 const lastRow = starRows.map((r, i) => (r.startsWith("  (") ? i : -1)).filter((i) => i >= 0).pop()!;
-starRows[lastRow] = starRows[lastRow].replace(/,$/, ";");
+const starValues = starRows.map((r, i) => (i === lastRow ? r.replace(/,$/, "") : r)).join("\n");
+const constIdList = data.constellations.map((c) => c.id).join(", ");
 
 const subRows = data.quests
   .slice()
@@ -123,7 +124,7 @@ SELECT setval('constellations_id_seq', ${maxConst});
 -- category: 청년센터 단계별 퀘스트 = center, 봉사 = volunteer, 나머지 daily
 -- is_outside: 집 문 밖에서 하는 별 (1순위 지표 "앱 밖 활동")
 INSERT INTO stars (id, constellation_id, position, title, description, verify_type, place_type, category, is_outside, focus, tags) VALUES
-${starRows.join("\n")}
+${starValues};
 
 SELECT setval('stars_id_seq', ${maxStar});
 
@@ -138,10 +139,10 @@ const GENERATED = "-- ⚠ 자동 생성 파일: 직접 고치지 말고 루트 q
 
 const seedSql = `-- 별자리 ${data.constellations.length}개 · 별 ${data.quests.length}개 (원본: 루트 quests.json, 규칙: docs/고민기록.md #31)
 ${GENERATED}
--- 난이도 = constellations.stage (${stageCount}). 별자리 이름은 단계 안에서 랜덤으로 한 번 뽑아 고정
+-- 별자리 = 도감 캐릭터 10명 (id = web/src/app/catalog/characters.ts 순서, 이름·테마도 도감과 같음). 난이도 = constellations.stage (${stageCount})
 -- 추천 범위는 기존 규칙: gps 별 = 바깥, stage 1 = 집 안, stage 2 이상 = 집 근처 (api/recommendations/service.ts scopeOf)
 -- 포인트: 별을 처음 밝히면 그 별자리 난이도 × 10 (뷰 v_star_points). 별자리 합계 = 난이도 × 10 × 별 수
--- 운영 DB(Neon) 교체는 db/migrations/20261120_points.sql (같은 스크립트가 함께 만듦)
+-- 운영 DB(Neon)는 db/migrations/20261121_quests_sync.sql로 맞춤 (같은 스크립트가 함께 만듦, 기록을 지우지 않음)
 
 ${content}
 
@@ -152,75 +153,76 @@ ${content}
 -- 별자리·별은 모든 사용자가 함께 쓰는 콘텐츠라 위에서 한 번만 넣는다
 `;
 
-const migrationSql = `-- 변경 SQL: quests.json 기준 별자리 ${data.constellations.length}개·별 ${data.quests.length}개로 콘텐츠 교체 + 별 focus·tags 칸 + 포인트 뷰 (feat/points, 고민기록 #31)
+// 운영 DB(Neon)용 동기화 SQL: 기록을 지우지 않고 별자리·별·하위 퀘스트를 quests.json 내용으로 덮어씀
+// 별 ID·하위 퀘스트 ID가 그대로라 star_attempts(시도·회고)·sub_quest 참조가 깨지지 않음
+// (20261120_points.sql은 이미 Neon에 적용된 파일이라 더 이상 만들지 않음)
+const syncSql = `-- 동기화 SQL: 루트 quests.json → 별자리 ${data.constellations.length}개·별 ${data.quests.length}개·하위 퀘스트 ${data.quests.length}개 (feat/points, 고민기록 #31)
 ${GENERATED}
--- 대상: 이미 운영 중인 DB (팀 공용 Neon). 새로 만드는 DB는 db/init/01_schema.sql·02_seed.sql에 이미 포함되어 있음
--- 순서: ⚠ 20261120_erd_v4_alignment.sql을 먼저 적용한 뒤에 실행 (is_outside·sub_quests가 필요). 없으면 처음에 멈추고 아무것도 바꾸지 않음
--- ⚠ 되돌릴 수 없음: 별 내용과 ID가 바뀌므로 별을 가리키는 진행 기록을 모두 비운다
---   비우는 것: star_attempts(시도·회고), daily_recommendations(오늘의 추천), user_constellations, sub_quests(새 별에 다시 넣음)
---   남는 것: users, demo_sessions, checkins, inquiry_drafts, center_events, policies 등 별과 무관한 데이터
---   → 실행 전에 팀에 알리고, 시연 직전에는 실행하지 않는다
--- 여러 번 실행해도 결과가 같음 (매번 같은 상태로 초기화). 전체가 한 트랜잭션이라 중간에 실패하면 아무것도 바뀌지 않음
+-- 대상: 이미 운영 중인 DB (팀 공용 Neon). 새로 만드는 DB는 db/init/02_seed.sql에 같은 내용이 있음
+-- 순서: 20261120_points.sql 다음 (포인트 뷰·stars.focus·tags가 필요). 없으면 처음에 멈추고 아무것도 바꾸지 않음
+-- ✅ 기록을 지우지 않음: 별 ID(= quest id)가 그대로라 시도·회고·오늘의 추천·설문은 그대로 남음
+--   바뀌는 것: 별자리 이름·테마·단계·별 수, 별의 소속 별자리·순서·문구·확인 방식·바깥 여부·focus·tags, 하위 퀘스트 문구
+--   지우는 것: quests.json에 없는 별자리 (별이 하나도 없을 때만)와 그 별자리를 가리키는 user_constellations 줄
+-- quests.json을 고칠 때마다 다시 생성되고, Neon에서 다시 실행하면 됨. 여러 번 실행해도 결과가 같음 (한 트랜잭션)
 -- 적용: Neon 콘솔 → SQL Editor에 이 파일 내용을 붙여넣고 Run
---       또는 psql "$DATABASE_URL" -f db/migrations/20261120_points.sql
--- 확인: SELECT stage, count(*) AS constellations, sum(star_count) AS stars FROM constellations GROUP BY stage ORDER BY stage;
---       → ${Object.keys(data.stages)
-  .map((st) => {
-    const cs = data.constellations.filter((c) => c.stage === Number(st));
-    return `${st}|${cs.length}|${cs.reduce((n, c) => n + c.quests.length, 0)}`;
-  })
-  .join(", ")} 이 나오면 적용 완료.  SELECT count(*) FROM sub_quests; → ${data.quests.length}
---       SELECT id, title FROM stars WHERE place_type = 'youth_center'; → ${data.quests
-  .filter((q) => q.place_type === "youth_center")
-  .map((q) => `${q.id} ${q.title}`)
-  .join(", ")}
+--       또는 psql "$DATABASE_URL" -f db/migrations/20261121_quests_sync.sql
+-- 확인: SELECT id, stage, name, star_count FROM constellations ORDER BY id;   → ${data.constellations.map((c) => `${c.id} ${c.name}`).join(", ")}
+--       SELECT count(*) FROM stars;  → ${data.quests.length}      SELECT count(*) FROM sub_quests;  → ${data.quests.length}
 
 BEGIN;
 
--- 0. ERD v4 변경이 먼저 들어갔는지 확인
+-- 0. 포인트 변경(20261120_points.sql)이 먼저 들어갔는지 확인
 DO $$
 BEGIN
-  IF to_regclass('public.sub_quests') IS NULL
-     OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'stars' AND column_name = 'is_outside') THEN
-    RAISE EXCEPTION '20261120_erd_v4_alignment.sql을 먼저 적용해 주세요 (sub_quests, stars.is_outside 없음)';
+  IF to_regclass('public.v_star_points') IS NULL
+     OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'stars' AND column_name = 'focus') THEN
+    RAISE EXCEPTION '20261120_points.sql을 먼저 적용해 주세요 (v_star_points, stars.focus 없음)';
   END IF;
 END $$;
 
--- 1. 진행 기록과 기존 콘텐츠 비우기 (ID 순서도 처음부터)
-TRUNCATE daily_recommendations, star_attempts, user_constellations, sub_quests, stars, constellations RESTART IDENTITY;
+-- 1. 별자리 (id = 도감 캐릭터 순서)
+INSERT INTO constellations (id, stage, name, theme, star_count) VALUES
+${constRows}
+ON CONFLICT (id) DO UPDATE SET stage = EXCLUDED.stage, name = EXCLUDED.name, theme = EXCLUDED.theme, star_count = EXCLUDED.star_count;
 
--- 2. 별 칸 추가: 회복 방향(focus)·활동 성향(tags) (db/init/01_schema.sql과 같은 정의, 표가 비어 있어 NOT NULL로 추가 가능)
-ALTER TABLE stars
-  ADD COLUMN IF NOT EXISTS focus VARCHAR(10) NOT NULL DEFAULT 'daily'
-    CHECK (focus IN ('daily', 'outing', 'relation', 'work')),
-  ADD COLUMN IF NOT EXISTS tags TEXT[] NOT NULL DEFAULT '{}'
-    CHECK (tags <@ ARRAY['outdoor', 'social', 'career', 'learning', 'rest']::text[]);
+-- 2. 별: 별자리 안 순서(constellation_id, position)가 서로 겹치지 않게 잠깐 음수 순서로 비켜 둔 뒤 덮어씀
+UPDATE stars SET position = -id;
+INSERT INTO stars (id, constellation_id, position, title, description, verify_type, place_type, category, is_outside, focus, tags) VALUES
+${starValues}
+ON CONFLICT (id) DO UPDATE SET
+  constellation_id = EXCLUDED.constellation_id, position = EXCLUDED.position, title = EXCLUDED.title,
+  description = EXCLUDED.description, verify_type = EXCLUDED.verify_type, place_type = EXCLUDED.place_type,
+  category = EXCLUDED.category, is_outside = EXCLUDED.is_outside, focus = EXCLUDED.focus, tags = EXCLUDED.tags;
 
--- 3. 새 콘텐츠 (db/init/02_seed.sql과 같은 내용)
-${content}
+-- quests.json에 없는 별이 DB에 남아 있으면 멈춤 (별을 지우면 시도 기록이 깨지므로 자동으로 지우지 않음)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM stars WHERE position < 0) THEN
+    RAISE EXCEPTION 'quests.json에 없는 별이 DB에 있어요. 그 별을 quests.json에 다시 넣거나 따로 정리해 주세요';
+  END IF;
+END $$;
 
--- 4. 포인트 뷰 (db/init/01_schema.sql과 같은 정의)
-CREATE OR REPLACE VIEW v_star_points AS
-SELECT s.id AS star_id,
-       c.stage * 10 AS points
-FROM stars s
-JOIN constellations c ON c.id = s.constellation_id;
+-- 3. 하위 퀘스트 (더 작게 해 보기 = easier_title, 하위 퀘스트 ID = 별 ID)
+INSERT INTO sub_quests (id, star_id, position, title) VALUES
+${subRows}
+ON CONFLICT (id) DO UPDATE SET position = EXCLUDED.position, title = EXCLUDED.title;
 
-CREATE OR REPLACE VIEW v_user_points AS
-SELECT v.user_id,
-       sum(p.points)::int AS total_points,
-       count(*)::int      AS bright_stars
-FROM v_user_star_status v
-JOIN v_star_points p ON p.star_id = v.star_id
-WHERE v.status = 'bright'
-GROUP BY v.user_id;
+-- 4. quests.json에 없는 별자리 지우기 (별이 하나도 없는 것만)
+DELETE FROM user_constellations WHERE constellation_id NOT IN (${constIdList});
+DELETE FROM constellations c
+WHERE c.id NOT IN (${constIdList}) AND NOT EXISTS (SELECT 1 FROM stars s WHERE s.constellation_id = c.id);
+
+-- 5. 번호 이어 붙이기 (새로 만든 DB와 같은 값)
+SELECT setval('constellations_id_seq', ${maxConst});
+SELECT setval('stars_id_seq', ${maxStar});
+SELECT setval('sub_quests_id_seq', ${maxStar});
 
 COMMIT;
 `;
 
 const outputs: [string, string][] = [
   ["db/init/02_seed.sql", seedSql],
-  ["db/migrations/20261120_points.sql", migrationSql],
+  ["db/migrations/20261121_quests_sync.sql", syncSql],
 ];
 let stale = 0;
 for (const [rel, text] of outputs) {
