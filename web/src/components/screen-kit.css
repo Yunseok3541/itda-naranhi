@@ -162,3 +162,13 @@
 .apply-helper-foot .apply-helper-input { padding: 0; border-top: 0; }
 .apply-helper .apply-helper-more { margin-top: 8px; }
 .apply-helper .apply-helper-more summary { min-height: 40px; display: flex; align-items: center; color: var(--star-gold, #f6cf7d); font-size: .875rem; font-weight: 650; cursor: pointer; }
+
+/* 신청 도우미 대화 이어 보기·지우기 (고민기록 #44) */
+.apply-helper-head-actions { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.apply-helper .apply-helper-clear {
+  width: auto; min-height: 44px; margin: 0; padding: 0 10px; border: 0 !important; border-radius: 12px;
+  background: none !important; box-shadow: none !important; color: var(--starlight-dim, #b9b0d6) !important; font-size: .8125rem; text-decoration: underline;
+}
+.apply-helper .apply-helper-privacy { margin-top: 6px; color: var(--starlight-dim, #b9b0d6); line-height: 1.5; }
+.apply-helper .apply-helper-privacy b { color: inherit; font-weight: 700; }
+.apply-helper-restored { align-self: center; margin: 0; color: var(--starlight-dim, #b9b0d6); }
