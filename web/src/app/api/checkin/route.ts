@@ -6,6 +6,7 @@ import { demoSessionRequired, lookupDemoSession } from "@/lib/demo-session";
 import { generateJson } from "@/lib/gemini";
 import { HELP_MESSAGE, assessRisk, type Risk } from "@/lib/safety";
 import { WEATHERS, isWeather, type Weather } from "@/lib/weather";
+import { awardCheckinPoints } from "../_lib/points";
 
 // 마음 날씨는 참고 기록일 뿐, 추천 난이도는 사용자가 고른 todayChoice를 우선한다 (고민기록 #20)
 type CheckinResult = {
@@ -86,11 +87,24 @@ export async function POST(request: Request) {
     }
   }
 
+  // 데일리 체크인 포인트 (+100, 한국 날짜 기준 하루 한 번, 고민기록 #32). 체크인이 저장됐을 때만 준다
+  // 체크인과 따로 저장하므로 포인트 저장이 실패해도(예: 변경 SQL 적용 전) 체크인 응답은 그대로 나간다 → 이때 null
+  let points: { pointsEarned: number; totalPoints: number } | null = null;
+  if (userId !== null && checkinId !== null) {
+    try {
+      points = await awardCheckinPoints(userId);
+    } catch (error) {
+      console.error("[checkin] 포인트 저장 실패, 응답은 계속 진행", (error as { code?: string }).code ?? "unknown");
+    }
+  }
+
   return Response.json({
     checkinId,  // null이면 저장 실패 (날씨 직접 고치기 버튼은 숨김)
     weather: data.weather,  // 화면에 "AI가 고른 날씨예요. 다르면 바꿔 주세요"와 함께 표시
     todayChoice,
     risk,
+    pointsEarned: points?.pointsEarned ?? null,  // 오늘 첫 체크인이면 100, 이미 받았으면 0, 저장 실패면 null
+    totalPoints: points?.totalPoints ?? null,    // 이 체크인까지 포함한 총 포인트 (별 + 유성 + 체크인), 저장 실패면 null
     help: risk === "normal" ? null : HELP_MESSAGE,
     usedFallback,
     modelVersion,  // 실제로 응답한 모델 버전 (기본값을 썼으면 null). 검증 기록용, 화면에서 쓰지 않음

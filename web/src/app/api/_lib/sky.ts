@@ -44,14 +44,19 @@ export async function getSky(userId: number, db: Db = pool): Promise<ApiResult> 
       )
     ).rows;
 
+    // 총 포인트 = 별 + 유성 + 체크인 (뷰 v_user_points, 고민기록 #32). 포인트가 없으면 행이 없어 0
+    const total = (
+      await db.query<{ total_points: number }>("SELECT total_points FROM v_user_points WHERE user_id = $1", [userId])
+    ).rows[0];
+
     const memories = new Map<number, Memory[]>();
     for (const { star_id, ...m } of attempts) {
       memories.set(star_id, [...(memories.get(star_id) ?? []), m]);
     }
 
     return ok({
-      // 총 포인트 = 밝힌 별 점수의 합 (뷰 v_user_points와 같은 계산)
-      totalPoints: stars.reduce((sum, s) => sum + Number(s.points), 0),
+      // 총 포인트 = 별 + 유성 + 체크인 (별만의 합은 stars[].points를 더하면 됨)
+      totalPoints: Number(total?.total_points ?? 0),
       stars: stars.map((s) => ({
         starId: s.id,
         title: s.title,
