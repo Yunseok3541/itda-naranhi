@@ -153,3 +153,12 @@
 }
 .apply-helper .bubble ol { list-style: decimal; }
 .apply-helper .bubble ul { list-style: disc; }
+
+/* 신청 도우미 자유 대화 (고민기록 #43): 아래 칩 + 입력창을 한 묶음으로 */
+.apply-helper-foot { padding: 8px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid rgba(255, 255, 255, .1); }
+.apply-helper-foot .apply-helper-menu { flex-wrap: nowrap; overflow-x: auto; padding: 0 0 8px; border-top: 0; scrollbar-width: none; }
+.apply-helper-foot .apply-helper-menu::-webkit-scrollbar { display: none; }
+.apply-helper-foot .apply-helper-menu button { flex: 0 0 auto; white-space: nowrap; }
+.apply-helper-foot .apply-helper-input { padding: 0; border-top: 0; }
+.apply-helper .apply-helper-more { margin-top: 8px; }
+.apply-helper .apply-helper-more summary { min-height: 40px; display: flex; align-items: center; color: var(--star-gold, #f6cf7d); font-size: .875rem; font-weight: 650; cursor: pointer; }

@@ -1,9 +1,10 @@
 // 신청 도우미 (고민기록 #37 수정안 1, #39) — 규칙 부분. 서버(api/policies/helper.ts)와 화면 예시 모드가 같이 쓴다
 // - 신청 순서 · 서류 · 작게 시작하기: 원문을 나누거나 정해 둔 문장만 (AI 없음 → 지어낼 수 없음)
 // - 문의 대본 · 말하기 연습 · 자유 질문: AI를 쓰고, 실패하면 여기 기본 문장으로
+// - 자유 대화(chat, 고민기록 #43): 확실한 말("서류 뭐야")은 routeChat 규칙으로 바로(AI 0번), 나머지만 AI
 // DB·Gemini를 import하지 않는다 (화면에서도 불러 쓰기 때문)
 
-export const HELPER_INTENTS = ["steps", "docs", "script", "practice", "ask", "start"] as const;
+export const HELPER_INTENTS = ["steps", "docs", "script", "practice", "ask", "start", "chat"] as const;
 export type HelperIntent = (typeof HELPER_INTENTS)[number];
 
 export const INTENT_LABEL: Record<HelperIntent, string> = {
@@ -13,7 +14,13 @@ export const INTENT_LABEL: Record<HelperIntent, string> = {
   practice: "말하기 연습할래",
   ask: "직접 물어볼래",
   start: "작게 시작하고 싶어",
+  chat: "대화",
 };
+
+/** 자유 대화는 사용자 말 10번까지 (대화가 길어지면 지어낼 위험과 호출이 늘어남) */
+export const CHAT_MAX_TURNS = 10;
+/** AI에 보내는 지난 대화는 최근 8줄까지 */
+export const CHAT_CONTEXT = 8;
 
 /** 말하기 연습은 사용자 말 6번까지 (무료 한도와 대화가 길어지는 것을 막기 위함) */
 export const PRACTICE_MAX_TURNS = 6;
@@ -203,3 +210,43 @@ export function careReply(intent: HelperIntent): HelperReply {
     followUps: [],
   };
 }
+
+// ---------- 자유 대화 (고민기록 #43) ----------
+
+// 짧고 한 가지만 묻는 말은 AI 없이 바로 규칙으로 답한다 (호출을 줄이고, 사실은 원문 그대로)
+const ROUTES: [HelperIntent, RegExp][] = [
+  ["docs", /서류|준비물|제출|뭘\s*내|뭐\s*내|챙겨/],
+  ["steps", /순서|절차|과정|어떻게\s*신청|신청\s*(방법|하는\s*법|어떻게)|어디서\s*신청/],
+  ["start", /작게|조금씩|뭐부터|어디서부터/],
+  ["practice", /연습/],
+];
+const ROUTE_MAX = 25;
+
+/** 확실한 말이면 해당 버튼으로, 아니면 null(→ AI). 두 가지 이상 섞이거나 길면 AI에 맡긴다 */
+export function routeChat(text: string): HelperIntent | null {
+  const t = text.trim();
+  if (!t || t.length > ROUTE_MAX) return null;
+  const hits = ROUTES.filter(([, re]) => re.test(t)).map(([intent]) => intent);
+  return hits.length === 1 ? hits[0] : null;
+}
+
+export const PRACTICE_SUGGEST: HelperReply = {
+  intent: "chat", source: "rule", sections: [],
+  reply: "말하기 연습을 해 볼까요? 아래 버튼을 누르면 제가 담당자 역할을 해요.",
+  followUps: ["practice"],
+};
+
+/** AI가 안 되거나 답을 버렸을 때: 할 수 있는 것을 보여 주고 버튼으로 이어 간다 */
+export function chatFallback(): HelperReply {
+  return {
+    intent: "chat", source: "fallback", sections: [],
+    reply: "그 부분은 원문으로 확인되지 않아서 정확히 말씀드리기 어려워요. 담당자에게 물어볼 문장을 같이 만들어 보거나, 아래에서 골라 주세요.",
+    followUps: ["script", "practice", "steps", "docs"],
+  };
+}
+
+export const CHAT_DONE: HelperReply = {
+  intent: "chat", source: "rule", sections: [],
+  reply: "이야기를 많이 나눴어요. 정리된 내용은 아래 버튼으로 다시 볼 수 있어요. 창을 닫았다 열면 새로 시작해요.",
+  followUps: ["steps", "docs", "script"],
+};

@@ -621,7 +621,7 @@ const { cheer, help } = await processReflection({
 ```jsonc
 // POST /api/policies/{policyId}/helper — 신청 도우미 (챗봇형, 고민기록 #39). 대화는 저장하지 않음, 세션 필요
 // 요청
-{ "intent": "practice",                       // steps | docs | script | practice | ask | start
+{ "intent": "practice",                       // steps | docs | script | practice | ask | start | chat(자유 대화, 고민기록 #43)
   "text": "안녕하세요, 정책 문의드려요",        // ask는 필수, script·practice는 선택. 200자 이하
   "history": [{ "role": "staff", "text": "네, 청년 정책 문의 창구예요. 어떤 일로 연락 주셨어요?" }] }  // practice만, 화면이 들고 있다가 보냄
 // 200
@@ -637,6 +637,10 @@ const { cheer, help } = await processReflection({
 ```
 
 - 모델: `POLICY_HELPER_MODEL` (기본 `gemini-3.5-flash-lite`, `/api/health`의 `helperModel`). 로컬 `npm run dev`는 키를 비워 둬서 항상 `no_key` → 실제 AI 확인은 `scripts/verify-apply-helper-live.mts`
+- **자유 대화 `chat` (고민기록 #43):** `{ "intent": "chat", "text": "혼자 사는데 이거 돼?", "history": [{ "role": "user", "text": "…" }, { "role": "bot", "text": "…" }] }`
+  - 짧고 한 가지만 묻는 말("서류 뭐 챙겨?")은 규칙으로 원문 목록 (AI 0번), 나머지는 AI 1번 (사실 문제로 걸리면 이유를 붙여 1번 더)
+  - 응답 `reply`는 AI 문장, `sections`는 AI가 고른 주제의 **원문 규칙 목록**(AI가 쓴 것 아님), `followUps`는 다음 버튼. 지난 대화는 최근 8줄만 AI에 보냄, 사용자 말 10번까지
+  - 원문에 없는 숫자(쉼표·소수점까지 한 덩어리)나 원문에 없는 연락·신청 방법을 단정하면 버리고 `source: "fallback"`, `aiStatus: "filtered"`
 - AI 호출: steps·docs·start와 연습 첫 인사는 0번, script·ask·연습 말 1번당 1번. 연습은 사용자 말 6번까지
 - AI 문장에 원문에 없던 숫자 → 버리고 기본 문장 (ask는 원문 숫자만, 연습 담당자 말은 숫자 금지). 위기 표현이면 AI 없이 안내만
 
