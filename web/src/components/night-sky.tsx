@@ -6,19 +6,23 @@
 // - 별 상태: 아직 만나기 전(흰 점) / 손을 뻗은 별(은은한 금빛) / 딴 별(밝게 반짝임)
 // - 시인성: 배경 별은 어둡게, 퀘스트 별은 크게, 지금 별자리는 별 이름·실선, 다른 별자리는 흐리게
 import Link from 'next/link';
+import Image from 'next/image';
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
-import { getActivityConstellation, getStarConstellationId } from '@/lib/constellations';
+import { characters } from '@/app/catalog/characters';
+import { getActivityConstellation, getCompletedConstellationIds, getStarConstellationId } from '@/lib/constellations';
 import type { Star } from '@/lib/mobile-data';
-import { angleBetween, fitView, projector, RAD, skyView, toLonLat, unit, type Vec3 } from '@/lib/sky-view';
+import { angleBetween, fitView, foregroundVisibility, FOV_MAX, projector, RAD, skyImageAxes, skyView, toLonLat, unit, type Vec3 } from '@/lib/sky-view';
 import { skyConstellation } from '@/lib/sky-constellations';
 import SkyMinimap from './sky-minimap';
 import ConstellationCelebration from './constellation-celebration';
+import { useSkyTour } from './use-sky-tour';
 
 const labels = { untried: '아직 만나기 전', dim: '손을 뻗은 별', bright: '딴 별' } as const;
 /** 캐릭터 말풍선 질문 (날마다 하나씩 돌아가며). 오늘의 별 체크인으로 이어짐 */
 const QUESTIONS = ['오늘 하루는 어땠어요?', '지금 마음은 어떤 날씨예요?', '오늘은 어떤 하루인가요?', '요즘 어떻게 지내요?'];
 /** 지금 별자리가 화면에서 이만큼(px, 대각선) 이상일 때만 퀘스트 이름표·큰 별 표시 */
 const DETAIL_SPAN = 90;
+const CHARACTER_ART_SIZE = 128;
 
 const koreanDate = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'long', day: 'numeric' });
 function memoryDate(value: string) {
@@ -115,12 +119,11 @@ function frameSize() {
   return f ? { width: f.width, height: f.height } : { width: window.innerWidth, height: window.innerHeight };
 }
 
-/** 위쪽 글자와 아래 캐릭터 사이 빈 공간 (캔버스 기준 y). */
+/** 화면 위쪽 조작부와 아래쪽 메뉴 사이의 별자리 배치 영역. */
 function freeBand() {
+  const frame = skyView.frame();
   const top = document.querySelector('.night-actions')?.getBoundingClientRect().bottom;
-  const bottom = document.querySelector('.char-hotspot')?.getBoundingClientRect().top;
-  const offset = skyView.frame()?.top ?? 0;
-  return top !== undefined && bottom !== undefined ? { top: top + 12 - offset, bottom: bottom - 8 - offset } : undefined;
+  return frame && top !== undefined ? { top: top + 12 - frame.top, bottom: frame.height * 0.76 } : undefined;
 }
 
 export default function NightSky({ stars, selected, onSelect, busy, onReload, footer, nextLink, completedId }: {
@@ -136,6 +139,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
 }) {
   const starLight = useId();
   const groups = useMemo(() => groupStars(stars), [stars]);
+  const completed = useMemo(() => getCompletedConstellationIds(stars), [stars]);
   const completedGroup = groups.find(group => group.id === completedId);
   const skies = useMemo(() => groups.map(g => skyConstellation(g.id, g.stars.length)), [groups]);
   const centers = useMemo(() => skies.map(s => {
@@ -144,6 +148,14 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     const c = toLonLat(sum);
     return unit(c.lon / RAD, c.lat / RAD);
   }), [skies]);
+  const companions = useMemo(() => groups.map((group, i) => {
+    if (!completed.has(group.id)) return null;
+    const character = characters.find(art => art.constellationId === group.id);
+    if (!character) return null;
+    const center = centers[i];
+    const radius = Math.max(1.5 * RAD, ...skies[i].points.map(point => angleBetween(center, point)));
+    return { character, center, axes: skyImageAxes(center, radius * 0.82) };
+  }), [centers, completed, groups, skies]);
   // 처음에는 가장 최근에 기록한 별자리, 기록이 없으면 아직 다 따지 않은 첫 별자리
   const [index, setIndex] = useState(() => {
     const all = groups;
@@ -154,6 +166,8 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     const i = all.findIndex(g => g.stars.some(s => s.status !== 'bright'));
     return i < 0 ? 0 : i;
   });
+  useSkyTour(centers, skies, freeBand, setIndex);
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(() => completedId === undefined ? null : index);
   const recent = useMemo(() => latestGroupIndex(groups), [groups]);
   const [burst, setBurst] = useState<{ key: number; x: number; y: number } | null>(null);
   // 캐릭터 말풍선: 누르면 열리고 다시 누르면 닫힘 (null = 닫힘, 문자열 = 오늘의 질문)
@@ -171,23 +185,27 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
 
   const safeIndex = Math.min(index, Math.max(groups.length - 1, 0));
   const current = groups[safeIndex];
-  const complete = !!current && current.stars.length > 0 && current.stars.every(s => s.status === 'bright');
-  const zoomPoints = skies[safeIndex]?.points;
-
-  useEffect(() => {
-    if (zoomPoints?.length) return skyView.constrainZoom(() => ({ points: zoomPoints, band: freeBand() }));
-  }, [zoomPoints]);
+  const complete = !!current && completed.has(current.id);
+  const foreground = frame ? foregroundVisibility(view, frame.width, frame.height) : 0;
 
   /** i번째 별자리로 하늘을 옮기고 알맞게 확대 */
   function flyToGroup(i: number, ms = 600) {
     const sky = skies[i];
     if (!sky) return;
     const { width, height } = frameSize();
-    skyView.flyTo(fitView(sky.points, width, height, freeBand()), ms);
+    const target = fitView(sky.points, width, height, freeBand());
+    skyView.flyTo({ ...target, lat: Math.max(0, target.lat) }, ms);
   }
-  // 처음 열 때: 보여 줄 별자리로 바로 맞춤
-  const initialIndex = useRef(safeIndex);
-  useEffect(() => { flyToGroup(initialIndex.current, 0); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const initialized = useRef(false);
+  useEffect(() => {
+    const sky = skies[safeIndex];
+    if (initialized.current || !frame || !sky?.points.length) return;
+    initialized.current = true;
+    const center = toLonLat(centers[safeIndex]);
+    const initial = completedId === undefined ? { lon: center.lon, lat: Math.min(46 * RAD, center.lat), fov: FOV_MAX }
+      : fitView(sky.points, frame.width, frame.height, freeBand());
+    skyView.flyTo({ ...initial, lat: Math.max(0, initial.lat) }, 0);
+  }, [centers, completedId, frame, safeIndex, skies]);
 
   // 하늘을 끌다 다른 별자리 가까이 가면 그 별자리를 "지금 별자리"로 (이동 애니메이션 중에는 바꾸지 않음)
   useEffect(() => skyView.subscribe(() => {
@@ -208,14 +226,15 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   }, [selected, onSelect]);
 
   /** 별자리를 눌렀을 때: 지금 별자리로 정하고 그곳으로 이동하며 확대 */
-  function focusGroup(i: number) {
+  function jump(i: number) {
     setIndex(i);
+    setFocusedIndex(i);
     flyToGroup(i);
     onSelect(null);
   }
-  function jump(i: number) {
-    setIndex(i);
-    flyToGroup(i);
+  function lookAtHorizon() {
+    setFocusedIndex(null);
+    skyView.flyTo({ ...skyView.get(), lat: 15 * RAD, fov: FOV_MAX });
     onSelect(null);
   }
 
@@ -226,8 +245,8 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   }
 
   // 별 버튼만 화면 기준으로 거른다. 선은 끝점이 화면 밖이어도 보이는 부분을 남긴다.
-  const { projected, positions } = useMemo(() => {
-    if (!frame) return { projected: [], positions: [] };
+  const { projected, positions, companionPositions } = useMemo(() => {
+    if (!frame) return { projected: [], positions: [], companionPositions: [] };
     const project = projector(view, frame.width, frame.height);
     const projected = skies.map(sky => sky.points.map(project));
     const pad = 40;
@@ -235,16 +254,32 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
       point && point.x > -pad && point.x < frame.width + pad &&
       point.y > -pad && point.y < frame.height + pad ? point : null,
     ));
-    return { projected, positions };
-  }, [skies, view, frame]);
+    const companionPositions = companions.map(companion => {
+      if (!companion) return null;
+      const center = project(companion.center);
+      const [left, right, top, bottom] = companion.axes.map(project);
+      if (!center || !left || !right || !top || !bottom) return null;
+      const dx = right.x - left.x, dy = right.y - left.y;
+      const ex = bottom.x - top.x, ey = bottom.y - top.y;
+      const halfWidth = (Math.abs(dx) + Math.abs(ex)) / 2;
+      const halfHeight = (Math.abs(dy) + Math.abs(ey)) / 2;
+      if (center.x < -halfWidth || center.x > frame.width + halfWidth || center.y < -halfHeight || center.y > frame.height + halfHeight) return null;
+      const transform = [dx, dy, ex, ey].map(component => component / CHARACTER_ART_SIZE);
+      const coverage = Math.max(2 * halfWidth / frame.width, 2 * halfHeight / frame.height);
+      const opacity = 0.42 * Math.max(0.38, 1 - Math.max(0, coverage - 0.8) * 0.62);
+      return { character: companion.character, center, transform, opacity };
+    });
+    return { projected, positions, companionPositions };
+  }, [companions, skies, view, frame]);
 
   // 화면에 별 하나만 남아도 확대 배율을 기준으로 이름표와 기록 동작을 유지한다.
   const detailed = useMemo(() => {
+    if (focusedIndex !== safeIndex && view.fov >= FOV_MAX - 3 * RAD) return false;
     const pts = (projected[safeIndex] ?? []).filter((p): p is NonNullable<typeof p> => !!p);
     if (pts.length < 2) return false;
     const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
     return Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) >= DETAIL_SPAN;
-  }, [projected, safeIndex]);
+  }, [focusedIndex, projected, safeIndex, view.fov]);
 
   // 지금 별자리 별 이름표 자리 (겹치면 숨김)
   const labelSpots = useMemo(() => {
@@ -265,6 +300,18 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     <div className="night-dust" aria-hidden="true"><b className="shooting" /></div>
 
     {frame && <div className="sky-anchors" style={{ left: frame.left, top: frame.top, width: frame.width, height: frame.height }}>
+      <div className="sky-companion-layer">
+        {companionPositions.map(placement => {
+          if (!placement) return null;
+          const { character, center, transform, opacity } = placement;
+          return <div key={character.id} className="sky-constellation-character" style={{
+            left: center.x, top: center.y, width: CHARACTER_ART_SIZE, height: CHARACTER_ART_SIZE, opacity,
+            transform: `translate(-50%, -50%) matrix(${transform.join(',')},0,0)`, '--companion-light': character.color,
+          } as CSSProperties}>
+            <Image src={`/catalog/${character.id}.webp`} alt={character.nickname} fill unoptimized />
+          </div>;
+        })}
+      </div>
       <svg className="sky-edge-layer" width={frame.width} height={frame.height} aria-hidden="true">
         <defs>
           <radialGradient id={starLight} cx="43%" cy="35%" r="67%">
@@ -285,7 +332,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
               pathLength={celebrating ? 1 : undefined}
               style={celebrating ? { animationDelay: `${Math.min(edgeIndex, 7) * 80}ms` } : undefined} />
             {/* 멀리서 볼 때는 선 주변(손가락 굵기)을 눌러도 그 별자리로 가까이 감 */}
-            {!near && <line x1={p.x} y1={p.y} x2={q.x} y2={q.y} className="edge-hit" onClick={() => focusGroup(gi)} />}
+            {!near && <line x1={p.x} y1={p.y} x2={q.x} y2={q.y} className="edge-hit" onClick={() => jump(gi)} />}
           </g>;
         }))}
       </svg>
@@ -300,7 +347,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
           aria-label={isCurrent && detailed ? `${g.name} ${s.title}, ${labels[s.status]}` : `${g.name}로 가까이 가기`}
           onClick={() => {
             // 멀리서 보고 있으면(축소했거나 다른 별자리) 먼저 그 별자리로 이동·확대, 크게 보고 있는 별자리면 기억 창
-            if (!isCurrent || !detailed) { focusGroup(gi); return; }
+            if (!isCurrent || !detailed) { jump(gi); return; }
             tap(s, p.x, p.y);
           }}>
           <span className="glow" aria-hidden="true" />
@@ -333,7 +380,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
         <button type="button" className="pager-arrow" aria-label="다음 별자리"
           onClick={() => jump((safeIndex + 1) % groups.length)}>›</button>
       </div>}
-      <p className="night-hint">별을 누르면 기억이 떠올라요 · 하늘은 끌어서 둘러봐요</p>
+      <p className="night-hint">하늘을 끌어 둘러보고, 별자리를 눌러 가까이 보세요</p>
     </> : <div className="night-title"><h1>아직 하늘이 비어 있어요</h1><p>밤하늘을 다시 불러와 주세요.</p></div>}
 
     {/* 모든 별 목록: 안내 문구 아래 작은 버튼 → 아래에서 올라오는 창 (캔버스를 못 쓰는 사람도 모든 별을 고를 수 있게) */}
@@ -362,12 +409,12 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
       </div>
     <div className="night-space">
       {current && (<SkyMinimap groups={groups} centers={centers} skies={skies} view={view} frame={frame}
-        active={safeIndex} revealed={skyView.isPanVisible()} onJump={jump} />)}
+        active={safeIndex} revealed={skyView.isPanVisible()} onJump={jump} onHorizon={lookAtHorizon} />)}
     </div>
 
     {/* 캐릭터(배경 인물) 위에 겹친 투명 단추 → 말풍선. 화면을 막지 않게 작게, 다시 누르면 닫힘 */}
-    <button type="button" className="char-hotspot" aria-label={talk ? '말풍선 닫기' : '캐릭터에게 말 걸기'} aria-expanded={!!talk} onClick={toggleTalk} />
-    {talk && <div className="char-bubble" role="status">
+    {foreground > 0.35 && <button type="button" className="char-hotspot" style={{ translate: `0 ${(1 - foreground) * 48}px` }} aria-label={talk ? '말풍선 닫기' : '캐릭터에게 말 걸기'} aria-expanded={!!talk} onClick={toggleTalk} />}
+    {foreground > 0.35 && talk && <div className="char-bubble" role="status">
       <p className="char-question">{talk}</p>
       <p className="char-sub">한 줄로 들려주면 오늘의 별을 찾아 줄게요</p>
       <Link className="char-link" href="/checkin">들려주기 →</Link>

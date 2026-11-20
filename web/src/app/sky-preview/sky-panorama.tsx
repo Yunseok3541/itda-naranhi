@@ -7,8 +7,9 @@
 // - 조작: 한 손가락·마우스로 끌기, 두 손가락·휠로 확대, 방향키·+/- 키
 // - 위치·시간·카메라 권한을 쓰지 않음 (실제 내 위치의 하늘이 아니라 별자리 지도)
 import { useEffect, useRef } from 'react';
-import { projector, scaleFor, skyView, unit, type Vec3 } from '@/lib/sky-view';
+import { foregroundVisibility, projector, scaleFor, skyView, unit, type Vec3 } from '@/lib/sky-view';
 import SkyPerson from '@/components/sky-person';
+import { drawGround, drawSkyLight } from './sky-landscape';
 import './sky-preview.css';
 
 type Celestial = { stars: [number, number, number, number][]; milkyway: [number, number, number][] };
@@ -36,12 +37,17 @@ function starColor(bv100: number) {
   return '255, 198, 156';
 }
 
-export default function SkyPanorama({ background = false }: { background?: boolean }) {
+function turn(host: HTMLElement, dx: number, dy: number, dome: boolean) {
+  const view = skyView.get();
+  const perPixel = 1 / scaleFor(view.fov, host.clientWidth, host.clientHeight);
+  // Longitude lines converge overhead. Keep a similar response to the same swipe across pitches.
+  const horizontalScale = Math.max(0.3, Math.cos(view.lat));
+  skyView.pan(dx * perPixel / horizontalScale, dy * perPixel, dome);
+}
+
+export default function SkyPanorama({ background = false, dome = false }: { background?: boolean; dome?: boolean }) {
   const surface = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
-  const hills = useRef<HTMLDivElement>(null);
-  const pointers = useRef(new Map<number, { x: number; y: number }>());
-  const pinch = useRef<number | null>(null);
 
   useEffect(() => {
     const host = surface.current;
@@ -73,29 +79,35 @@ export default function SkyPanorama({ background = false }: { background?: boole
       requested = 0;
       if (!context || !stage || !host) return;
       const { width, height } = stage;
-      context.clearRect(0, 0, width, height);
-      if (!stars.length) return;
       const view = skyView.get();
+      context.clearRect(0, 0, width, height);
+      if (dome) {
+        drawSkyLight(context, view, width, height);
+        host.style.setProperty('--sky-foreground', String(foregroundVisibility(view, width, height)));
+      }
       const project = projector(view, width, height);
       const horizonFade = height * 0.72; // 아래쪽(지평선 빛)으로 갈수록 별이 옅어짐
-      const fade = (y: number) => (y < horizonFade ? 1 : Math.max(0, 1 - (y - horizonFade) / (height - horizonFade)) * 0.9 + 0.1);
+      const fade = (y: number, altitude: number) => dome ? Math.min(1, 0.25 + Math.max(0, altitude) * 5)
+        : y < horizonFade ? 1 : Math.max(0, 1 - (y - horizonFade) / (height - horizonFade)) * 0.9 + 0.1;
       const visible = (p: { x: number; y: number } | null, pad: number) => p && p.x > -pad && p.x < width + pad && p.y > -pad && p.y < height + pad;
 
       // ① 은하수 (칸 간격 3°보다 크게 겹쳐 그려 덩어리 없이 이어지게)
       const cell = 3 * (Math.PI / 180) * 3.4;
       for (const d of dust) {
+        if (dome && d.v[2] < 0) continue;
         const p = project(d.v);
         const size = p ? cell * p.k : 0;
         if (!p || !visible(p, size)) continue;
-        context.globalAlpha = d.alpha * fade(p.y);
+        context.globalAlpha = d.alpha * fade(p.y, d.v[2]);
         context.drawImage(glow, p.x - size / 2, p.y - size / 2, size, size);
       }
       // ② 별 (밝은 별부터 저장되어 있어 뒤에서부터 그려 밝은 별이 위에 오게)
       for (let i = stars.length - 1; i >= 0; i--) {
         const s = stars[i];
+        if (dome && s.v[2] < 0) continue;
         const p = project(s.v);
         if (!visible(p, 20)) continue;
-        const a = s.alpha * fade(p!.y) * BACKGROUND_DIM;
+        const a = s.alpha * fade(p!.y, s.v[2]) * BACKGROUND_DIM;
         if (s.glow) {
           context.globalAlpha = a * 0.35;
           const size = s.r * 9;
@@ -108,7 +120,7 @@ export default function SkyPanorama({ background = false }: { background?: boole
         context.fill();
       }
       context.globalAlpha = 1;
-      // 언덕은 움직이지 않음: 하늘과 반대로 미끄러지면 움직임이 엇갈려 멀미가 남
+      if (dome) drawGround(context, view, width, height);
     }
     function schedule() {
       if (!requested) requested = requestAnimationFrame(draw);
@@ -127,23 +139,16 @@ export default function SkyPanorama({ background = false }: { background?: boole
     function resize() {
       if (!host || !stage) return;
       dpr = Math.min(window.devicePixelRatio || 1, 1.6);
-      stage.width = Math.max(1, Math.round(host.clientWidth * dpr));
-      stage.height = Math.max(1, Math.round(host.clientHeight * dpr));
       const r = stage.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      stage.width = Math.max(1, Math.round(r.width * dpr));
+      stage.height = Math.max(1, Math.round(r.height * dpr));
       skyView.setFrame({ left: r.left, top: r.top, width: r.width, height: r.height });
       prepareSizes();
       schedule();
     }
 
     const unsubscribe = skyView.subscribe(schedule);
-    // 메인(배경 모드)에서는 별·이름표 위에서 휠을 돌려도 하늘이 확대·축소되게 창 전체에서 받음
-    // 단, 스크롤되는 창(목록·기억·도움 안내) 안에서는 원래대로 스크롤
-    const onWindowWheel = (event: WheelEvent) => {
-      if (!document.documentElement.classList.contains('sky-locked-page')) return;
-      if ((event.target as Element | null)?.closest?.('.night-list-body, .sheet, .help, .char-bubble')) return;
-      skyView.zoom(Math.exp(event.deltaY * 0.0015), true);
-    };
-    if (background) window.addEventListener('wheel', onWindowWheel, { passive: true });
     loadCelestial().then(data => {
       if (!alive) return;
       raw = data;
@@ -157,75 +162,134 @@ export default function SkyPanorama({ background = false }: { background?: boole
     return () => {
       alive = false;
       unsubscribe();
-      window.removeEventListener('wheel', onWindowWheel);
       observer.disconnect();
       window.removeEventListener('resize', resize);
       cancelAnimationFrame(requested);
     };
-  }, [background]);
+  }, [dome]);
 
-  /** 끈 만큼 하늘을 돌림 (화면 가운데 기준 1px ≈ 같은 각도) */
-  function turn(dx: number, dy: number) {
+  useEffect(() => {
     const host = surface.current;
     if (!host) return;
-    const v = skyView.get();
-    const perPixel = 1 / scaleFor(v.fov, host.clientWidth, host.clientHeight);
-    skyView.pan(dx * perPixel, dy * perPixel, background);
-  }
-  /** 확대(factor < 1) · 축소(factor > 1) */
-  function zoom(factor: number) {
-    skyView.zoom(factor, background);
-  }
-  const spread = () => {
-    const [a, b] = [...pointers.current.values()];
-    return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : null;
-  };
+    const pointers = new Map<number, { x: number; y: number }>();
+    let dragging = false;
+    let suppressClick = false;
+    let pinchDistance = 0;
+    let queuedX = 0, queuedY = 0, queuedZoom = 1, frame = 0;
+
+    function applyMotion() {
+      frame = 0;
+      if (queuedZoom !== 1) skyView.zoom(queuedZoom);
+      if (queuedX || queuedY) turn(host!, queuedX, queuedY, dome);
+      queuedX = queuedY = 0;
+      queuedZoom = 1;
+    }
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(applyMotion); };
+    const onSky = (target: EventTarget | null) => host.isConnected && host.clientWidth > 0 && target instanceof Element &&
+      (host.contains(target) || (dome && !!target.closest('.sky-locked .nstar, .sky-locked .edge-hit')));
+    const distance = () => {
+      const [a, b] = pointers.values();
+      return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
+    };
+    const capture = (id: number) => {
+      try { host.setPointerCapture(id); } catch { /* Window listeners still follow the pointer. */ }
+    };
+    const down = (event: PointerEvent) => {
+      if (!pointers.size) suppressClick = false;
+      if (!onSky(event.target) || (event.pointerType === 'mouse' && event.button !== 0)) return;
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (pointers.size > 1) {
+        dragging = suppressClick = true;
+        pointers.forEach((_, id) => capture(id));
+        pinchDistance = distance();
+        if (dome) skyView.showPan();
+      }
+    };
+    const move = (event: PointerEvent) => {
+      const previous = pointers.get(event.pointerId);
+      if (!previous) return;
+      const dx = event.clientX - previous.x, dy = event.clientY - previous.y;
+      if (!dragging && Math.hypot(dx, dy) < 7) return;
+      if (!dragging) {
+        dragging = suppressClick = true;
+        capture(event.pointerId);
+        if (dome) skyView.showPan();
+      }
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (pointers.size > 1) {
+        const next = distance();
+        if (next && pinchDistance) queuedZoom *= pinchDistance / next;
+        pinchDistance = next;
+      } else {
+        queuedX += dx;
+        queuedY += dy;
+      }
+      schedule();
+    };
+    const end = (event: PointerEvent) => {
+      if (!pointers.delete(event.pointerId)) return;
+      pinchDistance = distance();
+      if (pointers.size) return;
+      if (dome && dragging) skyView.endPan();
+      dragging = false;
+    };
+    const resetGesture = () => {
+      if (dome && dragging) skyView.endPan();
+      pointers.clear();
+      dragging = suppressClick = false;
+      pinchDistance = 0;
+    };
+    const click = (event: MouseEvent) => {
+      if (!suppressClick || event.detail === 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      suppressClick = false;
+    };
+    const wheel = (event: WheelEvent) => {
+      if ((background && !dome) || !onSky(event.target)) return;
+      event.preventDefault();
+      const delta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
+      queuedZoom *= Math.exp(delta * 0.0015);
+      schedule();
+    };
+    window.addEventListener('pointerdown', down, true);
+    window.addEventListener('pointermove', move, true);
+    window.addEventListener('pointerup', end, true);
+    window.addEventListener('pointercancel', end, true);
+    window.addEventListener('blur', resetGesture);
+    window.addEventListener('click', click, true);
+    window.addEventListener('wheel', wheel, { passive: false });
+    return () => {
+      cancelAnimationFrame(frame);
+      resetGesture();
+      window.removeEventListener('pointerdown', down, true);
+      window.removeEventListener('pointermove', move, true);
+      window.removeEventListener('pointerup', end, true);
+      window.removeEventListener('pointercancel', end, true);
+      window.removeEventListener('blur', resetGesture);
+      window.removeEventListener('click', click, true);
+      window.removeEventListener('wheel', wheel);
+    };
+  }, [background, dome]);
 
   return (
-    <div className={background ? 'panorama-shell panorama-background' : 'panorama-shell'}>
+    <div className={`panorama-shell${background ? ' panorama-background' : ''}${dome ? ' panorama-dome' : ''}`}>
       <div className="panorama-surface" ref={surface} tabIndex={0}
         role="region" aria-label="실제 별 위치로 그린 밤하늘. 끌어서 둘러보고, 두 손가락이나 휠로 확대하세요. 방향키와 +, - 키도 쓸 수 있어요."
         onKeyDown={event => {
           const step = 40;
+          const rotate = (x: number, y: number) => turn(event.currentTarget, x, y, dome);
           const keys: Record<string, () => void> = {
-            ArrowLeft: () => turn(-step, 0), ArrowRight: () => turn(step, 0), ArrowUp: () => turn(0, step), ArrowDown: () => turn(0, -step),
-            '+': () => zoom(0.8), '=': () => zoom(0.8), '-': () => zoom(1.25),
+            ArrowLeft: () => rotate(-step, 0), ArrowRight: () => rotate(step, 0), ArrowUp: () => rotate(0, step), ArrowDown: () => rotate(0, -step),
+            '+': () => skyView.zoom(0.8), '=': () => skyView.zoom(0.8), '-': () => skyView.zoom(1.25),
           };
           const run = keys[event.key];
           if (!run) return;
           event.preventDefault();
           run();
-        }}
-        onWheel={event => { if (!background) zoom(Math.exp(event.deltaY * 0.0015)); }}
-        onPointerDown={event => {
-          if (event.pointerType === 'mouse' && event.button !== 0) return;
-          pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
-          try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* 이미 끝난 손가락 등: 잡지 못해도 끌기는 동작 */ }
-          pinch.current = spread();
-        }}
-        onPointerMove={event => {
-          const prev = pointers.current.get(event.pointerId);
-          if (!prev) return;
-          const next = { x: event.clientX, y: event.clientY };
-          pointers.current.set(event.pointerId, next);
-          if (background) skyView.showPan();
-          if (pointers.current.size >= 2) {
-            // 두 손가락: 벌린 만큼 확대
-            const now = spread();
-            if (now && pinch.current) zoom(pinch.current / now);
-            pinch.current = now;
-            return;
-          }
-          turn(next.x - prev.x, background ? 0 : next.y - prev.y);
-        }}
-        onLostPointerCapture={event => {
-          pointers.current.delete(event.pointerId);
-          if (background && pointers.current.size === 0) skyView.endPan();
-          pinch.current = spread();
         }}>
         <canvas ref={canvas} className="panorama-canvas" aria-hidden="true" />
-        <div ref={hills} className="panorama-hills" aria-hidden="true" />
-        <div className="panorama-grass" aria-hidden="true" />
+        {!dome && <><div className="panorama-hills" aria-hidden="true" /><div className="panorama-grass" aria-hidden="true" /></>}
         <div className="panorama-person" aria-hidden="true"><SkyPerson /></div>
       </div>
     </div>
