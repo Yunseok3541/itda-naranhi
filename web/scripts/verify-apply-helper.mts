@@ -81,6 +81,11 @@ try {
   const s5 = (await applyHelper(full, { intent: "script" }, client, fakeGen({ opening: "반드시 신청하셔야 해요.", questions: ["네?"], closing: "끝", risk: "normal" }))).body as Body;
   check("대본: 금지 표현(반드시) → 기본 대본", s5.source === "fallback", s5);
 
+  const s6 = (await applyHelper(full, { intent: "script", text: "전화가 무서운데 문자로도 돼요" }, client, fakeGen({ opening: "안녕하세요.", questions: ["신청 방법이 궁금해요.", "서류가 뭐가 있나요?"], closing: "감사해요.", risk: "normal" }))).body as Body;
+  check("대본: AI가 내 질문을 빠뜨리면 맨 앞에 넣음", s6.source === "ai" && s6.script.questions[0] === "전화가 무서운데 문자로도 돼요?" && s6.script.questions.length === 3, s6.script);
+  const s7 = (await applyHelper(full, { intent: "script", text: "문자로도 돼요" }, client, fakeGen({ opening: "안녕하세요.", questions: ["문자로도 문의할 수 있을까요?"], closing: "감사해요.", risk: "normal" }))).body as Body;
+  check("대본: 내 질문이 이미 들어 있으면 그대로", JSON.stringify(s7.script.questions) === JSON.stringify(["문자로도 문의할 수 있을까요?"]), s7.script);
+
   // ---------- 말하기 연습 ----------
   const gp = fakeGen({ staffLine: "네, 어떤 점이 궁금하세요?", tip: "인사를 먼저 해서 좋았어요.", risk: "normal" });
   const p0 = (await applyHelper(full, { intent: "practice" }, client, gp)).body as Body;

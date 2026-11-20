@@ -122,12 +122,29 @@ const SCRIPT_LABEL: Record<Burden, string> = {
   group: "참여 전에 물어볼 때",
 };
 
+/** 문장 끝: 이미 부호가 있으면 그대로, 부탁·바람이면 마침표, 나머지("돼요", "되나요")는 물음표 */
+export const asQuestion = (q: string) => (/[.?!]$/.test(q) ? q : /(싶어요|주세요|드려요|합니다|습니다)$/.test(q) ? `${q}.` : `${q}?`);
+
+// 사용자 질문이 대본에 들어갔는지 볼 때 무시하는 흔한 말 (앞 두 글자 기준)
+const COMMON = new Set(["신청", "정책", "돼요", "되나", "어떻", "제가", "저는", "있어", "있나", "하나", "궁금", "혹시", "그리", "근데", "이거", "그거", "알려"]);
+/**
+ * AI 대본에 사용자가 물어본 내용이 빠졌으면 맨 앞에 넣는다 (지시문만 믿지 않고 코드로 한 번 더, 질문은 3개까지)
+ * 판단: 사용자 문장의 낱말 앞 두 글자 중 흔한 말이 아닌 것이 대본 질문에 하나라도 있으면 들어간 것으로 본다
+ */
+export function withUserQuestion(questions: string[], text: string | null | undefined): string[] {
+  const q = text?.trim();
+  if (!q) return questions;
+  const keys = q.split(/[\s,.?!~]+/).map((w) => w.slice(0, 2)).filter((k) => k.length === 2 && !COMMON.has(k));
+  const joined = questions.join(" ");
+  if (!keys.length || keys.some((k) => joined.includes(k))) return questions;
+  return [asQuestion(q), ...questions].slice(0, 3);
+}
+
 /** AI 없이 만드는 문의 대본: 원문에 빠진 것을 질문으로 바꾼다 */
 export function fallbackScript(p: HelperPolicy, question?: string | null): Script {
   const questions: string[] = [];
   const q = question?.trim();
-  // 문장 끝: 이미 부호가 있으면 그대로, 부탁·바람이면 마침표, 나머지("돼요", "되나요")는 물음표
-  if (q) questions.push(/[.?!]$/.test(q) ? q : /(싶어요|주세요|드려요|합니다|습니다)$/.test(q) ? `${q}.` : `${q}?`);
+  if (q) questions.push(asQuestion(q));
   questions.push("제가 신청 대상이 되는지 확인하고 싶어요.");
   if (isThin(splitSource(p.applyText, "steps"))) questions.push("신청은 어떻게 하면 되나요?");
   if (isThin(splitSource(p.docsText, "list"))) questions.push("신청할 때 필요한 서류가 있을까요?");
