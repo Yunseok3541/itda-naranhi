@@ -12,8 +12,40 @@ import { CONDITION_COLUMNS, checkEligibility, type PolicyConditions } from "@/li
 import { NEEDS, readPolicyInfo, readStartAnswers, type PolicyInfo, type StartAnswers } from "@/lib/profile";
 import { type ApiResult, type Db, fail, ok, todayKst, toId } from "../_lib/http";
 
-const MAX_ITEMS = 3;
-const MAX_CANDIDATES = 8;
+// 추천은 분야가 겹치지 않게 3~5개 (분류 정확도가 완벽하지 않아 서로 다른 분야로 보여 줌, 고민기록 #37)
+const MAX_ITEMS = 5;
+const MIN_ITEMS = 3;
+const MAX_CANDIDATES = 12;
+
+// 분야 태그 → 분야 묶음 (다양성 판단용)
+const BUCKET_OF_TAG: Record<string, string> = {
+  주거: "주거", 생활비: "돈", 금융: "돈", 일자리: "일·배움", 배움: "일·배움",
+  마음건강: "마음·관계", 건강: "마음·관계", "사람과 함께": "마음·관계", "문화·여가": "여가",
+};
+export const bucketOf = (p: { tags: string[] | null }) => (p.tags ?? []).map((t) => BUCKET_OF_TAG[t]).find(Boolean) ?? "기타";
+
+/** 순서를 지키면서 분야 묶음이 겹치지 않는 것부터 고르고, 모자라면 남은 순서대로 채운다 */
+export function diversify<T extends { tags: string[] | null }>(sorted: T[], n: number): T[] {
+  const out: T[] = [];
+  const used = new Set<string>();
+  for (const p of sorted) {
+    if (out.length >= n) break;
+    if (!used.has(bucketOf(p))) { out.push(p); used.add(bucketOf(p)); }
+  }
+  for (const p of sorted) {
+    if (out.length >= n) break;
+    if (!out.includes(p)) out.push(p);
+  }
+  return out;
+}
+
+// 원문에서 찾은 객관 항목 (AI 판단이 아니라 원문 문장 검색). 못 찾으면 "없음"이 아니라 "확인 필요"
+const EVIDENCE: { item: string; test: (t: { apply: string; review: string; docs: string; support: string }) => boolean }[] = [
+  { item: "온라인 신청", test: (t) => /온라인|홈페이지|누리집|앱|웹|복지로|정보통|사이트|QR/i.test(t.apply) },
+  { item: "방문", test: (t) => /방문|주민센터|행정복지센터|직접 제출|내방/.test(`${t.apply} ${t.review}`) },
+  { item: "상담·면접", test: (t) => /상담|면접|인터뷰|코칭|사례관리/.test(`${t.apply} ${t.review} ${t.support}`) },
+  { item: "서류 제출", test: (t) => !!t.docs.trim() || /서류|증빙/.test(`${t.apply} ${t.review}`) },
+];
 
 type PolicyRow = PolicyConditions & {
   id: number;
@@ -28,6 +60,10 @@ type PolicyRow = PolicyConditions & {
   apply_end: string | null; // YYYY-MM-DD
   apply_always: boolean;
   apply_unclear: boolean;
+  apply_text: string | null;
+  review_text: string | null;
+  docs_text: string | null;
+  support_text: string | null;
   region_code: string | null;
 };
 
@@ -55,7 +91,8 @@ export type Profile = {
 const BURDEN_WORDS: Record<string, string> = { people: "사람 만나기", unfamiliar: "낯선 곳 가기", phone: "전화하거나 대화하기", morning: "아침에 일어나기" };
 
 const POLICY_COLUMNS = `p.id, p.title, p.summary, p.burden, p.stage, p.difficulty_note, p.relevance, p.tags, p.url,
-  to_char(p.apply_end, 'YYYY-MM-DD') AS apply_end, p.apply_always, p.apply_unclear, p.region_code, ${CONDITION_COLUMNS}`;
+  to_char(p.apply_end, 'YYYY-MM-DD') AS apply_end, p.apply_always, p.apply_unclear, p.region_code, ${CONDITION_COLUMNS},
+  p.raw->>'plcyAplyMthdCn' AS apply_text, p.raw->>'srngMthdCn' AS review_text, p.raw->>'sbmsnDcmntCn' AS docs_text, p.raw->>'plcySprtCn' AS support_text`;
 
 /** 사용자에게 열려 있는 정책 (분류됨, 신청 가능, 지역·나이 맞음). 순서는 난이도 → 관련도 */
 const OPEN_SQL = `
@@ -95,7 +132,7 @@ export async function loadProfile(userId: number, db: Db, today: string): Promis
 /** 참여 난이도로 거르기: 내 단계 + 1까지. 3개보다 적으면 한 단계씩 넓힌다 (정책 열람 자체는 막지 않음) */
 export function filterByDifficulty(rows: PolicyRow[], level: number): { rows: PolicyRow[]; maxDifficulty: number } {
   let max = Math.min(level + 1, 6);
-  while (max < 6 && rows.filter((r) => r.stage <= max).length < MAX_ITEMS) max++;
+  while (max < 6 && rows.filter((r) => r.stage <= max).length < MIN_ITEMS) max++;
   return { rows: rows.filter((r) => r.stage <= max), maxDifficulty: max };
 }
 
@@ -160,6 +197,12 @@ function toItem(p: PolicyRow, reason: string, profile: Profile) {
     url: p.url,
     // 전화·방문이 필요한 정책은 문의 문장 준비하기(AI ⑥)로 이어 준다
     needsInquiry: p.burden === "phone" || p.burden === "visit",
+    bucket: bucketOf(p),
+    // 원문에서 찾은 객관 항목: 있음(yes) / 원문에서 확인 필요(unknown). AI 점수 대신 이것을 보여 준다
+    evidence: EVIDENCE.map((e) => ({
+      item: e.item,
+      status: e.test({ apply: p.apply_text ?? "", review: p.review_text ?? "", docs: p.docs_text ?? "", support: p.support_text ?? "" }) ? "yes" : "unknown",
+    })),
     // 원문에서 확인할 자격 조건 (답하지 않은 칸, "기타", 중위소득 같은 문장 조건)
     conditionsToCheck: e.toCheck,
     // 내가 알려 준 정보와 맞지 않을 수 있는 조건 ("모든 정책 보기"에서만 생김. 원문 데이터가 틀릴 수 있어 숨기지 않음)
@@ -190,8 +233,9 @@ const schema = {
 const isOutput = (v: unknown): v is AiOutput => !!v && Array.isArray((v as AiOutput).items);
 
 const SYSTEM = `너는 사회적으로 고립된 청년을 돕는 앱에서 정책을 골라 주는 도우미다.
-후보 정책 중에서 이 사용자가 부담 없이 확인해 볼 만한 정책을 최대 ${MAX_ITEMS}개 고르고, 고른 이유를 한 문장(50자 이내)으로 쓴다.
+후보 정책 중에서 이 사용자가 부담 없이 확인해 볼 만한 정책을 ${MIN_ITEMS}~${MAX_ITEMS}개 고르고, 고른 이유를 한 문장(50자 이내)으로 쓴다.
 - 후보에 있는 policyId만 쓴다. 참여 난이도가 낮고 사용자의 부담 상황을 피하는 정책을 우선한다.
+- 되도록 서로 다른 분야_묶음에서 고른다 (주거·돈·일·배움·마음·관계 등). 사용자가 도움이 필요하다고 한 분야를 먼저.
 - 이유는 정책 요약과 사용자 상황에 있는 내용만 쓴다. 자격이 된다고 단정하지 않는다. 권유·압박·과장 표현 금지.
 지정된 JSON만 출력한다.`;
 
@@ -231,11 +275,11 @@ export async function recommendPolicies(userId: number, db: Db = pool, generate:
   }
 
   const { rows: allowed, maxDifficulty } = filterByDifficulty(open.filter((p) => fits(p, profile)), profile.level);
-  const candidates = allowed
+  const sorted = allowed
     .map((p) => ({ p, s: scorePolicy(p, profile, today) }))
     .sort((a, b) => b.s - a.s || a.p.stage - b.p.stage || a.p.id - b.p.id)
-    .slice(0, MAX_CANDIDATES)
     .map((x) => x.p);
+  const candidates = diversify(sorted, MAX_CANDIDATES); // 후보부터 분야가 섞이게
   if (candidates.length === 0) return ok({ items: [], usedFallback: true, reused: false, maxDifficulty, basis: await basis(db) });
 
   const prompt = JSON.stringify({
@@ -246,21 +290,33 @@ export async function recommendPolicies(userId: number, db: Db = pool, generate:
       최근_돈_때문에_멈춘_적: profile.costStops > 0,
       요즘_도움이_필요한_것: profile.needs.map((n) => NEEDS.find(([k]) => k === n)![1]),
     },
-    후보: candidates.map((p) => ({ policyId: p.id, 이름: p.title, 요약: p.summary, 방식: BURDEN_LABEL[p.burden], 참여_난이도: p.stage, 분야: p.tags ?? [] })),
+    후보: candidates.map((p) => ({ policyId: p.id, 이름: p.title, 요약: p.summary, 방식: BURDEN_LABEL[p.burden], 참여_난이도: p.stage, 분야: p.tags ?? [], 분야_묶음: bucketOf(p) })),
   });
   const ai = await generate<AiOutput>({ system: SYSTEM, prompt, schema, validate: isOutput, fallback: { items: [] } });
 
   // 후보 밖·중복 ID는 버리고, 이유가 검사에 걸리면 문장 틀로 바꾼다
+  // 분야 묶음이 겹치면 건너뜀 (후보에 묶음이 3개 이상일 때만, 적으면 겹쳐도 됨)
   const byId = new Map(candidates.map((p) => [p.id, p]));
+  const enoughBuckets = new Set(candidates.map(bucketOf)).size >= MIN_ITEMS;
   const picked: { policyId: number; reason: string }[] = [];
+  const usedBuckets = new Set<string>();
   for (const i of ai.data.items) {
     const id = toId(i?.policyId);
     if (id === null || !byId.has(id) || picked.some((x) => x.policyId === id)) continue;
+    const bucket = bucketOf(byId.get(id)!);
+    if (enoughBuckets && usedBuckets.has(bucket)) continue;
+    usedBuckets.add(bucket);
     picked.push({ policyId: id, reason: isSafeAiText(i.reason, 70) ? i.reason.trim() : templateReason(byId.get(id)!, profile) });
     if (picked.length === MAX_ITEMS) break;
   }
   const usedFallback = picked.length === 0;
-  const final = usedFallback ? candidates.slice(0, MAX_ITEMS).map((p) => ({ policyId: p.id, reason: templateReason(p, profile) })) : picked;
+  // AI가 3개보다 적게 골랐으면 아직 안 쓴 분야부터 규칙 순서로 채움
+  if (!usedFallback && picked.length < MIN_ITEMS) {
+    const rest = diversify(candidates.filter((p) => !picked.some((x) => x.policyId === p.id) && !usedBuckets.has(bucketOf(p))), MIN_ITEMS - picked.length);
+    const more = rest.length ? rest : candidates.filter((p) => !picked.some((x) => x.policyId === p.id));
+    for (const p of more.slice(0, MIN_ITEMS - picked.length)) picked.push({ policyId: p.id, reason: templateReason(p, profile) });
+  }
+  const final = usedFallback ? diversify(candidates, MAX_ITEMS).map((p) => ({ policyId: p.id, reason: templateReason(p, profile) })) : picked;
 
   // 저장 실패해도 추천은 응답한다 (다음 요청에서 다시 만듦)
   try {
