@@ -22,6 +22,9 @@ export const TAGS = ["생활비", "주거", "일자리", "배움", "마음건강
 export const MIN_DIFFICULTY: Record<Burden, number> = { online: 1, visit: 3, phone: 5, group: 6 };
 
 const BATCH = 8;
+// 무료 등급은 일일 한도와 별개로 분당 요청 한도가 있음 (flash-lite 15회/분, 11/21 수집 중 429로 확인)
+// 미리 돌리는 일괄 작업이라 호출 사이에 간격을 둔다 (4.5초 → 분당 약 13회)
+const PACE_MS = 4_500;
 
 // "개인이 신청·이용할 수 있는가"를 정책 이름으로 보정하는 규칙 (AI 판단이 양쪽으로 틀린 사례가 있어 규칙을 우선)
 // 둘 다 걸리면 사업(false) 우선. 어느 쪽에도 안 걸리면 AI 판단을 그대로 쓴다
@@ -33,6 +36,17 @@ export function actionableByRule(title: string): boolean | null {
   if (PROJECT_WORDS.test(title)) return false;
   if (SERVICE_WORDS.test(title)) return true;
   return null;
+}
+
+/**
+ * AI를 부르기 전에 걸러 내는 정부 사업 (개인이 신청·이용할 수 없음)
+ * - 이름 규칙이 사업(false)이면
+ * - 원문 중분류가 "정책인프라구축"인데 이름에 대출·상담 같은 서비스 말이 없으면
+ */
+export function projectBeforeAi(title: string, raw: Record<string, string>): boolean {
+  const rule = actionableByRule(title);
+  if (rule === false) return true;
+  return rule !== true && (raw.mclsfNm ?? "").includes("정책인프라구축");
 }
 
 /** 이미 분류된 정책에 이름 규칙을 다시 적용한다 (AI 호출 없음). 바뀐 수를 돌려준다 */
@@ -60,18 +74,20 @@ export type Classification = {
   tags: string[];
 };
 
-type AiItem = Classification & { id: number };
+type AiItem = Classification & { id: number; applyMode?: Burden; useMode?: Burden };
 type AiOutput = { items: AiItem[] };
 
 const SYSTEM = `너는 사회적으로 고립된 청년을 돕는 앱에서 청년정책 설명을 정리하는 분류기다.
-정책마다 원문의 모든 항목(설명·지원 내용·키워드·분류·신청 방법·자격 조건 등)을 함께 보고 판단한다. 입력에 없는 항목은 원문에 정보가 없다는 뜻이다.
+정책마다 입력된 원문 항목을 모두 보고 판단한다. 입력에 없는 항목은 원문에 정보가 없다는 뜻이다.
+가장 중요한 구분: "신청하는 방법"과 "신청한 뒤 실제로 지원을 받거나 참여하는 방법"은 다르다. 온라인으로 신청해도 이용은 상담이나 모임일 수 있다.
 정책마다 아래를 정한다.
-- actionable: 청년 개인이 직접 신청하거나 이용할 수 있으면 true. 실태조사, 시스템·플랫폼 구축, 제도 개선, 홍보, 모니터링, 기관 지원처럼 정부·기관이 하는 사업이라 개인이 신청·이용할 수 없으면 false.
-- summary: 쉬운 말 요약 1~2문장, 100자 이내. 정책 설명에 있는 사실만 쓰고, 설명에 없는 금액·날짜·숫자는 쓰지 않는다. 권유·과장 표현 금지.
-- burden: 신청부터 이용까지 가장 부담이 큰 방식 하나. online(온라인으로 끝남), visit(직접 방문 필요), phone(전화·상담·면접 등 사람과 대화 필요), group(집단 프로그램·모임·팀 활동 참여).
-- difficulty: 참여 난이도 1~6. 1 집에서 온라인으로 끝 / 2 온라인 + 문자·메일 연락 / 3 혼자 한 번 방문 / 4 기관 이용·여러 번 방문 / 5 전화·상담·면접 등 짧은 대화 / 6 집단 프로그램·정기 참여. 애매하면 더 높은 쪽.
-- difficultyNote: 난이도를 그렇게 정한 이유 한 줄, 40자 이내.
-- relevance: 집 밖에 나가기 어렵거나 사람을 만나기 부담스러운 청년에게 도움이 되는 정도 0~3.
+- actionable: 청년 개인이 이 정책으로 신청·가입·이용·상담·방문 중 하나라도 할 수 있으면 true. 실태조사, 시스템·플랫폼 개발, 시범 설치, 제도 개선, 모니터링, 홍보, 기업·기관 대상 지원처럼 개인이 할 수 있는 게 없으면 false.
+- summary: 쉬운 말 요약 1~2문장, 100자 이내. 원문에 있는 사실만 쓰고, 원문에 없는 금액·날짜·숫자는 쓰지 않는다. 권유·과장 표현 금지.
+- applyMode: 신청 단계에서 해야 하는 것 중 가장 부담 큰 것. online(온라인·앱), visit(기관 직접 방문·서류 제출), phone(전화·상담·면접), group(설명회 등 여럿이 모이는 자리).
+- useMode: 신청 뒤 지원을 받거나 참여할 때 해야 하는 것 중 가장 부담 큰 것. online(현금·바우처·카드 지급, 온라인 이용만), visit(기관·장소에 직접 가서 이용), phone(상담·코칭·사례관리·동행처럼 사람과 1:1 대화), group(강좌·특강·교육 과정·캠프·워크숍·모임·팀 활동). 예: 재무상담 → phone, 찾아가는 특강·교육생 모집 → group, 수당 지급 → online.
+- difficulty: 참여 난이도 1~6 (신청과 이용 중 더 어려운 쪽 기준). 1 집에서 온라인으로 끝 / 2 온라인 + 문자·메일 연락 / 3 혼자 한 번 방문 / 4 기관 이용·여러 번 방문 / 5 전화·상담·면접 등 사람과 대화 / 6 집단 프로그램·정기 참여. 애매하면 더 높은 쪽.
+- difficultyNote: 난이도를 그렇게 정한 이유 한 줄, 40자 이내 (신청과 이용 중 어느 단계 때문인지).
+- relevance: 집 밖에 나가기 어렵거나 사람을 만나기 부담스러운 청년에게 도움이 되는 정도 0~3. 마음건강만이 아니라 생활비·주거·일자리처럼 실제로 막히는 문제를 덜어 주면 높게.
 - tags: 아래 목록에서 1~3개. ${TAGS.join(", ")}
 지정된 JSON만 출력한다.`;
 
@@ -86,13 +102,14 @@ const schema = {
           id: { type: "integer" },
           actionable: { type: "boolean" },
           summary: { type: "string" },
-          burden: { type: "string", enum: [...BURDENS] },
+          applyMode: { type: "string", enum: [...BURDENS] },
+          useMode: { type: "string", enum: [...BURDENS] },
           difficulty: { type: "integer" },
           difficultyNote: { type: "string" },
           relevance: { type: "integer" },
           tags: { type: "array", items: { type: "string", enum: [...TAGS] } },
         },
-        required: ["id", "actionable", "summary", "burden", "difficulty", "difficultyNote", "relevance", "tags"],
+        required: ["id", "actionable", "summary", "applyMode", "useMode", "difficulty", "difficultyNote", "relevance", "tags"],
       },
     },
   },
@@ -116,8 +133,11 @@ export function checkClassification(item: unknown, sourceText: string): Classifi
   if (summary.length < 5 || summary.length > 140) return null;
   const source = sourceText.replace(/,/g, "");
   if (numbersIn(summary).some((n) => !source.includes(n))) return null;
-  if (!BURDENS.includes(i.burden as Burden)) return null;
-  const burden = i.burden as Burden;
+  // 신청 방식·이용 방식을 따로 받아 더 부담 큰 쪽을 최종 방식으로 (예전 형식 burden 하나도 받음)
+  const modes = [i.applyMode, i.useMode].filter((m): m is Burden => BURDENS.includes(m as Burden));
+  if (modes.length === 0 && BURDENS.includes(i.burden as Burden)) modes.push(i.burden as Burden);
+  if (modes.length === 0) return null;
+  const burden = modes.reduce((a, b) => (MIN_DIFFICULTY[b] > MIN_DIFFICULTY[a] ? b : a));
   if (!Number.isInteger(i.difficulty) || (i.difficulty as number) < 1 || (i.difficulty as number) > 6) return null;
   if (!Number.isInteger(i.relevance) || (i.relevance as number) < 0 || (i.relevance as number) > 3) return null;
   const note = typeof i.difficultyNote === "string" ? i.difficultyNote.trim().slice(0, 80) : "";
@@ -133,33 +153,27 @@ export function checkClassification(item: unknown, sourceText: string): Classifi
   };
 }
 
-type Row = { id: number; title: string; raw: Record<string, string> };
+export type Row = { id: number; title: string; raw: Record<string, string> };
 
-// 온통청년 원본 칸 → AI에 보낼 이름. 사람이 읽을 수 있는 칸은 모두 넘긴다 (특징을 보고 분류하는 작업이라 단서를 빼지 않음)
+// 온통청년 원본 칸 → AI에 보낼 이름 (판단에 중요한 순서). 신청 방식·이용 방식·자격을 판단할 단서가 되는 칸만
+// 11/21 정답 세트 평가: 주소(URL)·기관명·날짜·지원 규모까지 넣었더니 AI가 "온라인 신청"에 끌려 이용 단계(상담·모임)를 놓침
+//   → 그런 칸은 빼고, 지원 내용·신청·심사 방법을 앞에 둠 (고민기록 #36)
 const FIELD_LABELS: Record<string, string> = {
   plcyNm: "이름",
   plcyExplnCn: "설명",
   plcySprtCn: "지원_내용",
-  plcyKywdNm: "키워드",
-  lclsfNm: "대분류",
-  mclsfNm: "중분류",
   plcyAplyMthdCn: "신청_방법",
   srngMthdCn: "심사_방법",
   sbmsnDcmntCn: "제출_서류",
+  plcyKywdNm: "키워드",
+  lclsfNm: "대분류",
+  mclsfNm: "중분류",
   addAplyQlfcCndCn: "추가_자격_조건",
   ptcpPrpTrgtCn: "참여_대상_관련",
-  earnEtcCn: "소득_조건",
   etcMttrCn: "기타",
-  bizPrdEtcCn: "사업_기간_기타",
-  aplyYmd: "신청_기간",
-  sprvsnInstCdNm: "주관_기관",
-  operInstCdNm: "운영_기관",
-  aplyUrlAddr: "신청_주소",
-  refUrlAddr1: "참고_주소",
-  refUrlAddr2: "참고_주소2",
 };
-// 넘기지 않는 칸: 숫자 코드(코드표 없이는 의미 없음), 지역 코드 목록, 조회수, 등록 기관·담당자, 등록·수정 시각
-const SKIP_FIELDS = /(Cd|No|Yn|Cycl)$|^(zipCd|inqCnt|frstRegDt|lastMdfcnDt|rgtr|sprvsnInstPicNm|operInstPicNm)/;
+// 넘기지 않는 칸: 숫자 코드, 지역 코드, 조회수, 기관·담당자 이름, 주소(URL), 날짜, 지원 규모, 소득 조건(자격은 규칙으로 판단)
+const SKIP_FIELDS = /(Cd|No|Yn|Cycl|Nm|Addr\d?|Ymd|Dt|Cnt|Amt)$|^(zipCd|inqCnt|rgtr|sprt|bizPrd|earn|aply)/;
 const MAX_FIELD = 600;
 
 /**
@@ -174,34 +188,29 @@ export function sourceFields(r: Row): Record<string, string> {
     const value = v(key);
     if (value) out[label] = value.slice(0, MAX_FIELD);
   }
-  // 나이·지원 규모·사업 기간은 숫자지만 판단에 쓰이는 값
-  if (v("sprtTrgtAgeLmtYn") === "Y" && (v("sprtTrgtMinAge") || v("sprtTrgtMaxAge"))) out["나이"] = `${v("sprtTrgtMinAge") || "?"}~${v("sprtTrgtMaxAge") || "?"}세`;
-  if (Number(v("sprtSclCnt")) > 0) out["지원_규모"] = `${v("sprtSclCnt")}명`;
-  if (/^\d{8}$/.test(v("bizPrdBgngYmd")) || /^\d{8}$/.test(v("bizPrdEndYmd"))) out["사업_기간"] = `${v("bizPrdBgngYmd")} ~ ${v("bizPrdEndYmd")}`.trim();
   for (const [key, raw] of Object.entries(r.raw)) {
-    if (key in FIELD_LABELS || SKIP_FIELDS.test(key) || /^(sprtTrgt|sprtScl|bizPrd)/.test(key)) continue;
+    if (key in FIELD_LABELS || SKIP_FIELDS.test(key)) continue;
     const value = typeof raw === "string" ? raw.trim() : "";
     if (/[가-힣]/.test(value)) out[key] = value.slice(0, MAX_FIELD);
   }
   return out;
 }
 
-/** 분류 안 된 정책을 BATCH개씩 묶어 분류·저장한다 */
-export async function classifyPending(
-  db: Db,
-  opts: { generate?: typeof generateJson; limit?: number; log?: (msg: string) => void } = {},
-): Promise<{ classified: number; pending: number; modelVersion: string | null }> {
+/**
+ * 정책 묶음을 AI로 분류만 한다 (DB에 쓰지 않음). 이름 규칙으로 actionable을 보정한 결과를 돌려준다
+ * classifyPending(저장)과 평가 스크립트(정답 세트 비교)가 같이 쓴다
+ */
+export async function classifyRows(
+  rows: Row[],
+  opts: { generate?: typeof generateJson; log?: (msg: string) => void; paceMs?: number } = {},
+): Promise<{ results: Map<number, Classification | null>; modelVersion: string | null }> {
   const generate = opts.generate ?? generateJson;
   const log = opts.log ?? (() => {});
-  const rows = (
-    await db.query<Row>(
-      `SELECT id, title, raw FROM policies WHERE classified_at IS NULL ORDER BY id LIMIT $1`,
-      [opts.limit ?? 500],
-    )
-  ).rows;
-  let classified = 0;
+  const results = new Map<number, Classification | null>();
   let modelVersion: string | null = null;
+  const pace = opts.paceMs ?? (opts.generate ? 0 : PACE_MS); // 가짜 AI를 넣은 검증에서는 기다리지 않음
   for (let start = 0; start < rows.length; start += BATCH) {
+    if (start > 0 && pace > 0) await new Promise((r) => setTimeout(r, pace));
     const batch = rows.slice(start, start + BATCH);
     const result = await generate<AiOutput>({
       system: SYSTEM,
@@ -216,17 +225,50 @@ export async function classifyPending(
     let ok = 0;
     for (const r of batch) {
       const c = checkClassification(byId.get(r.id), Object.values(sourceFields(r)).join(" "));
-      if (!c) continue;
-      await db.query(
-        `UPDATE policies SET summary = $2, burden = $3, stage = $4, difficulty_note = $5, relevance = $6, tags = $7, actionable = $8,
-                classified_at = now()
-         WHERE id = $1`,
-        [r.id, c.summary, c.burden, c.difficulty, c.difficultyNote, c.relevance, c.tags, actionableByRule(r.title) ?? c.actionable],
-      );
-      ok++;
+      results.set(r.id, c ? { ...c, actionable: actionableByRule(r.title) ?? c.actionable } : null);
+      if (c) ok++;
     }
-    classified += ok;
     log(`분류 ${start + 1}~${start + batch.length}: ${ok}/${batch.length}${result.usedFallback ? ` (AI 실패: ${result.fallbackReason})` : ""}`);
   }
-  return { classified, pending: rows.length - classified, modelVersion };
+  return { results, modelVersion };
+}
+
+/** 분류 안 된 정책을 BATCH개씩 묶어 분류·저장한다 */
+export async function classifyPending(
+  db: Db,
+  opts: { generate?: typeof generateJson; limit?: number; log?: (msg: string) => void; paceMs?: number } = {},
+): Promise<{ classified: number; skipped: number; pending: number; modelVersion: string | null }> {
+  const log = opts.log ?? (() => {});
+  const all = (
+    await db.query<Row>(
+      `SELECT id, title, raw FROM policies WHERE classified_at IS NULL ORDER BY id LIMIT $1`,
+      [opts.limit ?? 1000],
+    )
+  ).rows;
+  // 정부 사업은 AI 없이 "개인 신청 불가"로 저장 (호출 수 절약)
+  const rows: Row[] = [];
+  let skipped = 0;
+  for (const r of all) {
+    if (!projectBeforeAi(r.title, r.raw)) { rows.push(r); continue; }
+    await db.query(
+      `UPDATE policies SET actionable = false, difficulty_note = '규칙: 개인이 신청하는 정책이 아님 (AI 분류 생략)', classified_at = now() WHERE id = $1`,
+      [r.id],
+    );
+    skipped++;
+  }
+  if (skipped) log(`정부 사업으로 보고 AI 없이 정리: ${skipped}개`);
+  const { results, modelVersion } = await classifyRows(rows, opts);
+  let classified = 0;
+  for (const r of rows) {
+    const c = results.get(r.id);
+    if (!c) continue;
+    await db.query(
+      `UPDATE policies SET summary = $2, burden = $3, stage = $4, difficulty_note = $5, relevance = $6, tags = $7, actionable = $8,
+              classified_at = now()
+       WHERE id = $1`,
+      [r.id, c.summary, c.burden, c.difficulty, c.difficultyNote, c.relevance, c.tags, c.actionable],
+    );
+    classified++;
+  }
+  return { classified, skipped, pending: rows.length - classified, modelVersion };
 }

@@ -45,14 +45,14 @@ try {
     const reset = await db.query("UPDATE policies SET classified_at = NULL WHERE classified_at IS NOT NULL");
     console.log(`분류 초기화 ${reset.rowCount}개 → 다시 분류`);
     const r = await classifyPending(db, { log: console.log, limit });
-    console.log(`분류 ${r.classified}, 남은 분류 전 ${r.pending}, 응답 모델 ${r.modelVersion ?? "-"}`);
+    console.log(`AI 분류 ${r.classified}, 규칙으로 정리 ${r.skipped}, 남은 분류 전 ${r.pending}, 응답 모델 ${r.modelVersion ?? "-"}`);
   } else if (classifyOnly) {
     const r = await classifyPending(db, { log: console.log, limit });
     console.log(`분류 ${r.classified}, 남은 분류 전 ${r.pending}, 응답 모델 ${r.modelVersion ?? "-"}`);
   } else {
     if (!apiKey) throw new Error("YOUTH_POLICY_API_KEY가 비어 있어요 (web/.env.local)");
     const r = await syncPolicies({ db, apiKey, region, today: todayKst(), classify: !noClassify, log: console.log });
-    console.log(`완료: 받음 ${r.fetched}, 저장 대상 ${r.kept}, 새 ${r.inserted}, 바뀜 ${r.updated}, 분류 ${r.classified}, 분류 전 ${r.pending}`);
+    console.log(`완료: 받음 ${r.fetched}, 저장 대상 ${r.kept}, 새 ${r.inserted}, 바뀜 ${r.updated}, AI 분류 ${r.classified}, 규칙으로 정리 ${r.skipped}, 분류 전 ${r.pending}`);
   }
   const s = (
     await db.query<{ total: string; classified: string; local: string; national: string }>(

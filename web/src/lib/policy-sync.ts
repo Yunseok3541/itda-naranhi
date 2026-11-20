@@ -8,8 +8,8 @@ import type { generateJson } from "@/lib/gemini";
 /** 시연 지역: 서울 마포구 (데모 사용자 기본 지역과 같음) */
 export const DEMO_REGION = "11440";
 export const DEMO_REGION_NAME = "서울 마포구";
-/** 전국(중앙부처) 정책은 많아서 관련 있어 보이는 순서로 이만큼만 */
-export const NATIONAL_LIMIT = 30;
+// 전국(중앙부처) 정책은 모두 넣는다 (예전 30개 상한은 "고립·마음" 단어 순으로 잘라 주거·일자리·금융 정책을 밀어냈음, 고민기록 #35)
+// 관련도는 수집에서 자르지 않고 프로필·추천 점수로 사람마다 고른다
 
 const API = "https://www.youthcenter.go.kr/go/ythip/getPlcy";
 const PAGE_SIZE = 100;
@@ -27,11 +27,13 @@ export type NormalizedPolicy = {
   applyStart: string | null; // YYYY-MM-DD
   applyEnd: string | null;
   applyAlways: boolean;
+  /** 신청 기간 코드 0057003(의미 확인 전): 신청 방법은 있지만 기간을 알 수 없음 → 화면에 "원문에서 확인" */
+  applyUnclear: boolean;
   category: string | null;
   applyMethod: string | null;
   sourceUpdatedAt: string | null; // ISO (+09:00)
   raw: RawPolicy;
-  /** 전국 정책을 고를 때만 쓰는 순서 점수 (저장하지 않음) */
+  /** 전국 정책 순서 점수 (저장하지 않음, 상한을 없앤 뒤로는 같은 이름 정리 때만 참고) */
   hint: number;
 };
 
@@ -66,7 +68,8 @@ const HINT_WORDS = /고립|은둔|마음|심리|상담|정신|자립|생활비|�
 
 /**
  * 원본 1건 → 저장할 형태. 시연 범위가 아니거나 신청할 수 없는 정책은 null
- * - 신청 기간: 0057001 기간 있음(마감 지나면 제외) / 0057002 상시 / 0057003 의미 확인 전이라 제외
+ * - 신청 기간: 0057001 기간 있음(마감 지나면 제외) / 0057002 상시
+ *   / 0057003 의미 확인 전 → 신청 방법이 적혀 있고 사업 기간이 끝나지 않은 것만 "기간 불명확"으로 넣음
  * - 지역: 대상 지역 코드가 모두 같은 시도면 그 시도(또는 시군구 하나), 아니면 중앙부처(기관 코드 1·B)만 전국으로
  */
 export function normalizePolicy(p: RawPolicy, today: string, region = DEMO_REGION): NormalizedPolicy | null {
@@ -77,6 +80,7 @@ export function normalizePolicy(p: RawPolicy, today: string, region = DEMO_REGIO
   let applyStart: string | null = null;
   let applyEnd: string | null = null;
   let applyAlways = false;
+  let applyUnclear = false;
   if (p.aplyPrdSeCd === "0057002") applyAlways = true;
   else if (p.aplyPrdSeCd === "0057001") {
     const m = /(\d{8})\s*~\s*(\d{8})/.exec(p.aplyYmd ?? "");
@@ -84,6 +88,11 @@ export function normalizePolicy(p: RawPolicy, today: string, region = DEMO_REGIO
     applyStart = ymd(m[1]);
     applyEnd = ymd(m[2]);
     if (!applyEnd || applyEnd < today) return null;
+  } else if (p.aplyPrdSeCd === "0057003") {
+    const bizEnd = ymd((p.bizPrdEndYmd ?? "").trim());
+    if (!(p.plcyAplyMthdCn ?? "").trim()) return null; // 신청 방법도 없으면 개인이 신청할 길을 알 수 없음
+    if (bizEnd && bizEnd < today) return null; // 사업 기간이 끝남
+    applyUnclear = true;
   } else return null;
 
   const zips = (p.zipCd ?? "").split(",").map((z) => z.trim()).filter(Boolean);
@@ -107,6 +116,7 @@ export function normalizePolicy(p: RawPolicy, today: string, region = DEMO_REGIO
     applyStart,
     applyEnd,
     applyAlways,
+    applyUnclear,
     category: text([...new Set((p.lclsfNm ?? "").split(",").map((c) => c.trim()).filter(Boolean))].join(", "), 30),
     applyMethod: text(p.plcyAplyMthdCn),
     sourceUpdatedAt: updated ? `${updated[1]}T${updated[2]}+09:00` : null,
@@ -115,8 +125,8 @@ export function normalizePolicy(p: RawPolicy, today: string, region = DEMO_REGIO
   };
 }
 
-/** 시연 데이터: 지역 정책은 모두, 전국 정책은 관련 있어 보이는 순서로 NATIONAL_LIMIT개. 이름이 같은 정책은 최근 수정된 하나만 */
-export function pickDemoSet(input: NormalizedPolicy[], nationalLimit = NATIONAL_LIMIT): NormalizedPolicy[] {
+/** 시연 데이터: 신청 가능한 지역·전국 정책 모두. 이름이 같은 정책은 최근 수정된 하나만. nationalLimit은 시험용으로만 */
+export function pickDemoSet(input: NormalizedPolicy[], nationalLimit = Infinity): NormalizedPolicy[] {
   const byTitle = new Map<string, NormalizedPolicy>();
   for (const p of input) {
     const key = p.title.replace(/\s+/g, "");
@@ -153,24 +163,25 @@ export async function upsertPolicies(db: Db, items: NormalizedPolicy[]): Promise
     }
     await db.query(
       `INSERT INTO policies (source, source_id, title, url, region_code, age_min, age_max, apply_start, apply_end, apply_always,
-                             category, apply_method, raw, source_updated_at, fetched_at)
-       VALUES ('youth_policy', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now())
+                             category, apply_method, raw, source_updated_at, fetched_at, apply_unclear)
+       VALUES ('youth_policy', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now(), $14)
        ON CONFLICT (source, source_id) DO UPDATE SET
          title = EXCLUDED.title, url = EXCLUDED.url, region_code = EXCLUDED.region_code,
          age_min = EXCLUDED.age_min, age_max = EXCLUDED.age_max,
          apply_start = EXCLUDED.apply_start, apply_end = EXCLUDED.apply_end, apply_always = EXCLUDED.apply_always,
+         apply_unclear = EXCLUDED.apply_unclear,
          category = EXCLUDED.category, apply_method = EXCLUDED.apply_method, raw = EXCLUDED.raw, fetched_at = now(),
          classified_at = CASE WHEN policies.source_updated_at IS DISTINCT FROM EXCLUDED.source_updated_at THEN NULL
                               ELSE policies.classified_at END,
          source_updated_at = EXCLUDED.source_updated_at`,
       [p.sourceId, p.title, p.url, p.regionCode, p.ageMin, p.ageMax, p.applyStart, p.applyEnd, p.applyAlways,
-        p.category, p.applyMethod, JSON.stringify(p.raw), p.sourceUpdatedAt],
+        p.category, p.applyMethod, JSON.stringify(p.raw), p.sourceUpdatedAt, p.applyUnclear],
     );
   }
   return { inserted, updated };
 }
 
-export type SyncResult = { syncId: number; fetched: number; kept: number; inserted: number; updated: number; classified: number; pending: number };
+export type SyncResult = { syncId: number; fetched: number; kept: number; inserted: number; updated: number; classified: number; skipped: number; pending: number };
 
 /**
  * 한 번 수집. classify=false면 저장까지만 (AI 호출 없음)
@@ -200,15 +211,17 @@ export async function syncPolicies(opts: {
   log(`새 정책 ${inserted}, 바뀐 정책 ${updated}`);
 
   let classified = 0;
+  let skipped = 0;
   let pending = 0;
   if (opts.classify !== false) {
     const r = await classifyPending(opts.db, { generate: opts.generate, log });
     classified = r.classified;
+    skipped = r.skipped;
     pending = r.pending;
   }
   await opts.db.query(
     `UPDATE policy_syncs SET fetched = $2, kept = $3, inserted = $4, updated = $5, classified = $6, finished_at = now() WHERE id = $1`,
     [syncId, raw.length, kept.length, inserted, updated, classified],
   );
-  return { syncId, fetched: raw.length, kept: kept.length, inserted, updated, classified, pending };
+  return { syncId, fetched: raw.length, kept: kept.length, inserted, updated, classified, skipped, pending };
 }
