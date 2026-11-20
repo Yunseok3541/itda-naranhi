@@ -7,7 +7,7 @@ import { db as pool } from "@/lib/db";
 import { generateJson } from "@/lib/gemini";
 import { assessRisk, helpFor, isSafeAiText, ruleRisk, type Risk } from "@/lib/safety";
 import {
-  careReply, docsReply, fallbackScript, fallbackStaffLine, HELPER_INTENTS, notFoundReply, practiceReply, PRACTICE_DONE,
+  careReply, docsReply, withUserQuestion, fallbackScript, fallbackStaffLine, HELPER_INTENTS, notFoundReply, practiceReply, PRACTICE_DONE,
   PRACTICE_MAX_TURNS, scriptReply, startReply, stepsReply, type HelperIntent, type HelperPolicy, type HelperReply, type Script,
 } from "@/lib/apply-helper";
 import { type ApiResult, type Db, fail, ok, toId } from "../_lib/http";
@@ -158,7 +158,7 @@ export async function applyHelper(policyIdRaw: unknown, body: unknown, db: Db = 
     const lines = [ai.data.opening, ...ai.data.questions, ai.data.closing];
     const good = !ai.usedFallback && ai.data.questions.length >= 1 && ai.data.questions.length <= 3
       && lines.every((l) => isSafeAiText(l, 160) && !hasNewNumbers(l, source));
-    const script = good ? { label: fallback.label, opening: ai.data.opening.trim(), questions: ai.data.questions.map((q) => q.trim()), closing: ai.data.closing.trim() } : fallback;
+    const script = good ? { label: fallback.label, opening: ai.data.opening.trim(), questions: withUserQuestion(ai.data.questions.map((q) => q.trim()), text), closing: ai.data.closing.trim() } : fallback;
     return done(scriptReply(p, script, good ? "ai" : "fallback"), help, aiStatusOf(ai, good), good ? ai.modelVersion : null);
   }
 
