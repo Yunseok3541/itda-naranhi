@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const viewport: Viewport = {
-  themeColor: "#F7F5FA",
+  themeColor: "#0d0820", // 밤하늘 분위기 (브라우저 상단 막대 색)
   viewportFit: "cover",
 };
 

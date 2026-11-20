@@ -1,0 +1,83 @@
+/* 메인 밖 화면 공통 틀 (screen-kit.tsx). 밤하늘 테마(night-sky.css의 .night-ui) 위에서 씀
+   이 파일에는 Tailwind 지시문을 넣지 않는다 (night-sky.css 머리말 참고) */
+
+/* 상단: 뒤로가기 + 제목 + 오른쪽 아이콘(화면별 + 도움받을 곳) */
+.screen-bar { display: grid; grid-template-columns: 88px 1fr 88px; align-items: center; margin: -4px 0 4px; }
+.screen-bar h1 { margin: 0; text-align: center; font-size: 1.2rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 제목 빛 번짐이 잘려 글자 뒤에 네모가 보이지 않게 */
+.night-ui .screen-bar h1 { text-shadow: none; }
+.screen-bar-right { display: inline-flex; justify-content: flex-end; }
+.night-ui .screen-icon {
+  display: inline-grid; place-items: center; width: 44px; min-height: 44px; height: 44px; padding: 0; border-radius: 50%;
+  background: transparent; border: 0; box-shadow: none; color: var(--starlight); font-size: 1.35rem; text-decoration: none;
+}
+.night-ui .screen-icon:hover { background: rgba(255, 255, 255, .07); }
+.night-ui .help-icon { color: var(--starlight-dim); font-size: 1.15rem; }
+.night-ui .help-icon[aria-expanded="true"] { color: var(--star-gold); }
+
+/* 대표 영역 */
+.screen-hero { display: grid; justify-items: center; text-align: center; gap: 2px; margin: 8px 0 16px; }
+.screen-hero h2 { margin: 10px 0 0; font-size: 1.35rem; word-break: keep-all; }
+.screen-hero p { margin: 2px 0 6px; font-size: .9rem; color: var(--starlight-dim); word-break: keep-all; }
+.screen-chip { padding: 4px 12px; border-radius: 999px; background: rgba(190, 160, 255, .18); border: 1px solid rgba(190, 160, 255, .35); color: #d9c8ff; font-size: .8125rem; font-weight: 650; }
+.hero-icon { display: grid; place-items: center; width: 84px; height: 84px; border-radius: 50%; font-size: 2.2rem; border: 2px solid rgba(190, 160, 255, .45); background: radial-gradient(circle at 50% 40%, #3a2c6e, #1a1338); }
+.hero-icon.gold { color: var(--star-gold); text-shadow: 0 0 18px rgba(246, 207, 125, .7); }
+.hero-icon.dim { color: rgba(238, 233, 255, .7); }
+.hero-icon.lavender { color: #d9c8ff; }
+
+/* 그림 (캐릭터) */
+.avatar { position: relative; display: grid; place-items: center; overflow: hidden; border-radius: 50%; background: radial-gradient(circle at 50% 40%, #3a2c6e, #1a1338); border: 2px solid rgba(190, 160, 255, .55); box-shadow: 0 0 24px rgba(186, 142, 229, .35); }
+.avatar img { width: 86%; height: 86%; object-fit: contain; }
+.avatar-person { position: absolute; left: 50%; top: 14%; width: 104%; transform: translateX(-50%); }
+.avatar-person .sky-person { width: 100%; height: auto; filter: none; animation: none; }
+
+/* 요약 최대 3칸 */
+.screen-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; margin: 6px 0 18px; }
+.screen-summary div { display: grid; justify-items: center; gap: 4px; padding: 14px 6px; border-radius: 16px; background: rgba(37, 32, 57, .82); border: 1px solid rgba(255, 255, 255, .12); text-align: center; }
+.screen-summary strong { font-size: 1.7rem; line-height: 1; color: var(--star-gold); }
+.screen-summary span { font-size: .8125rem; color: rgba(238, 233, 255, .82); }
+
+/* 섹션 제목 */
+.screen-section { margin: 20px 0 10px; font-size: 1.1rem; }
+
+/* 카드 안 작은 칩 줄 */
+.card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 6px; }
+.card-tags span { padding: 2px 9px; border-radius: 999px; font-size: .75rem; font-weight: 650; color: #d9c8ff; background: rgba(190, 160, 255, .14); }
+.card-tags .gold { color: #ffe3a3; background: rgba(246, 207, 125, .14); }
+.night-ui .card h2 { margin-top: 0; }
+.night-ui .card details summary { color: var(--starlight-dim); font-weight: 650; padding-block: 6px; }
+.night-ui .card details ul { margin: 4px 0 8px; padding-left: 18px; color: rgba(238, 233, 255, .82); font-size: .9rem; }
+
+/* 더보기 (부가 기능) */
+.screen-more { margin-top: 8px; }
+.screen-more a, .screen-more button {
+  display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 52px; margin: 0 0 8px; padding: 0 16px;
+  border-radius: 14px; border: 1px solid rgba(255, 255, 255, .12); background: rgba(37, 32, 57, .6); color: var(--starlight);
+  font-weight: 650; text-align: left; text-decoration: none; box-shadow: none;
+}
+/* 밤하늘 테마의 금빛 버튼·밑줄 링크 규칙보다 우선 (더보기는 모두 같은 목록 모양) */
+.night-ui .screen-more a, .night-ui .screen-more button {
+  background: rgba(37, 32, 57, .6) !important; color: var(--starlight) !important; border: 1px solid rgba(255, 255, 255, .12) !important;
+  box-shadow: none !important; text-decoration: none !important;
+}
+.screen-more a::after, .screen-more button::after { content: "›"; color: var(--starlight-dim); font-size: 1.2rem; }
+
+/* 메인 밖 화면에서도 도움받을 곳 안내는 위에 뜨는 불투명한 창 */
+.night-ui > .help {
+  position: fixed; z-index: 6; top: calc(64px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+  width: min(calc(100% - 32px), 488px); max-height: 62dvh; overflow-y: auto; margin: 0; padding: 14px 16px;
+  background: #171236; border: 1px solid var(--star-gold-soft); border-radius: 16px; box-shadow: 0 12px 36px rgba(0, 0, 0, .5);
+}
+.night-ui > .help h2 { margin-top: 0; }
+.night-ui > .help p { margin: 6px 0; }
+
+/* 기억 목록 (별 기록 화면) */
+.memory-list { list-style: none; margin: 0; padding: 4px 16px; border-radius: 16px; background: rgba(37, 32, 57, .82); border: 1px solid rgba(255, 255, 255, .12); }
+.memory-list li { padding: 12px 0; border-top: 1px solid rgba(255, 255, 255, .1); }
+.memory-list li:first-child { border-top: 0; }
+.memory-list time { font-size: .8125rem; color: var(--star-gold); }
+.memory-list p { margin: 2px 0 0; white-space: pre-wrap; }
+
+/* 정책 카드의 추천 이유 */
+.policy-reason { padding: 8px 12px; border-radius: 12px; background: rgba(246, 207, 125, .08); color: #ffe9bf !important; font-size: .9rem; }
+.policy-reason span { color: var(--star-gold); }
