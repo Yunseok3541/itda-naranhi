@@ -123,6 +123,7 @@ CREATE TABLE checkins (
   user_weather VARCHAR(20) NULL COMMENT '사용자가 고친 마음 날씨',
   today_choice VARCHAR(10) NULL COMMENT '오늘의 선택(rest/home/near/out)',
   risk        VARCHAR(10)  NOT NULL COMMENT '위험도(normal/caution/danger)',
+  needs       TEXT         NULL COMMENT '체크인에서 읽은 오늘 필요한 것(money_job/health/family/people, 정책 추천 참고, #47)',
   created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '체크인 시각',
   PRIMARY KEY (id),
   FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE

@@ -168,6 +168,8 @@ CREATE TABLE checkins (
   -- "오늘은 어떤 활동이 괜찮을까요?" 사용자의 선택. 추천 난이도는 날씨가 아니라 이 값을 우선 (고민기록 #20)
   today_choice VARCHAR(10) CHECK (today_choice IN ('rest', 'home', 'near', 'out')),
   risk        VARCHAR(10) NOT NULL CHECK (risk IN ('normal', 'caution', 'danger')),
+  -- 한 줄에서 AI가 읽은 오늘 필요한 것 (money_job·health·family·people), 정책 추천에 참고 (고민기록 #47). 위험이면 빈 배열
+  needs       TEXT[],
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

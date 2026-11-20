@@ -1050,6 +1050,17 @@ node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-ai-live.
 - 위험 신호가 있는 15건은 모두 응원 대신 기본 문구 + 안내가 나갔다.
 - 한계: 30문장, 같은 모델 하나. 판별 정확도가 아니라 "초기 테스트 결과"로 설명한다.
 
+### 위험 표현 감지 — 처음 보는 문장 40개 평가 `web/scripts/eval-risk.mts` (고민기록 #48)
+
+| 방식 (GMS gpt-4o-mini, 40건 모두 AI 응답) | 놓친 위험 | 괜히 경고 |
+| --- | --- | --- |
+| 규칙만 | 17/20 | 2/20 |
+| AI 실패 시 (규칙 + 부정 감정) | 17/20 | 3/20 |
+| 체크인 (규칙 + AI) | 1/20 | 3/20 |
+| 회고 (규칙 + AI) | 4/20 | 3/20 |
+
+- 기존 30문장과 겹치지 않는 표기·은어·우회 표현. AI가 실패하면 처음 보는 위험 표현 대부분을 놓침 → 규칙 보강 필요 (고민기록 #48 "다음")
+
 ## DB 변경 (반영: `db/migrations/20261120_erd_v4_alignment.sql`)
 
 아래 요청 1~3번과 ERD 점검 결과를 한 번에 반영했다. `db/init/01_schema.sql`, `02_seed.sql`, `db/erdcloud.sql`도 같은 내용이다. **공용 Neon 적용은 PR이 합쳐진 뒤 팀에 알리고 진행한다** (그 전까지 공용 DB에는 없음).
@@ -1131,3 +1142,11 @@ node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-ai-live.
 
 - DB: 팀 공용 Neon (서버 시간대 GMT → 날짜는 SQL에서 `Asia/Seoul`로 변환), 로컬은 루트에서 `docker compose up -d` (`postgres://app:app@localhost:5432/starquest`)
 - 환경 변수 예시: `web/.env.example`
+
+### 체크인 → 정책 연결 (고민기록 #47)
+
+- `POST /api/checkin` 응답에 `needs: [{ "key": "money_job", "label": "돈·일" }]` 추가 (money_job | health | family | people). 같은 AI 호출에서 받음, 위험(danger)이면 `[]`
+- `GET /api/policies`(맞춤 추천) 응답에 `checkinNeeds: [{ key, label }]` — 오늘 체크인에서 참고한 것. 없으면 `[]`
+- `DELETE /api/policies/checkin-needs` → 200 `{ "cleared": 1 }` 오늘 체크인의 필요를 비우고 오늘 추천을 지움 (다음에 새로 만듦). 401 세션 없음, 500·503 SAVE_FAILED
+- DB: `checkins.needs TEXT[]` (`db/migrations/20261122_checkin_needs.sql`)
+

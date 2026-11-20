@@ -7,7 +7,8 @@ process.env.GEMINI_API_KEY = ""; // 혹시 실제 generateJson이 불려도 호�
 const { db } = await import("@/lib/db");
 const { normalizePolicy, upsertPolicies, pickDemoSet } = await import("@/lib/policy-sync");
 const { checkClassification, actionableByRule, sourceFields, projectBeforeAi, classifyPending } = await import("@/lib/policy-classify");
-const { recommendPolicies, listPolicies, recordClick, filterByDifficulty, scorePolicy, diversify, bucketOf } = await import("@/app/api/policies/service");
+const { recommendPolicies, listPolicies, recordClick, filterByDifficulty, scorePolicy, diversify, bucketOf, loadProfile, clearCheckinNeeds } = await import("@/app/api/policies/service");
+const { analyzeCheckin } = await import("@/lib/checkin-ai");
 const { todayKst } = await import("@/app/api/_lib/http");
 type Db = import("@/app/api/_lib/http").Db;
 type Gen = typeof import("@/lib/gemini").generateJson;
@@ -194,7 +195,7 @@ try {
   // 점수: 전화가 부담인 사용자에게 전화 정책은 뒤로, 돈 때문에 멈춘 적 있으면 생활비 정책을 앞으로
   const row = (k: string) => ({ id: id[k], title: k, summary: "", burden: defs.find((d) => d[0] === k)![3], stage: defs.find((d) => d[0] === k)![2],
     difficulty_note: null, relevance: defs.find((d) => d[0] === k)![4], tags: defs.find((d) => d[0] === k)![5], url: null, apply_end: null, apply_always: true, region_code: "11000" }) as Parameters<typeof scorePolicy>[0];
-  const prof: Parameters<typeof scorePolicy>[1] = { level: 1, region: "11440", age: 26, burdens: [], together: null, costStops: 0, needs: [], support: null, living: null,
+  const prof: Parameters<typeof scorePolicy>[1] = { level: 1, region: "11440", age: 26, burdens: [], together: null, costStops: 0, needs: [], checkinNeeds: [], support: null, living: null,
     info: { job: null, school: null, married: null, income: null, special: null } };
   check("전화 부담 → 전화 정책 점수 낮아짐", scorePolicy(row("P5"), { ...prof, burdens: ["phone"] }, today) < scorePolicy(row("P5"), prof, today));
   check("혼자 하고 싶음 → 함께하는 정책 점수 낮아짐", scorePolicy(row("P6"), { ...prof, together: false }, today) < scorePolicy(row("P6"), prof, today));
@@ -233,6 +234,31 @@ try {
   const cr = await classifyPending(client, { generate: genSkip });
   const p16 = (await client.query("SELECT actionable, classified_at IS NOT NULL AS done FROM policies WHERE source_id = 'verify-P16'")).rows[0];
   check("분류: 정부 사업 1개는 AI 없이 정리, 남은 분류 전(P10)만 AI로", cr.skipped === 1 && p16.actionable === false && p16.done && genSkip.calls === 1, { cr, p16, calls: genSkip.calls });
+
+  // ---------- 체크인 → 정책 연결 (고민기록 #47) ----------
+  const ck1 = await analyzeCheckin("이번 달 월세가 걱정이에요", fakeGen({ weather: "cloudy", risk: "normal", needs: ["money_job", "money_job", "hack"] }));
+  check("체크인 AI: 필요한 것은 정해 둔 말만, 중복 없이", JSON.stringify(ck1.needs) === JSON.stringify(["money_job"]), ck1.needs);
+  const ck2 = await analyzeCheckin("다 끝내고 싶어요", fakeGen({ weather: "rainy", risk: "danger", needs: ["money_job"] }));
+  check("체크인 AI: 위험(danger)이면 필요한 것을 비움 (위기에 정책을 내밀지 않음)", ck2.needs.length === 0 && ck2.aiRisk === "danger");
+  const ck3 = await analyzeCheckin("오늘은 그냥 그래요", invalidGen);
+  check("체크인 AI: AI 실패면 필요한 것 없음 + 기본 날씨", ck3.usedFallback && ck3.needs.length === 0 && ck3.weather === "partly_cloudy");
+
+  const C = await user(3, {});
+  await client.query("INSERT INTO checkins (user_id, text, weather, risk, needs, created_at) VALUES ($1, '어제 한 줄', 'cloudy', 'normal', '{health}', now() - interval '1 day')", [C]);
+  const pc0 = await loadProfile(C, client, today);
+  check("체크인 연결: 어제 체크인은 참고하지 않음", pc0.checkinNeeds.length === 0, pc0.checkinNeeds);
+  await client.query("INSERT INTO checkins (user_id, text, weather, risk, needs) VALUES ($1, '월세가 걱정이에요', 'cloudy', 'normal', '{money_job}')", [C]);
+  const pc1 = await loadProfile(C, client, today);
+  check("체크인 연결: 오늘 체크인의 필요 → 추천 점수에 쓰는 needs에 합쳐짐", pc1.checkinNeeds[0] === "money_job" && pc1.needs.includes("money_job"), pc1);
+  const rc = (await recommendPolicies(C, client, fakeGen({ items: [] }))).body as Body;
+  check("체크인 연결: 추천 응답에 \"오늘 체크인을 참고했어요 · 돈·일\"", rc.checkinNeeds?.[0]?.label === "돈·일", rc.checkinNeeds);
+  const rcAgain = (await recommendPolicies(C, client, fakeGen({ items: [] }))).body as Body;
+  check("체크인 연결: 저장된 추천을 다시 쓸 때도 표시", rcAgain.reused === true && rcAgain.checkinNeeds?.length === 1, rcAgain.reused);
+  const off = (await clearCheckinNeeds(C, client)).body as Body;
+  const savedLeft = (await client.query("SELECT count(*)::int AS n FROM policy_recommendations WHERE user_id = $1", [C])).rows[0].n;
+  const pc2 = await loadProfile(C, client, today);
+  check("오늘은 참고하지 않기: 오늘 체크인의 필요를 비우고, 오늘 추천을 지워 새로 만들게", off.cleared === 1 && savedLeft === 0 && pc2.checkinNeeds.length === 0, { off, savedLeft });
+  check("오늘은 참고하지 않기: DB 장애 → 500", (await clearCheckinNeeds(C, brokenDb)).status === 500);
 
   check("DB 장애 → 500 LOAD_FAILED", (await recommendPolicies(A, brokenDb, fakeGen({ items: [] }))).status === 500);
 } finally {

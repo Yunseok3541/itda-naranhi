@@ -10,7 +10,8 @@ import { BURDEN_LABEL, type Burden } from "@/lib/policy-classify";
 import { DEMO_REGION, DEMO_REGION_NAME } from "@/lib/policy-sync";
 import { CONDITION_COLUMNS, checkEligibility, type PolicyConditions } from "@/lib/policy-eligibility";
 import { NEEDS, readPolicyInfo, readStartAnswers, type PolicyInfo, type StartAnswers } from "@/lib/profile";
-import { type ApiResult, type Db, fail, ok, todayKst, toId } from "../_lib/http";
+import { CHECKIN_NEEDS, NEED_LABEL, type CheckinNeed } from "@/lib/checkin-ai";
+import { type ApiResult, type Db, fail, KST_DATE, ok, todayKst, toId } from "../_lib/http";
 
 // 추천은 분야가 겹치지 않게 3~5개 (분류 정확도가 완벽하지 않아 서로 다른 분야로 보여 줌, 고민기록 #37)
 const MAX_ITEMS = 5;
@@ -82,7 +83,8 @@ export type Profile = {
   burdens: string[]; // 시작 질문 ② (people, unfamiliar, phone, morning)
   together: boolean | null; // 시작 질문 ③ (alone이면 false)
   costStops: number; // 손 뻗어 보기 이유 "돈이 들어서요" 횟수
-  needs: NonNullable<StartAnswers["needs"]>; // 시작 질문 ⑥ 요즘 도움이 필요한 것
+  needs: NonNullable<StartAnswers["needs"]>; // 시작 질문 ⑥ 요즘 도움이 필요한 것 + 오늘 체크인에서 읽은 것 (고민기록 #47)
+  checkinNeeds: CheckinNeed[]; // 그중 오늘 체크인에서 온 것 (화면 "오늘 체크인을 참고했어요")
   support: StartAnswers["support"]; // 시작 질문 ④ 힘들 때 연락할 사람
   living: StartAnswers["living"]; // 시작 질문 ⑤ 생활 형태
   info: PolicyInfo; // 정책 신청 정보 (자격 규칙에만, AI에 보내지 않음)
@@ -140,6 +142,15 @@ function savedPicks(saved: SavedRecommendation, open: PolicyRow[], excluded: Set
     .map((i) => ({ policy: byId.get(i.policyId)!, reason: i.reason }));
 }
 
+/** 오늘(한국 날짜) 가장 최근 체크인에서 AI가 읽은 필요한 것. 위험 체크인은 저장할 때 이미 비어 있음 */
+async function todayCheckinNeeds(db: Db, userId: number, today: string): Promise<CheckinNeed[]> {
+  const row = (await db.query<{ needs: string[] | null }>(
+    `SELECT needs FROM checkins WHERE user_id = $1 AND ${KST_DATE("created_at")} = $2 ORDER BY id DESC LIMIT 1`,
+    [userId, today],
+  )).rows[0];
+  return (row?.needs ?? []).filter((n): n is CheckinNeed => (CHECKIN_NEEDS as readonly string[]).includes(n));
+}
+
 export async function loadProfile(userId: number, db: Db, today: string): Promise<Profile> {
   const u = (
     await db.query<UserRow>("SELECT current_stage, region_code, birth_year, start_answers, policy_info FROM users WHERE id = $1", [userId])
@@ -148,6 +159,7 @@ export async function loadProfile(userId: number, db: Db, today: string): Promis
     (await db.query<{ n: string }>("SELECT count(*) AS n FROM star_attempts WHERE user_id = $1 AND stop_reason = 'cost'", [userId])).rows[0]?.n ?? 0,
   );
   const answers = readStartAnswers(u?.start_answers);
+  const checkinNeeds = await todayCheckinNeeds(db, userId, today);
   return {
     level: Math.min(Math.max(u?.current_stage ?? 1, 1), 6),
     region: u?.region_code ?? DEMO_REGION,
@@ -155,7 +167,8 @@ export async function loadProfile(userId: number, db: Db, today: string): Promis
     burdens: answers.burden ?? [],
     together: answers.with === "alone" ? false : answers.with === "together" ? true : null,
     costStops,
-    needs: answers.needs ?? [],
+    needs: [...new Set([...(answers.needs ?? []), ...checkinNeeds])],
+    checkinNeeds,
     support: answers.support,
     living: answers.living,
     info: readPolicyInfo(u?.policy_info),
@@ -272,6 +285,28 @@ const SYSTEM = `너는 사회적으로 고립된 청년을 돕는 앱에서 정�
 - 이유는 정책 요약과 사용자 상황에 있는 내용만 쓴다. 자격이 된다고 단정하지 않는다. 권유·압박·과장 표현 금지.
 지정된 JSON만 출력한다.`;
 
+/** 오늘 체크인에서 참고한 것 (화면 표시용 이름) */
+const needLabels = (profile: Profile) => profile.checkinNeeds.map((n) => ({ key: n, label: NEED_LABEL[n] }));
+
+/**
+ * "오늘은 참고하지 않기" (고민기록 #47): 오늘 체크인의 필요한 것을 비우고, 오늘 저장된 추천을 지워 다음에 새로 만든다
+ * 200 { cleared: 비운 체크인 수 }. 내일 체크인부터는 다시 참고함
+ */
+export async function clearCheckinNeeds(userId: number, db: Db = pool): Promise<ApiResult> {
+  const today = todayKst();
+  try {
+    const r = await db.query(
+      `UPDATE checkins SET needs = '{}' WHERE user_id = $1 AND ${KST_DATE("created_at")} = $2 AND cardinality(needs) > 0`,
+      [userId, today],
+    );
+    await db.query("DELETE FROM policy_recommendations WHERE user_id = $1 AND rec_date = $2::date", [userId, today]);
+    return ok({ cleared: r.rowCount ?? 0 });
+  } catch (error) {
+    console.error("[policies] 체크인 참고 끄기 실패", errorCode(error));
+    return fail(500, "SAVE_FAILED", "지금은 바꾸지 못했어요. 잠시 후 다시 시도해 주세요.");
+  }
+}
+
 /**
  * 오늘의 정책 추천. userId는 반드시 세션에서 구한 값
  * 200 { view: "recommended", items, counts, usedFallback, reused, maxDifficulty?, basis, modelVersion? }
@@ -292,6 +327,7 @@ export async function recommendPolicies(userId: number, db: Db = pool, generate:
       counts: { recommended: picks.length, all: all.length },
       usedFallback: saved.used_fallback,
       reused: true,
+      checkinNeeds: needLabels(profile),
       basis: await basis(db),
     });
   };
@@ -316,7 +352,7 @@ export async function recommendPolicies(userId: number, db: Db = pool, generate:
     .map((x) => x.p);
   const candidates = diversify(sorted, MAX_CANDIDATES); // 후보부터 분야가 섞이게
   if (candidates.length === 0) {
-    return ok({ view: "recommended", items: [], counts: { recommended: 0, all: all.length }, usedFallback: true, reused: false, maxDifficulty, basis: await basis(db) });
+    return ok({ view: "recommended", items: [], counts: { recommended: 0, all: all.length }, usedFallback: true, reused: false, maxDifficulty, checkinNeeds: needLabels(profile), basis: await basis(db) });
   }
 
   const prompt = JSON.stringify({
@@ -384,6 +420,7 @@ export async function recommendPolicies(userId: number, db: Db = pool, generate:
     usedFallback,
     reused: false,
     maxDifficulty,
+    checkinNeeds: needLabels(profile),
     basis: await basis(db).catch(() => ({ region: DEMO_REGION_NAME, updatedAt: null })),
     modelVersion: ai.modelVersion,
   });

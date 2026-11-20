@@ -33,7 +33,8 @@ const reasons: { value: FeedbackReason; label: string }[] = [
 type View = 'recommended' | 'all';
 type Counts = { recommended: number | null; all: number | null };
 // view·counts는 API에만 있음 (예시 모드 데이터에는 없음)
-type Result = { view?: View; counts?: Counts; items: Policy[]; usedFallback?: boolean; basis: { region: string; updatedAt: string | null } };
+// checkinNeeds: 오늘 체크인에서 읽어 추천에 참고한 것 (고민기록 #47). 맞춤 추천에만
+type Result = { view?: View; counts?: Counts; items: Policy[]; usedFallback?: boolean; checkinNeeds?: { key: string; label: string }[]; basis: { region: string; updatedAt: string | null } };
 const VIEWS: { value: View; label: string }[] = [
   { value: 'recommended', label: '맞춤 추천' },
   { value: 'all', label: '모든 정책' },
@@ -65,6 +66,7 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
   // 피드백을 보낸 정책: 맞춤 추천에서는 카드 대신 고마움 문장만 남긴다
   const [sent, setSent] = useState<Record<number, FeedbackResult>>({});
   const [helping, setHelping] = useState<Policy | null>(null);
+  const [checkinOffBusy, setCheckinOffBusy] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -107,6 +109,15 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
     });
     setRetry(value => value + 1);
   }
+  // "오늘은 참고하지 않기": 오늘 체크인의 필요한 것을 비우고 맞춤 추천을 다시 만든다 (내일 체크인부터는 다시 참고)
+  async function stopCheckinHint() {
+    setCheckinOffBusy(true);
+    try {
+      await request('policies/checkin-needs', 'DELETE');
+      retryView();
+    } catch (error) { onError(error); }
+    finally { setCheckinOffBusy(false); }
+  }
   return <>
     <ScreenBar title="정책 추천" />
     <div className="policy-view-switch" role="group" aria-label="정책 보기">
@@ -127,6 +138,10 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
       { value: items.filter(p => p.burdenLabel.includes('온라인')).length, label: '온라인 신청' },
       { value: items.filter(p => p.deadline?.includes('마감')).length, label: '마감 있음' },
     ]} />}
+    {!all && mode === 'api' && (result?.checkinNeeds?.length ?? 0) > 0 && <section className="policy-checkin-hint" aria-live="polite">
+      <p><span aria-hidden="true">✦</span> 오늘 체크인을 참고했어요 · {result!.checkinNeeds!.map(n => n.label).join(' · ')}</p>
+      <button type="button" onClick={() => void stopCheckinHint()} disabled={checkinOffBusy}>{checkinOffBusy ? '바꾸는 중…' : '오늘은 참고하지 않기'}</button>
+    </section>}
     {mode === 'example' && <p className="small">가상 정책으로 화면을 체험하고 있어요.</p>}
     {loading && <p role="status">정책을 불러오고 있어요…</p>}
     {error && <section className="card"><p>잠시 후 다시 불러와 주세요.</p><button onClick={retryView}>다시 불러오기</button></section>}

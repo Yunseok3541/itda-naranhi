@@ -210,7 +210,7 @@ try {
   check("AI 입력: 필요한 것은 들어가고, 취업·소득 같은 정책 신청 정보는 없음", /생활비·일자리/.test(prompts[0] ?? "") && !/unemployed|under_2000|일하고 있지|소득 없음/.test(prompts[0] ?? ""), prompts[0]);
   const row = { id: 1, title: "x", summary: "", burden: "online", stage: 1, difficulty_note: null, relevance: 1, tags: ["생활비"], url: null, apply_end: null, apply_always: true, region_code: "11000",
     job_cd: null, school_cd: null, mrg_cd: null, sbiz_cd: null, earn_cd: null, earn_max: null, earn_etc: null, add_cond: null } as Parameters<typeof scorePolicy>[0];
-  const prof: Parameters<typeof scorePolicy>[1] = { level: 1, region: "11440", age: null, burdens: [], together: null, costStops: 0, needs: [], support: null, living: null, info: EMPTY_POLICY_INFO };
+  const prof: Parameters<typeof scorePolicy>[1] = { level: 1, region: "11440", age: null, burdens: [], together: null, costStops: 0, needs: [], checkinNeeds: [], support: null, living: null, info: EMPTY_POLICY_INFO };
   check("'생활비·일자리'가 필요함 → 생활비 정책 점수 높아짐", scorePolicy(row, { ...prof, needs: ["money_job"] }, today) > scorePolicy(row, prof, today));
   check("'가족과의 관계'가 필요함 → 이름·요약에 가족이 든 정책 점수 높아짐", scorePolicy({ ...row, title: "가족돌봄청년 지원" }, { ...prof, needs: ["family"] }, today) > scorePolicy({ ...row, title: "가족돌봄청년 지원" }, prof, today));
 } finally {
