@@ -21,7 +21,10 @@ CREATE TABLE users (
   -- {"job":"unemployed","school":"high_grad","married":"single","income":"under_2000","special":[]}
   policy_info    JSONB,
   share_in_sky   BOOLEAN NOT NULL DEFAULT false,                   -- 같은 하늘의 별 집계 포함 동의
-  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- 프로필 이미지 = 획득한(별을 모두 딴) 별자리의 도감 캐릭터. NULL = 기본 캐릭터 (고민기록 #33)
+  -- 외래키는 constellations를 만든 뒤 아래에서 건다. 획득 여부는 API가 v_user_acquired_constellations로 확인
+  avatar_constellation_id INT
 );
 
 -- 데모 세션 (로그인 없이 브라우저마다 가상 사용자 1명)
@@ -56,6 +59,10 @@ CREATE TABLE constellations (
   theme       VARCHAR(100),
   star_count  SMALLINT NOT NULL
 );
+
+-- 프로필 이미지 별자리 (users는 constellations보다 먼저 만들어서 여기서 건다). 별자리가 없어지면 기본 캐릭터로
+ALTER TABLE users ADD CONSTRAINT users_avatar_constellation_id_fkey
+  FOREIGN KEY (avatar_constellation_id) REFERENCES constellations(id) ON DELETE SET NULL;
 
 -- 별 = 퀘스트
 CREATE TABLE stars (
@@ -176,6 +183,23 @@ CREATE TABLE daily_recommendations (
   checkin_id  INT REFERENCES checkins(id) ON DELETE SET NULL,  -- 체크인을 지워도 추천은 남음
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, rec_date)
+);
+
+-- 별 말고 다른 곳에서 받은 포인트 적립 기록 (고민기록 #32)
+-- 별 포인트는 지금처럼 뷰(v_star_points)로 계산하고, 여기에는 유성(+1)과 데일리 체크인(+100)만 쌓는다
+-- 중복 지급 방지는 UNIQUE (user_id, source, ref_key) 하나로 한다
+--   meteor : ref_key = 유성 번호 (서버 시각 기준 METEOR_INTERVAL_SECONDS마다 1개, web/src/lib/points.ts)
+--   checkin: ref_key = 한국 날짜 'YYYY-MM-DD' (하루 한 번)
+-- 점수는 받은 시점의 값을 그대로 저장 (규칙 숫자를 바꿔도 이미 받은 포인트는 그대로)
+CREATE TABLE point_events (
+  id           SERIAL PRIMARY KEY,
+  user_id      INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  source       VARCHAR(10) NOT NULL CHECK (source IN ('meteor', 'checkin')),
+  ref_key      VARCHAR(40) NOT NULL,
+  points       SMALLINT NOT NULL CHECK (points > 0),
+  earned_date  DATE NOT NULL DEFAULT ((now() AT TIME ZONE 'Asia/Seoul')::date),  -- 한국 날짜 (유성 하루 한도 집계용)
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, source, ref_key)
 );
 
 ------------------------------------------------------------
@@ -360,6 +384,7 @@ CREATE INDEX idx_center_events       ON center_events (center_id, event);
 CREATE INDEX idx_center_events_user  ON center_events (user_id);
 CREATE INDEX idx_attempts_parent     ON star_attempts (parent_attempt_id) WHERE parent_attempt_id IS NOT NULL;
 CREATE INDEX idx_attempts_sub_quest  ON star_attempts (sub_quest_id) WHERE sub_quest_id IS NOT NULL;
+CREATE INDEX idx_point_events_day    ON point_events (user_id, source, earned_date);
 
 ------------------------------------------------------------
 -- 6. 뷰 (화면과 발표 지표에서 바로 쓰는 조회)
@@ -381,17 +406,54 @@ SELECT s.id AS star_id,
 FROM stars s
 JOIN constellations c ON c.id = s.constellation_id;
 
--- 사용자별 총 포인트: 밝힌(bright) 별마다 한 번만 더함 (적립 기록 테이블 없음)
--- v_user_star_status가 (사용자, 별)당 한 줄이라 같은 별을 다시 완료하거나 하위 퀘스트(더 작게 해 보기)로 밝혀도 중복 적립되지 않음
--- 희미한 별(dim)은 0점이고 감점도 없다. 포인트가 없는 사용자는 행이 없음 (0으로 처리)
+-- 사용자별 총 포인트 = 별 포인트 + 유성 포인트 + 체크인 포인트 (고민기록 #31, #32)
+-- 별: 밝힌(bright) 별마다 한 번만 더함. v_user_star_status가 (사용자, 별)당 한 줄이라
+--     같은 별을 다시 완료하거나 하위 퀘스트(더 작게 해 보기)로 밝혀도 중복 적립되지 않음. dim은 0점, 감점 없음
+-- 유성·체크인: point_events 합계 (UNIQUE로 중복 적립 없음)
+-- 포인트가 하나도 없는 사용자는 행이 없음 (0으로 처리). 앞 세 칸(user_id, total_points, bright_stars)은 처음 정의와 같음
 CREATE VIEW v_user_points AS
-SELECT v.user_id,
-       sum(p.points)::int AS total_points,
-       count(*)::int      AS bright_stars
-FROM v_user_star_status v
-JOIN v_star_points p ON p.star_id = v.star_id
-WHERE v.status = 'bright'
-GROUP BY v.user_id;
+WITH star AS (
+  SELECT v.user_id, sum(p.points)::int AS star_points, count(*)::int AS bright_stars
+  FROM v_user_star_status v
+  JOIN v_star_points p ON p.star_id = v.star_id
+  WHERE v.status = 'bright'
+  GROUP BY v.user_id
+), ev AS (
+  SELECT user_id,
+         COALESCE(sum(points) FILTER (WHERE source = 'meteor'), 0)::int  AS meteor_points,
+         COALESCE(sum(points) FILTER (WHERE source = 'checkin'), 0)::int AS checkin_points
+  FROM point_events
+  GROUP BY user_id
+)
+SELECT COALESCE(s.user_id, e.user_id)                                                       AS user_id,
+       (COALESCE(s.star_points, 0) + COALESCE(e.meteor_points, 0) + COALESCE(e.checkin_points, 0))::int AS total_points,
+       COALESCE(s.bright_stars, 0)::int                                                     AS bright_stars,
+       COALESCE(s.star_points, 0)::int                                                      AS star_points,
+       COALESCE(e.meteor_points, 0)::int                                                    AS meteor_points,
+       COALESCE(e.checkin_points, 0)::int                                                   AS checkin_points
+FROM star s
+FULL JOIN ev e ON e.user_id = s.user_id;
+
+-- 사용자가 획득한 별자리: 그 별자리의 별을 모두 한 번 이상 땄음(bright) (도감·프로필 이미지, 고민기록 #33)
+-- 화면 lib/constellations.ts의 getCompletedConstellationIds와 같은 기준. 별 수는 star_count가 아니라 실제 stars 행으로 센다
+-- acquired_at = 마지막 별을 처음 딴 시각 (= 별자리를 완성한 순간). 다시 따거나 dim은 영향 없음
+CREATE VIEW v_user_acquired_constellations AS
+WITH first_bright AS (
+  SELECT user_id, star_id, min(created_at) AS at
+  FROM star_attempts
+  WHERE status = 'bright'
+  GROUP BY user_id, star_id
+), totals AS (
+  SELECT constellation_id, count(*) AS stars FROM stars GROUP BY constellation_id
+)
+SELECT f.user_id,
+       s.constellation_id,
+       max(f.at) AS acquired_at
+FROM first_bright f
+JOIN stars s  ON s.id = f.star_id
+JOIN totals t ON t.constellation_id = s.constellation_id
+GROUP BY f.user_id, s.constellation_id, t.stars
+HAVING count(*) = t.stars;
 
 -- 같은 하늘의 별: 오늘(한국 시간) 별마다 시도한 사람 수 (동의한 사용자만, 구 단위, 5명 미만은 숨김)
 CREATE VIEW v_sky_today AS

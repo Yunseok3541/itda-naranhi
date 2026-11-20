@@ -5,7 +5,7 @@
 process.env.GEMINI_API_KEY = "";
 
 const { db } = await import("@/lib/db");
-const { parseStartAnswers, parsePolicyInfo, parseBirthYear, readStartAnswers, EMPTY_POLICY_INFO } = await import("@/lib/profile");
+const { parseStartAnswers, parsePolicyInfo, parseBirthYear, readStartAnswers, EMPTY_POLICY_INFO, EMPTY_START } = await import("@/lib/profile");
 const { checkEligibility } = await import("@/lib/policy-eligibility");
 const { getProfile, saveProfile } = await import("@/app/api/profile/service");
 const { recommendPolicies, listPolicies, scorePolicy } = await import("@/app/api/policies/service");
@@ -121,6 +121,41 @@ try {
   check("policyInfo: null → 지우기", (await saveProfile(userId, { policyInfo: null }, client)).status === 200
     && (await client.query("SELECT policy_info FROM users WHERE id = $1", [userId])).rows[0].policy_info === null);
   check("없는 사용자 → 404", (await saveProfile(2_000_000_000, { birthYear: null }, client)).status === 404);
+
+  // ---------- 데모 시작 질문 ①~③ (질문별 페이지 화면, 고민기록 #33) ----------
+  // 화면은 세션이 생기기 전에 답을 모으고, "데모 시작" 뒤 PUT /api/profile { startAnswers } 한 번으로 저장한다 (단계별 임시 저장 없음)
+  const newUser = async () => (await client.query<{ id: number }>("INSERT INTO users (nickname, region_code) VALUES ('가상 온보딩', '11440') RETURNING id")).rows[0].id;
+  const stageOf: Record<string, number> = { home: 1, near: 2, out: 3, people: 4 };
+  for (const [range, stage] of Object.entries(stageOf)) {
+    const u = await newUser();
+    const r = (await saveProfile(u, { startAnswers: { range, burden: ["unfamiliar"], with: "alone" } }, client)).body as Body;
+    check(`① 활동 범위 ${range} → 시작 단계 ${stage}, ②·③ 그대로 저장`, r.currentStage === stage && r.startAnswers.range === range
+      && r.startAnswers.burden[0] === "unfamiliar" && r.startAnswers.with === "alone", r);
+  }
+  const uFull = await newUser();
+  const uThree = await newUser();
+  const three = { range: "near", burden: ["people", "phone"], with: "together" };
+  const bFull = (await saveProfile(uFull, { startAnswers: { ...EMPTY_START, ...three } }, client)).body as Body; // 지금 화면: 6칸 모두(④~⑥ null)
+  const bThree = (await saveProfile(uThree, { startAnswers: three }, client)).body as Body;                    // ①~③만
+  check("①~③만 보내도 6칸 모두 보낸 것과 같은 결과 (빠진 ④~⑥ = 답하지 않음)", JSON.stringify(bFull) === JSON.stringify(bThree) && bThree.startAnswers.support === null, { bFull, bThree });
+  const uDup = await newUser();
+  const bDup = (await saveProfile(uDup, { startAnswers: { burden: ["phone", "people", "phone"] } }, client)).body as Body;
+  check("② 여러 개 선택: 목록 순서로 정리·중복 제거", JSON.stringify(bDup.startAnswers.burden) === '["people","phone"]', bDup.startAnswers);
+  const uSkip = await newUser();
+  const bSkip = (await saveProfile(uSkip, { startAnswers: {} }, client)).body as Body;
+  check("모두 건너뛰고 저장 → 답 없음(모두 null)이지만 '시작 질문을 거침'(null 아님), 단계 1", bSkip.startAnswers !== null
+    && Object.values(bSkip.startAnswers).every((v) => v === null) && bSkip.currentStage === 1, bSkip);
+  const uBad = await newUser();
+  const rBad = await saveProfile(uBad, { startAnswers: { range: "home", with: "both" } }, client);
+  check("선택지에 없는 답 → 400 + 칸 이름, 아무것도 저장 안 함", rBad.status === 400 && rBad.body.field === "startAnswers.with"
+    && ((await getProfile(uBad, client)).body as Body).startAnswers === null, rBad.body);
+  const uRedo = await newUser();
+  await saveProfile(uRedo, { startAnswers: { range: "out", support: "yes", living: "alone", needs: ["health"] } }, client); // 내 정보에서 ④~⑥까지 답함
+  const bRedo = (await saveProfile(uRedo, { startAnswers: three }, client)).body as Body;                               // 다시 첫 화면에서 ①~③만
+  check("⚠ 현재 계약: 시작 질문은 통째로 바뀜 → 이미 답한 ④~⑥ 위에 ①~③만 보내면 ④~⑥이 지워짐", bRedo.startAnswers.support === null
+    && bRedo.startAnswers.needs === null && bRedo.currentStage === 2, bRedo.startAnswers);
+  const bNoRange = (await saveProfile(uRedo, { startAnswers: { range: null, burden: ["morning"] } }, client)).body as Body;
+  check("① 활동 범위를 비우면 시작 단계는 그대로 (다시 1로 내리지 않음)", bNoRange.startAnswers.range === null && bNoRange.currentStage === 2, bNoRange);
 
   // 가상 정책: 조건 없음 2개, 창업자 대상, 연소득 5천 이하, 생활비 태그
   const mk = async (key: string, raw: object, tags: string[], relevance = 2) =>

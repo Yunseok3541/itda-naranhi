@@ -63,3 +63,12 @@ body:has(.panorama-shell:not(.panorama-background)) { background: #0d0820; }
   .sky-person-spark { animation: person-spark 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
   @keyframes person-spark { 50% { opacity: .35; transform: scale(.7); } }
 }
+
+.panorama-dome .panorama-surface {
+  background: #100b22;
+}
+.panorama-dome .panorama-canvas { height: 100%; }
+.panorama-dome .panorama-person {
+  opacity: var(--sky-foreground, 0);
+  transform: translate(-50%, calc((1 - var(--sky-foreground, 0)) * 48px));
+}

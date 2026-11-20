@@ -56,6 +56,38 @@ export async function createAttempt(
   if (placeId === false || placeName === false) return invalid("장소 정보가 너무 길어요.");
   if ((placeId || placeName) && verifyMethod !== "gps") return invalid("장소 정보는 gps 확인일 때만 보낼 수 있어요.");
 
+  const parentAttemptId = b.parentAttemptId == null ? null : toId(b.parentAttemptId);
+  const subQuestId = b.subQuestId == null ? null : toId(b.subQuestId);
+  if ((b.parentAttemptId != null && parentAttemptId === null) || (b.subQuestId != null && subQuestId === null)) {
+    return invalid("이어갈 기록과 작은 활동 번호를 확인해 주세요.");
+  }
+  if (subQuestId !== null && parentAttemptId === null) return invalid("작은 활동은 선택한 다음 행동에서 이어가 주세요.");
+  let customTitle: string | null = null;
+  if (parentAttemptId !== null) {
+    try {
+      // Validate both ownership and the exact action/target selected by the user.
+      const parent = (await db.query<{ star_id: number; next_action: string; next_star_id: number | null;
+        next_sub_quest_id: number | null; sub_quest_id: number | null }>(
+        `SELECT star_id, next_action, next_star_id, next_sub_quest_id, sub_quest_id
+         FROM star_attempts WHERE id = $1 AND user_id = $2`, [parentAttemptId, userId],
+      )).rows[0];
+      if (!parent) return fail(404, "NOT_FOUND", "이어갈 기록을 찾을 수 없어요.", { help: help400 });
+      const targetStar = parent.next_action === 'swap' ? parent.next_star_id : parent.star_id;
+      const targetSub = parent.next_action === 'smaller' ? parent.next_sub_quest_id
+        : parent.next_action === 'retry' ? parent.sub_quest_id : null;
+      if (!['smaller', 'retry', 'swap'].includes(parent.next_action) || targetStar !== starId || targetSub !== subQuestId) {
+        return invalid("지난번에 고른 다음 행동과 달라요. 다음 행동을 다시 골라 주세요.");
+      }
+      if (subQuestId !== null) {
+        const sub = (await db.query<{ title: string }>(
+          "SELECT title FROM sub_quests WHERE id = $1 AND star_id = $2", [subQuestId, starId],
+        )).rows[0];
+        if (!sub) return invalid("이 별의 작은 활동을 찾을 수 없어요.");
+        customTitle = sub.title;
+      }
+    } catch { return fail(500, "LOAD_FAILED", "이어갈 기록을 확인하지 못했어요.", { help: help400 }); }
+  }
+
   // 별 확인. DB가 안 되면 제목 없이 진행하고 저장 단계에서 실패로 응답한다 (help는 유지)
   let starTitle: string | null = null;
   try {
@@ -67,7 +99,7 @@ export async function createAttempt(
   }
 
   // 저장 전에 회고 처리 → 저장이 실패해도 help를 응답할 수 있음
-  const r = await inspectReflection({ status, reflection, starTitle, stopReason }, generate);
+  const r = await inspectReflection({ status, reflection, starTitle: customTitle ?? starTitle, stopReason }, generate);
 
   try {
     // 포인트(고민기록 #31): 이 별을 처음 밝혔을 때만 v_star_points 점수를 준다. dim·다시 완료는 0점
@@ -78,13 +110,15 @@ export async function createAttempt(
                 COALESCE((SELECT total_points FROM v_user_points WHERE user_id = $1), 0) AS total_before,
                 COALESCE((SELECT points FROM v_star_points WHERE star_id = $2), 0) AS star_points
        ), ins AS (
-         INSERT INTO star_attempts (user_id, star_id, status, verify_method, place_id, place_name, reflection, stop_reason, cheer)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         INSERT INTO star_attempts (user_id, star_id, status, verify_method, place_id, place_name, reflection, stop_reason, cheer,
+           parent_attempt_id, sub_quest_id, custom_title, risk)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
          RETURNING id, created_at
        )
        SELECT ins.id, ${KST_DATE("ins.created_at")} AS date, prev.had_bright, prev.total_before, prev.star_points
        FROM ins, prev`,
-      [userId, starId, status, verifyMethod, placeId, placeName, reflection, stopReason, r.cheer],
+      [userId, starId, status, verifyMethod, placeId, placeName, reflection, stopReason, r.cheer,
+        parentAttemptId, subQuestId, customTitle, r.risk],
     );
     const row = rows[0];
     const pointsEarned = status === "bright" && !row.had_bright ? Number(row.star_points) : 0;
@@ -95,6 +129,9 @@ export async function createAttempt(
         status,
         date: row.date,
         reflection,
+        parentAttemptId,
+        subQuestId,
+        customTitle,
         cheer: r.cheer,
         help: r.help,
         pointsEarned,
