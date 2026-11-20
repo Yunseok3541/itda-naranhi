@@ -6,12 +6,18 @@ import {
   type PolicyInfo, type StartAnswers,
 } from '@/lib/profile';
 import { client, type Mode } from '@/lib/mobile-data';
+import GlassSelect from './glass-select';
 
 const SKIP = '답하지 않을래요';
 
-function Pick<K extends string>({ label, options, value, onChange, disabled }: {
-  label: string; options: readonly (readonly [K, string])[]; value: K | null; onChange: (v: K | null) => void; disabled?: boolean;
+/** 하나 고르기. glass=true면 밤하늘 반투명 드롭다운 (데모 시작 질문), 아니면 기본 select (내 정보 화면) */
+function Pick<K extends string>({ label, options, value, onChange, disabled, glass }: {
+  label: string; options: readonly (readonly [K, string])[]; value: K | null; onChange: (v: K | null) => void; disabled?: boolean; glass?: boolean;
 }) {
+  if (glass) {
+    return <GlassSelect<K | null> label={label} value={value} onChange={onChange} disabled={disabled}
+      options={[{ value: null, label: SKIP }, ...options.map(([k, l]) => ({ value: k, label: l }))]} />;
+  }
   return <label>{label}<select disabled={disabled} value={value ?? ''} onChange={e => onChange((e.target.value || null) as K | null)}>
     <option value="">{SKIP}</option>
     {options.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
@@ -36,10 +42,11 @@ function Many<K extends string>({ legend, options, value, onChange, none, disabl
 /** 시작 질문. extra=true면 ④~⑥까지 */
 export function StartQuestions({ value, onChange, extra, disabled, step }: { value: StartAnswers; onChange: (v: StartAnswers) => void; extra?: boolean; disabled?: boolean; step?: number }) {
   const set = <F extends keyof StartAnswers>(f: F) => (v: StartAnswers[F]) => onChange({ ...value, [f]: v });
+  const glass = step !== undefined; // 데모 시작의 질문별 화면은 밤하늘 반투명 드롭다운
   return <>
-    {(step === undefined || step === 0) && <Pick label="요즘 할 수 있는 활동 범위는?" options={RANGE} value={value.range} onChange={set('range')} disabled={disabled} />}
+    {(step === undefined || step === 0) && <Pick label="요즘 할 수 있는 활동 범위는?" options={RANGE} value={value.range} onChange={set('range')} disabled={disabled} glass={glass} />}
     {(step === undefined || step === 1) && <Many legend="부담되는 상황은? (여러 개 선택 가능)" options={BURDEN} value={value.burden} onChange={set('burden')} disabled={disabled} />}
-    {(step === undefined || step === 2) && <Pick label="혼자 하고 싶은가, 다른 사람과의 활동도 알아보고 싶은가?" options={WITH} value={value.with} onChange={set('with')} disabled={disabled} />}
+    {(step === undefined || step === 2) && <Pick label="혼자 하고 싶은가, 다른 사람과의 활동도 알아보고 싶은가?" options={WITH} value={value.with} onChange={set('with')} disabled={disabled} glass={glass} />}
     {extra && <>
       <Pick label="힘들 때 연락할 수 있는 사람이 있나요?" options={SUPPORT} value={value.support} onChange={set('support')} disabled={disabled} />
       <Pick label="지금 누구와 지내요?" options={LIVING} value={value.living} onChange={set('living')} disabled={disabled} />
