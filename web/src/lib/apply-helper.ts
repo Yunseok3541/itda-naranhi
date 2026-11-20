@@ -39,6 +39,8 @@ export type HelperReply = {
   intent: HelperIntent;
   reply: string;
   sections: Section[];
+  /** 자유 대화 AI 답의 근거 (고민기록 #45): 원문 / 일반(원문에 없는 일반 설명) / 대화(공감·제안) */
+  basis?: "원문" | "일반" | "대화";
   script?: Script;
   /** 말하기 연습: 상대(담당자) 말과 짧은 도움말 */
   staffLine?: string;
@@ -221,11 +223,13 @@ const ROUTES: [HelperIntent, RegExp][] = [
   ["practice", /연습/],
 ];
 const ROUTE_MAX = 25;
+// 다른 질문이나 마음이 섞인 말이면 규칙으로 바로 답하지 않는다 ("혼자 사는데 이거 돼? 서류도 많아?"를 서류 목록으로만 답했던 문제)
+const MIXED = /(돼|되나|되는|가능|할\s*수\s*있|해당|자격|혼자|무서|걱정|어려|귀찮|힘들|못\s*하|싫|불안)/;
 
 /** 확실한 말이면 해당 버튼으로, 아니면 null(→ AI). 두 가지 이상 섞이거나 길면 AI에 맡긴다 */
 export function routeChat(text: string): HelperIntent | null {
   const t = text.trim();
-  if (!t || t.length > ROUTE_MAX) return null;
+  if (!t || t.length > ROUTE_MAX || MIXED.test(t)) return null;
   const hits = ROUTES.filter(([, re]) => re.test(t)).map(([intent]) => intent);
   return hits.length === 1 ? hits[0] : null;
 }
@@ -250,3 +254,34 @@ export const CHAT_DONE: HelperReply = {
   reply: "이야기를 많이 나눴어요. 정리된 내용은 아래 버튼으로 다시 볼 수 있어요. 창을 닫았다 열면 새로 시작해요.",
   followUps: ["steps", "docs", "script"],
 };
+
+/** 사용자별 AI 호출 한도를 넘었을 때 (고민기록 #45). 버튼(원문 규칙)은 계속 쓸 수 있음 */
+export const CHAT_LIMITED: HelperReply = {
+  intent: "chat", source: "fallback", sections: [],
+  reply: "대화를 많이 나눠서 AI 답은 잠시 쉬어요. 아래 버튼으로 원문 내용은 바로 볼 수 있어요. 조금 뒤에 다시 물어봐 주세요.",
+  followUps: ["steps", "docs", "script", "start"],
+};
+
+/**
+ * 예시 모드(서버·AI 없이 체험) 자유 대화 (고민기록 #45): 자주 하는 말에 정해 둔 답. 그 밖의 말은 예시라고 솔직히 안내
+ * 사실은 예시 정책 원문(policy)에서만 꺼낸다
+ */
+export function exampleChatReply(p: HelperPolicy, text: string): HelperReply {
+  const t = text.trim();
+  const base = { intent: "chat" as const, source: "rule" as const, sections: [] as Section[] };
+  if (/무서|떨려|긴장|전화/.test(t)) {
+    const online = /온라인|홈페이지|누리집/.test(p.applyText ?? "");
+    return { ...base, followUps: online ? ["steps", "practice"] : ["script", "practice"],
+      reply: online ? "전화가 부담될 수 있어요. 이 정책 원문에는 온라인 신청이 있어요. 전화 대신 그쪽부터 살펴봐도 괜찮아요."
+        : "전화가 부담될 수 있어요. 말할 문장을 미리 만들어 두거나, 말하기 연습을 한 번 해 보면 조금 편해져요." };
+  }
+  if (/혼자|해당|자격|나이|되나|돼\??$/.test(t)) {
+    return { ...base, followUps: ["script"], reply: "자격이 되는지는 원문 조건과 담당자 확인이 필요해요. 물어볼 문장을 같이 만들어 볼까요?" };
+  }
+  if (/귀찮|힘들|못\s*하|어려|싫|지쳐/.test(t)) {
+    return { ...base, sections: startReply(p).sections, followUps: ["start"], reply: "부담스러울 수 있어요. 오늘은 아주 작은 것 하나만 해 봐도 충분해요." };
+  }
+  if (/고마|감사/.test(t)) return { ...base, followUps: [], reply: "천천히 해 봐요. 궁금한 게 생기면 언제든 다시 물어봐 주세요." };
+  return { ...base, followUps: ["steps", "docs", "script"],
+    reply: "예시 화면이라 자유 대화는 정해 둔 답만 해요. 실제 화면에서는 AI가 원문을 바탕으로 답해요. 아래 버튼으로 원문 내용을 볼 수 있어요." };
+}

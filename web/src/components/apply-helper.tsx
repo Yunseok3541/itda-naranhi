@@ -8,7 +8,7 @@
 // - 예시 모드는 서버 없이 같은 규칙 문장으로 답한다 (AI 없음)
 import { useEffect, useRef, useState } from 'react';
 import {
-  CHAT_MAX_TURNS, chatFallback, docsReply, fallbackScript, fallbackStaffLine, INTENT_LABEL, PRACTICE_MAX_TURNS, PRACTICE_SUGGEST,
+  CHAT_MAX_TURNS, docsReply, exampleChatReply, fallbackScript, fallbackStaffLine, INTENT_LABEL, PRACTICE_MAX_TURNS, PRACTICE_SUGGEST,
   practiceReply, routeChat, scriptReply, startReply, stepsReply, type HelperIntent, type HelperPolicy, type HelperReply,
 } from '@/lib/apply-helper';
 import { chatKey, clearChat, loadChat, saveChat } from '@/lib/apply-helper-store';
@@ -32,7 +32,7 @@ function exampleReply(policy: HelperPolicy, intent: HelperIntent, text: string, 
   const routed = routeChat(text);
   if (routed === 'practice') return PRACTICE_SUGGEST;
   if (routed === 'steps' || routed === 'docs' || routed === 'start') return { ...exampleReply(policy, routed, '', 0), intent: 'chat' };
-  return chatFallback();
+  return exampleChatReply(policy, text);
 }
 
 export default function ApplyHelper({ policyId, title, mode, examplePolicy, onClose }: {
@@ -55,6 +55,22 @@ export default function ApplyHelper({ policyId, title, mode, examplePolicy, onCl
   const [showRestored, setShowRestored] = useState(!!restored);
 
   useEffect(() => { dialog.current?.showModal(); }, []);
+  // 폰 키보드가 올라오면 실제로 보이는 높이(visualViewport)가 줄어듦 → 그만큼 창을 올리고 줄여 입력창이 가려지지 않게 (고민기록 #45)
+  useEffect(() => {
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+    const d = dialog.current;
+    if (!vv || !d) return;
+    const fit = () => {
+      const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+      d.style.setProperty('--kb', `${kb}px`);
+      // 키보드가 올라와 있으면 보이는 화면을 거의 다 써서 대화 내용이 보이게
+      if (kb > 0) d.style.setProperty('--dh', `${Math.round(vv.height - 8)}px`); else d.style.removeProperty('--dh');
+    };
+    fit();
+    vv.addEventListener('resize', fit);
+    vv.addEventListener('scroll', fit);
+    return () => { vv.removeEventListener('resize', fit); vv.removeEventListener('scroll', fit); };
+  }, []);
   useEffect(() => { end.current?.scrollIntoView({ block: 'end' }); }, [messages, busy]);
   // 바뀔 때마다 이 탭에 저장 (저장 못 해도 대화는 계속됨)
   useEffect(() => { saveChat(storeKey, { messages, chatLog, lastQuestion }); }, [storeKey, messages, chatLog, lastQuestion]);
@@ -137,6 +153,7 @@ export default function ApplyHelper({ policyId, title, mode, examplePolicy, onCl
         </label>
         <div>
           <input id="apply-helper-text" type="text" maxLength={200} value={text} onChange={e => setText(e.target.value)} autoComplete="off" disabled={chatFull}
+            onFocus={() => setTimeout(() => end.current?.scrollIntoView({ block: 'end' }), 300)}
             placeholder={inputMode === 'practice' ? '예: 안녕하세요, 정책 문의드려요' : '예: 혼자 사는데 신청할 수 있어요?'} />
           <button type="submit" disabled={busy || !text.trim() || chatFull}>보내기</button>
         </div>
@@ -167,7 +184,8 @@ function Bubble({ message, onPick, disabled }: { message: Message; onPick: (inte
         void navigator.clipboard?.writeText(all).catch(() => {});
       }}>대본 복사하기</button>
     </div>}
-    {r && r.source === 'ai' && (r.intent === 'script' || r.intent === 'chat') && <p className="small">AI가 원문을 바탕으로 만들었어요. 틀릴 수 있어요.</p>}
+    {r && r.source === 'ai' && (r.intent === 'script' || (r.intent === 'chat' && r.basis === '원문')) && <p className="small">AI가 원문을 바탕으로 만들었어요. 틀릴 수 있어요.</p>}
+    {r && r.source === 'ai' && r.intent === 'chat' && r.basis === '일반' && <p className="small apply-helper-general">원문에 없는 일반적인 설명이에요. 이 정책에 맞는지는 원문이나 담당자에게 확인해 주세요.</p>}
     {r && r.source === 'ai' && r.intent === 'practice' && <p className="small">연습용 AI 담당자예요. 실제 안내와 다를 수 있어요.</p>}
     {r?.help && <div className="help"><h3>{r.help.title}</h3>{r.help.lines.map(line => <p key={line}>{line}</p>)}</div>}
     {r && r.followUps.length > 0 && <div className="apply-helper-follow">

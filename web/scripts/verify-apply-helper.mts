@@ -5,8 +5,9 @@
 process.env.GEMINI_API_KEY = "";
 
 const { db } = await import("@/lib/db");
-const { applyHelper, claimsUnlistedChannel, hasNewNumbers } = await import("@/app/api/policies/helper");
-const { splitSource, PRACTICE_MAX_TURNS, CHAT_MAX_TURNS, CHAT_CONTEXT, routeChat } = await import("@/lib/apply-helper");
+const { applyHelper, claimsUnlistedChannel, hasNewNumbers, judgesEligibility, CHAT_TIME } = await import("@/app/api/policies/helper");
+const { takeAiBudget, resetAiBudget, HELPER_LIMITS } = await import("@/lib/ai-budget");
+const { splitSource, PRACTICE_MAX_TURNS, CHAT_MAX_TURNS, CHAT_CONTEXT, routeChat, exampleChatReply } = await import("@/lib/apply-helper");
 type Db = import("@/app/api/_lib/http").Db;
 type Gen = typeof import("@/lib/gemini").generateJson;
 type Body = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -50,6 +51,42 @@ check("대화 규칙: \"신청 어떻게 해요\" → steps", routeChat("신청 
 check("대화 규칙: \"연습하고 싶어\" → practice", routeChat("연습하고 싶어") === "practice");
 check("대화 규칙: 두 가지 섞이면(서류·순서) AI로", routeChat("서류랑 순서 둘 다 알려줘") === null);
 check("대화 규칙: 길거나 다른 말이면 AI로", routeChat("혼자 사는데 이거 신청해도 되는 건지 잘 모르겠어서 서류도 궁금해요") === null && routeChat("전화가 너무 무서워요") === null);
+
+check("대화 규칙: 다른 질문이 섞이면(\"혼자 사는데 이거 돼? 서류도 많아?\") AI로 — 실제 Gemini에서 서류 목록만 줬던 말", routeChat("혼자 사는데 이거 돼? 서류도 많아?") === null);
+check("대화 규칙: 마음이 섞이면(\"서류 챙기기 너무 귀찮아\") AI로", routeChat("서류 챙기기 너무 귀찮아") === null);
+
+// ---------- 자격 판정 (평가에서 나온 실제 문장) ----------
+check("자격 판정: \"혼자 사는 청년이라면 신청할 수 있을 것 같아요\" → 걸림", judgesEligibility("혼자 사는 청년이라면 신청할 수 있을 것 같아요. 서울 영테크는 무료 재무상담을 지원해요."));
+check("자격 판정: \"대상이에요\"·\"해당될 것 같아요\" → 걸림", judgesEligibility("이 정책 대상이에요.") && judgesEligibility("말씀을 들어 보니 해당될 것 같아요."));
+check("자격 판정: 방법 안내 \"온라인으로 신청할 수 있어요\"는 통과", !judgesEligibility("청년몽땅정보통에서 온라인으로 신청할 수 있어요."));
+check("자격 판정: \"신청할 수 있는지 담당자에게 확인해 볼 수 있어요\"는 통과", !judgesEligibility("혼자 사시는군요. 신청할 수 있는지 담당자에게 확인해 볼 수 있어요."));
+
+// ---------- 사용자별 AI 호출 한도 (고민기록 #45) ----------
+{
+  const saved = { ...HELPER_LIMITS };
+  resetAiBudget();
+  Object.assign(HELPER_LIMITS, { perMinute: 2, perDay: 100 });
+  const t0 = 1_700_000_000_000;
+  check("한도: 분당 2번까지, 3번째는 거절", takeAiBudget(7, t0) && takeAiBudget(7, t0 + 10) && !takeAiBudget(7, t0 + 20));
+  check("한도: 1분이 지나면 다시", takeAiBudget(7, t0 + 60_001));
+  check("한도: 사람마다 따로", takeAiBudget(8, t0 + 30));
+  check("한도: 사용자 정보 없이(검증 스크립트) 부르면 세지 않음", Array.from({ length: 5 }, () => takeAiBudget(undefined, t0)).every(Boolean));
+  resetAiBudget();
+  Object.assign(HELPER_LIMITS, { perMinute: 100, perDay: 3 });
+  const day = [0, 1, 2, 3].map((i) => takeAiBudget(9, t0 + i * 1000));
+  check("한도: 하루 3번이면 4번째 거절, 다음 날(한국 시간) 다시", JSON.stringify(day) === "[true,true,true,false]" && takeAiBudget(9, t0 + 86_400_000));
+  Object.assign(HELPER_LIMITS, saved);
+  resetAiBudget();
+}
+
+// ---------- 예시 모드 자유 대화 (서버·AI 없이) ----------
+{
+  const ex = { title: "예시", burden: "online" as const, applyText: "온라인 신청→서류 확인", reviewText: null, docsText: "신분증" };
+  check("예시 대화: \"전화 무서워\" → 원문에 있는 온라인 신청 안내", exampleChatReply(ex, "전화 무서워").reply.includes("온라인"));
+  check("예시 대화: \"혼자 해도 돼?\" → 자격 판정 없이 대본 제안", exampleChatReply(ex, "혼자 해도 돼?").followUps[0] === "script");
+  check("예시 대화: \"너무 귀찮아\" → 공감 + 작은 준비 목록", exampleChatReply(ex, "너무 귀찮아").sections.length === 1);
+  check("예시 대화: 정해 두지 않은 말 → 예시라고 솔직히", exampleChatReply(ex, "기숙사 있어?").reply.includes("예시 화면"));
+}
 
 /** 받은 요청(지시문·프롬프트)을 기록하는 가짜 AI */
 function captureGen(data: unknown) {
@@ -219,6 +256,44 @@ try {
   const r3 = seqGen({ reply: "반드시 신청하셔야 해요.", topics: [], found: true, risk: "normal" }, goodReply);
   const c13 = (await applyHelper(full, { intent: "chat", text: "어떻게 해야 해" }, client, r3)).body as Body;
   check("다시 받기: 금지 표현은 다시 받지 않고 바로 기본 안내 (AI 1번)", c13.source === "fallback" && r3.prompts.length === 1, { n: r3.prompts.length });
+
+  const v1 = seqGen({ reply: "혼자 사는 청년이라면 신청할 수 있을 것 같아요.", topics: [], found: true, basis: "원문", risk: "normal" }, { reply: "원문에는 청년 1인 가구 지원이라고 적혀 있어요. 자격은 담당자에게 확인해 볼 수 있어요.", topics: ["script"], found: true, basis: "원문", risk: "normal" });
+  const vr = (await applyHelper(full, { intent: "chat", text: "혼자 사는데 이거 신청할 수 있어?" }, client, v1)).body as Body;
+  check("자격 판정한 답 → 이유를 붙여 다시 받아 고친 답 사용", vr.source === "ai" && vr.reply.includes("확인") && v1.prompts.length === 2 && String(JSON.parse(v1.prompts[1]).고칠_점).includes("자격"), vr);
+
+  // 근거 표시 (원문 / 일반 / 대화)
+  const b1 = (await applyHelper(full, { intent: "chat", text: "상담하면 뭐 하는 거야?" }, client, fakeGen({ reply: "상담은 보통 상황을 듣고 도움을 안내해요.", topics: [], found: true, basis: "일반", risk: "normal" }))).body as Body;
+  check("근거: AI가 일반 설명이라고 하면 basis 일반 (화면에 \"원문에 없는 일반적인 설명\")", b1.basis === "일반", b1.basis);
+  const b2 = (await applyHelper(full, { intent: "chat", text: "얼마 받는 거예요?" }, client, fakeGen({ reply: "원문에는 월 20만원, 최대 12개월 지원이라고 적혀 있어요.", topics: [], found: true, basis: "원문", risk: "normal" }))).body as Body;
+  const b3 = (await applyHelper(full, { intent: "chat", text: "얼마 받는 거예요?" }, client, fakeGen({ reply: "천천히 해도 괜찮아요.", topics: [], found: true, risk: "normal" }))).body as Body;
+  check("근거: 원문은 그대로, 근거가 없거나 모르면 일반 (원문인 척하지 않게)", b2.basis === "원문" && b3.basis === "일반", [b2.basis, b3.basis]);
+
+  // 시간: 첫 답이 늦게 왔으면 다시 받지 않음 (Gemini에서 다시 받기까지 19초)
+  const savedTime = { ...CHAT_TIME };
+  CHAT_TIME.retryIfUnderMs = 0;
+  const slow = seqGen(badReply, goodReply);
+  const t1 = (await applyHelper(full, { intent: "chat", text: "전화는 좀 무서워" }, client, slow)).body as Body;
+  check("시간: 첫 답이 늦으면 다시 받지 않고 기본 안내 (AI 1번)", t1.source === "fallback" && slow.prompts.length === 1, { n: slow.prompts.length });
+  Object.assign(CHAT_TIME, savedTime);
+
+  // 사용자별 한도를 넘으면 AI 없이
+  {
+    const saved = { ...HELPER_LIMITS };
+    resetAiBudget();
+    Object.assign(HELPER_LIMITS, { perMinute: 2, perDay: 100 });
+    const lg = fakeGen({ reply: "천천히 해도 괜찮아요.", topics: [], found: true, basis: "대화", risk: "normal" });
+    const uid = 424242;
+    const l1 = (await applyHelper(full, { intent: "chat", text: "전화가 너무 무서워요" }, client, lg, uid)).body as Body;
+    await applyHelper(full, { intent: "chat", text: "그래도 해 볼까 싶어요" }, client, lg, uid);
+    const l3 = (await applyHelper(full, { intent: "chat", text: "근데 또 걱정돼요" }, client, lg, uid)).body as Body;
+    check("한도: 3번째 말은 AI를 부르지 않고 쉬어 간다는 안내, aiStatus limited", l1.aiStatus === "ok" && l3.aiStatus === "limited" && l3.reply.includes("쉬어요") && lg.calls === 2, { calls: lg.calls, s: l3.aiStatus });
+    const l4 = (await applyHelper(full, { intent: "chat", text: "서류 뭐 필요해?" }, client, lg, uid)).body as Body;
+    check("한도: 넘어도 원문 규칙 답(서류 목록)은 그대로", l4.source === "rule" && l4.sections.length > 0 && lg.calls === 2);
+    const l5 = (await applyHelper(full, { intent: "script", text: "혼자 해도 돼요" }, client, lg, uid)).body as Body;
+    check("한도: 대본은 기본 대본으로 (limited)", l5.aiStatus === "limited" && l5.script.questions[0] === "혼자 해도 돼요?", l5);
+    Object.assign(HELPER_LIMITS, saved);
+    resetAiBudget();
+  }
 
   check("대화: 글 없이 → 400", (await applyHelper(full, { intent: "chat" }, client, g0)).status === 400);
 

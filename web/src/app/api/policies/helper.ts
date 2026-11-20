@@ -5,10 +5,11 @@
 // - 대화는 저장하지 않음 (화면이 history를 들고 있다가 보냄). 말하기 연습은 사용자 말 6번까지
 // - 자유 대화 chat (고민기록 #43): 확실한 말은 routeChat 규칙(AI 0번), 나머지는 AI 1번. 사실(순서·서류)은 AI가 쓰지 않고 원문 규칙에서 붙임. 10번까지
 import { db as pool } from "@/lib/db";
+import { takeAiBudget } from "@/lib/ai-budget";
 import { generateJson } from "@/lib/gemini";
 import { assessRisk, helpFor, isSafeAiText, ruleRisk, type Risk } from "@/lib/safety";
 import {
-  CHAT_CONTEXT, CHAT_DONE, CHAT_MAX_TURNS, chatFallback, PRACTICE_SUGGEST, routeChat,
+  CHAT_CONTEXT, CHAT_DONE, CHAT_LIMITED, CHAT_MAX_TURNS, chatFallback, PRACTICE_SUGGEST, routeChat,
   careReply, docsReply, withUserQuestion, fallbackScript, fallbackStaffLine, HELPER_INTENTS, notFoundReply, practiceReply, PRACTICE_DONE,
   PRACTICE_MAX_TURNS, scriptReply, startReply, stepsReply, type HelperIntent, type HelperPolicy, type HelperReply, type Script,
 } from "@/lib/apply-helper";
@@ -61,6 +62,12 @@ const askSchema = {
   required: ["found", "answer", "risk"],
 };
 
+/**
+ * 자유 대화 시간 (Gemini 실제 확인에서 다시 받기까지 19초가 걸림 → 화면이 오래 멈추지 않게)
+ * 첫 호출은 budgetMs - 4초까지, 다시 받기는 첫 답이 retryIfUnderMs 안에 왔을 때만 남은 시간 안에서
+ * 테스트에서 retryIfUnderMs를 바꿔 "늦게 온 경우"를 흉내 낸다
+ */
+export const CHAT_TIME = { budgetMs: 12_000, retryIfUnderMs: 5_000 };
 const CHAT_TOPICS = ["steps", "docs", "script", "start", "practice"] as const;
 type ChatTopic = (typeof CHAT_TOPICS)[number];
 const CHAT_SYSTEM = `너는 고립·은둔 경험이 있는 청년이 정책을 신청하도록 곁에서 돕는 대화 도우미다. ${DATA_ONLY}
@@ -69,6 +76,7 @@ const CHAT_SYSTEM = `너는 고립·은둔 경험이 있는 청년이 정책을 
 - 연락·신청 방법(전화, 문자, 이메일, 카카오톡, 게시판, 방문, 온라인)이 "된다", "방법이 있다"고 원문에 없는데 단정하지 않는다. 원문에 없으면 "되는지 담당자에게 확인해 볼 수 있어요"처럼 말한다. 예: 원문에 이메일이 없으면 "이메일로 문의하는 방법도 있어요"라고 하지 않고 "이메일로도 되는지 물어볼 수 있어요"라고 한다.
 - 원문에 답이 없으면 found=false로 하고, 모른다고 솔직히 말한 뒤 담당자에게 물어볼 문장을 같이 만들자고 제안한다(topics에 script).
 - 신청 순서·서류 목록을 reply에 길게 옮기지 않는다. 대신 topics에 steps 또는 docs를 넣으면 원문 목록이 따로 붙는다.
+- basis: reply의 근거. 원문(정책 원문 내용을 전함) / 일반(원문에 없는 일반적인 설명) / 대화(공감·다음 걸음 제안만, 정책 사실 없음).
 - topics: 지금 도움이 될 것 최대 2개. steps(신청 순서) docs(서류) script(문의 대본) start(작은 준비) practice(말하기 연습). 없으면 빈 배열.
 - risk: 사용자 말에 자해·자살 뜻이 보이면 danger, 애매하면 caution, 그 외 normal.
 지정된 JSON만 출력한다.`;
@@ -78,11 +86,13 @@ const chatSchema = {
     reply: { type: "string" },
     topics: { type: "array", items: { type: "string", enum: [...CHAT_TOPICS] } },
     found: { type: "boolean" },
+    basis: { type: "string", enum: ["원문", "일반", "대화"] },
     risk: riskProp,
   },
-  required: ["reply", "topics", "found", "risk"],
+  required: ["reply", "topics", "found", "basis", "risk"],
 };
-type ChatOut = { reply: string; topics: string[]; found: boolean; risk: Risk };
+type ChatOut = { reply: string; topics: string[]; found: boolean; basis?: string; risk: Risk };
+const BASES = ["원문", "일반", "대화"] as const;
 
 const isRisk = (v: unknown): v is Risk => v === "normal" || v === "caution" || v === "danger";
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object";
@@ -100,6 +110,18 @@ export function claimsUnlistedChannel(reply: string, factsText: string): boolean
   return reply.split(/(?<=[.?!요])\s+/).some((sentence) => !HEDGE.test(sentence) && (
     ALT_CHANNELS.some((c) => sentence.includes(c) && missing(c))
     || COMMON_CHANNELS.some((c) => missing(c) && new RegExp(`${c}${CLAIM_AFTER}`).test(sentence))));
+}
+
+// 자격을 판정·짐작하는 말 (평가에서 "혼자 사는 청년이라면 신청할 수 있을 것 같아요"가 나옴, 고민기록 #45)
+// "온라인으로 신청할 수 있어요"(방법 안내)는 아님 → 조건("~라면")이나 짐작("~것 같아요")·단정(대상이에요)과 함께일 때만
+const VERDICT = [
+  /(이라면|라면|이시면|시면|이니까|니까|이므로|므로)[^.?!]{0,20}(신청할\s*수\s*있|받을\s*수\s*있|대상|해당)/,
+  /(해당될|대상일|신청할\s*수\s*있을|받을\s*수\s*있을|자격이\s*될|자격이\s*있을)\s*(것|거)\s*같/,
+  /(대상이에요|대상입니다|해당돼요|해당됩니다|해당하세요|자격이\s*돼요|자격이\s*있어요|자격이\s*됩니다)/,
+];
+/** 문장마다: 머뭇거림("되는지", "확인") 없이 자격을 판정·짐작하면 true */
+export function judgesEligibility(reply: string): boolean {
+  return reply.split(/(?<=[.?!요])\s+/).some((sentence) => !/(되는지|있는지|확인|물어)/.test(sentence) && VERDICT.some((re) => re.test(sentence)));
 }
 
 /** 원문·입력에 없던 숫자가 있는지 (지어낸 날짜·금액·번호 방지) */
@@ -144,11 +166,12 @@ function parseHistory(v: unknown): Turn[] | null {
  * ok: AI 문장 사용 / not_used: 규칙 버튼 / no_key: 키 없음(로컬 개발은 일부러 비움) / error: 호출 실패·시간 초과·한도
  * invalid: 형식이 맞지 않는 답 / filtered: 원문에 없는 숫자·금지 표현으로 버림
  */
-type AiStatus = "ok" | "not_used" | "no_key" | "error" | "invalid" | "filtered";
+// limited: 사용자별 AI 호출 한도를 넘어 규칙 답만 (고민기록 #45)
+type AiStatus = "ok" | "not_used" | "no_key" | "error" | "invalid" | "filtered" | "limited";
 const aiStatusOf = (r: { usedFallback: boolean; fallbackReason: "no_key" | "error" | "invalid" | null }, accepted: boolean): AiStatus =>
   r.usedFallback ? r.fallbackReason ?? "error" : accepted ? "ok" : "filtered";
 
-function done(reply: HelperReply, help: ReturnType<typeof helpFor>, aiStatus: AiStatus = "not_used", modelVersion: string | null = null) {
+function finish(reply: HelperReply, help: ReturnType<typeof helpFor>, aiStatus: AiStatus = "not_used", modelVersion: string | null = null) {
   if (aiStatus !== "ok" && aiStatus !== "not_used") console.warn(`[helper] ${reply.intent}: AI 대신 기본 문장 (${aiStatus})`);
   return ok({ ...reply, help, aiStatus, modelVersion });
 }
@@ -157,7 +180,18 @@ function done(reply: HelperReply, help: ReturnType<typeof helpFor>, aiStatus: Ai
  * 요청 { intent, text?, history? } → 200 { intent, reply, sections, script?, staffLine?, tip?, turnsLeft?, source, followUps, help, modelVersion }
  * 정책 ID·이유가 틀리면 400, 없는 정책 404, DB 장애 500 (모두 help 포함)
  */
-export async function applyHelper(policyIdRaw: unknown, body: unknown, db: Db = pool, generate: typeof generateJson = generateJson): Promise<ApiResult> {
+export async function applyHelper(policyIdRaw: unknown, body: unknown, db: Db = pool, generateRaw: typeof generateJson = generateJson, userId?: number): Promise<ApiResult> {
+  // 사용자별 한도를 넘으면 AI를 부르지 않고 각 기능의 기본값으로 (aiStatus: limited)
+  let limited = false;
+  const generate = (async (o: Parameters<typeof generateJson>[0]) => {
+    if (!takeAiBudget(userId)) {
+      limited = true;
+      return { data: o.fallback, usedFallback: true, modelVersion: null, fallbackReason: "error" };
+    }
+    return generateRaw(o);
+  }) as typeof generateJson;
+  const done = (reply: HelperReply, help: ReturnType<typeof helpFor>, aiStatus: AiStatus = "not_used", modelVersion: string | null = null) =>
+    finish(reply, help, limited && aiStatus !== "ok" && aiStatus !== "not_used" ? "limited" : aiStatus, modelVersion);
   const b = (body ?? {}) as { intent?: unknown; text?: unknown; history?: unknown };
   const text = typeof b.text === "string" ? b.text.trim() : "";
   const history = parseHistory(b.history);
@@ -203,7 +237,7 @@ export async function applyHelper(policyIdRaw: unknown, body: unknown, db: Db = 
     const factsText = JSON.stringify(facts(p));
     // 원문에 나온 연락·신청 방법을 미리 알려 그 안에서만 제안하게 (gpt-4o-mini가 원문에 없는 "이메일 문의"를 자주 제안함)
     const listed = [...ALT_CHANNELS, ...COMMON_CHANNELS].filter((c) => factsText.includes(c));
-    const ask = (fix?: string) => generate<ChatOut>({
+    const ask = (fix?: string, timeoutMs = CHAT_TIME.budgetMs - 4_000) => generate<ChatOut>({
       system: CHAT_SYSTEM,
       prompt: JSON.stringify({
         정책: facts(p), 원문에_있는_연락_신청_방법: listed.length ? listed : "원문에 없음",
@@ -215,30 +249,37 @@ export async function applyHelper(policyIdRaw: unknown, body: unknown, db: Db = 
       fallback: { reply: "", topics: [], found: false, risk: "normal" },
       temperature: 0.3,
       model: HELPER_MODEL,
+      timeoutMs,
     });
     /** 버릴 이유 (없으면 null). 숫자·방법 단정은 이유를 붙여 한 번 다시 받을 수 있음 */
     const problem = (reply: string) =>
       !isSafeAiText(reply, 300) ? "unsafe"
         : hasNewNumbers(reply, factsText) ? "직전 답에 원문에 없는 숫자가 있었다. 숫자는 원문에 있는 것만 쓰거나 빼라."
+          : judgesEligibility(reply) ? `직전 답이 자격을 판정하거나 짐작했다. 자격이 되는지는 말하지 말고 "원문에는 ~라고 적혀 있어요"처럼 전하고, 담당자에게 확인해 보자고 하라. 직전 답: ${reply}`
           : claimsUnlistedChannel(reply, factsText) ? `직전 답이 원문에 없는 연락·신청 방법을 된다고 단정했다. 원문에_있는_연락_신청_방법만 제안하고, 그 밖의 방법은 "되는지 물어볼 수 있어요"로 말하라. 직전 답: ${reply}`
             : null;
+    const started = Date.now();
     let ai = await ask();
     let why = ai.usedFallback ? "fallback" : problem(ai.data.reply);
     // 사실 문제로 걸리면 이유를 붙여 한 번만 다시 (피드백 루프의 "돌려보내기"와 같은 방식). 위험·금지 표현은 다시 받지 않음
-    if (why && why !== "fallback" && why !== "unsafe") {
+    // 첫 답이 늦게 왔으면 다시 받지 않고 기본 안내로 (전체 시간 안에서만)
+    const elapsed = Date.now() - started;
+    if (why && why !== "fallback" && why !== "unsafe" && elapsed < CHAT_TIME.retryIfUnderMs) {
       console.warn("[helper] chat: 답을 돌려보내 다시 받음");
-      ai = await ask(why);
+      ai = await ask(why, Math.max(2_000, CHAT_TIME.budgetMs - elapsed - 500));
       why = ai.usedFallback ? "fallback" : problem(ai.data.reply);
     }
     const help = helpFor(assessRisk(allUserText, ai.usedFallback ? null : ai.data.risk));
-    if (why) return done(chatFallback(), help, aiStatusOf(ai, false));
+    if (why) return done(limited ? CHAT_LIMITED : chatFallback(), help, aiStatusOf(ai, false));
     const topics = [...new Set(ai.data.topics)].filter((t): t is ChatTopic => (CHAT_TOPICS as readonly string[]).includes(t)).slice(0, 2);
     // 순서·서류·작은 준비는 AI 문장이 아니라 원문 규칙에서 붙인다
     const sections = topics.flatMap((t) => (t === "steps" ? stepsReply(p).sections : t === "docs" ? docsReply(p).sections : t === "start" ? startReply(p).sections : []));
     const followUps: HelperIntent[] = [...topics.filter((t) => t === "script" || t === "practice")];
     if (!ai.data.found && !followUps.includes("script")) followUps.unshift("script");
     if (!followUps.length) followUps.push(...(["steps", "docs", "script"] as const).filter((t) => !topics.includes(t)).slice(0, 2));
-    return done({ intent: "chat", source: "ai", sections, reply: ai.data.reply.trim(), followUps }, help, "ok", ai.modelVersion);
+    // 근거를 모르면 "일반"으로 (원문인 척하지 않게)
+    const basis = (BASES as readonly string[]).includes(ai.data.basis ?? "") ? (ai.data.basis as (typeof BASES)[number]) : "일반";
+    return done({ intent: "chat", source: "ai", sections, reply: ai.data.reply.trim(), followUps, basis }, help, "ok", ai.modelVersion);
   }
 
   if (intent === "script") {
