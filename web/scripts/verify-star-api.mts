@@ -22,6 +22,7 @@ const { createAttempt } = await import("@/app/api/_lib/attempts");
 const { getSky } = await import("@/app/api/_lib/sky");
 const { createDraft, listDrafts, updateDraft } = await import("@/app/api/_lib/inquiries");
 const { getCenter, listCenters } = await import("@/app/api/_lib/centers");
+const { characters } = await import("@/app/catalog/characters");
 type Db = import("@/app/api/_lib/http").Db;
 type Gen = typeof import("@/lib/gemini").generateJson;
 
@@ -127,6 +128,11 @@ try {
   check("별자리 = quests.json (이름·테마·단계·별 수·순서)",
     JSON.stringify(dbConst) === JSON.stringify(qj.constellations.map((c) => ({ id: c.id, stage: c.stage, name: c.name, theme: c.theme, star_count: c.quests.length })))
       && qj.constellations.every((c) => JSON.stringify((byConst.get(c.id) ?? []).map((x) => x.id)) === JSON.stringify(c.quests)), dbConst.length);
+  // 별자리 = 도감 캐릭터 (id = characters.ts 순서, 이름·테마 같음). 한쪽만 바뀌면 여기서 알 수 있음
+  const catalogDiff = characters
+    .map((ch, i) => ({ id: i + 1, name: ch.constellation.name, theme: ch.constellation.theme }))
+    .filter((ch) => { const c = dbConst.find((x) => x.id === ch.id); return !c || c.name !== ch.name || c.theme !== ch.theme; });
+  check(`별자리 = 도감 캐릭터 ${characters.length}명 (순서·이름·테마)`, characters.length === dbConst.length && catalogDiff.length === 0, catalogDiff);
   const dbStars = (
     await client.query<Record<string, unknown>>(
       `SELECT s.id, c.stage, s.focus, s.title, s.description, q.title AS easier_title, s.tags, s.verify_type, s.place_type, s.category, s.is_outside
