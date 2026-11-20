@@ -5,7 +5,7 @@ import {
   BURDEN, EMPTY_POLICY_INFO, EMPTY_START, INCOME, JOB, LIVING, MARRIED, NEEDS, RANGE, SCHOOL, SPECIAL, SUPPORT, WITH,
   type PolicyInfo, type StartAnswers,
 } from '@/lib/profile';
-import { client, type Mode } from '@/lib/mobile-data';
+import { client, markPoliciesStale, type Mode } from '@/lib/mobile-data';
 import GlassSelect from './glass-select';
 
 const SKIP = '답하지 않을래요';
@@ -113,6 +113,7 @@ export function ProfileScreen({ mode, onSaved }: { mode: Mode; onSaved?: () => v
     setState('saving'); setMessage(''); setError('');
     try {
       const p = await client(mode).saveProfile(update);
+      markPoliciesStale();
       if (onSaved) {
         onSaved();
         return;

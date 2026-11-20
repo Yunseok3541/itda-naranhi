@@ -11,7 +11,8 @@ export default function MeteorRewards({ mode, skyTotal }: { mode: Mode; skyTotal
   const [total, setTotal] = useState<number>();
   const [meteor, setMeteor] = useState<number | null>(null);
   const [limitReached, setLimitReached] = useState(false);
-  const [reward, setReward] = useState<number | null>(null);
+  // +1 포인트는 유성을 잡은 자리(화면 좌표)에서 떠오름 (FE_QA)
+  const [reward, setReward] = useState<{ id: number; x: number; y: number } | null>(null);
   const pending = useRef(false);
   const announced = useRef<number | null>(null);
   const awardTimer = useRef<number>(0);
@@ -74,7 +75,7 @@ export default function MeteorRewards({ mode, skyTotal }: { mode: Mode; skyTotal
     };
   }, [mode]);
 
-  async function catchMeteor(id: number) {
+  async function catchMeteor(id: number, x: number, y: number) {
     if (pending.current || limitReached || announced.current === id) return;
     pending.current = true;
     try {
@@ -84,7 +85,7 @@ export default function MeteorRewards({ mode, skyTotal }: { mode: Mode; skyTotal
       setTotal(value => Math.max(value ?? 0, result.totalPoints));
       setLimitReached(result.meteor.caughtToday >= result.meteor.dailyLimit);
       if (result.pointsEarned === 1) {
-        setReward(id);
+        setReward({ id, x, y });
         window.clearTimeout(awardTimer.current);
         awardTimer.current = window.setTimeout(() => setReward(null), 1600);
       }
@@ -96,7 +97,12 @@ export default function MeteorRewards({ mode, skyTotal }: { mode: Mode; skyTotal
   return <>
     {(skyTotal !== undefined || total !== undefined) && <div className="sky-points" aria-label={`총 ${value} 포인트`}><span aria-hidden="true">✦</span> {value} 포인트</div>}
     {meteor !== null && <button key={meteor} type="button" className="sky-pill sky-meteor" aria-label="유성 담기"
-      disabled={limitReached} onClick={() => void catchMeteor(meteor)}><span aria-hidden="true">✦</span></button>}
-    {reward !== null && <div key={reward} className="sky-meteor-reward" role="status">+1 포인트</div>}
+      disabled={limitReached} onClick={event => {
+        // 유성은 움직이는 중이라 누른 순간의 자리를 기억 (키보드로 누르면 단추 가운데)
+        const box = event.currentTarget.getBoundingClientRect();
+        const pointer = event.clientX || event.clientY;
+        void catchMeteor(meteor, pointer ? event.clientX : box.left + box.width / 2, pointer ? event.clientY : box.top + box.height / 2);
+      }}><span aria-hidden="true">✦</span></button>}
+    {reward !== null && <div key={reward.id} className="sky-meteor-reward" role="status" style={{ left: reward.x, top: reward.y }}>+1 포인트</div>}
   </>;
 }

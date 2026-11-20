@@ -163,3 +163,14 @@
 }
 .apply-helper .bubble ol { list-style: decimal; }
 .apply-helper .bubble ul { list-style: disc; }
+
+/* 화면 전환 (FE_QA "화면 전환을 더 유기적으로"): 정책·내 정보·청년센터 같은 화면에 들어오면
+   내용이 위에서부터 차례로 살짝 떠오름. transform을 쓰는 고정 요소(도움 창 등)와 겹치지 않게 translate 속성만 움직임 */
+@media (prefers-reduced-motion: no-preference) {
+  .shell.night-ui > :not(.help-panel):not(dialog):not(footer) { animation: screen-rise .38s cubic-bezier(.2, .8, .2, 1) both; }
+  .shell.night-ui > :nth-child(2) { animation-delay: .04s; }
+  .shell.night-ui > :nth-child(3) { animation-delay: .08s; }
+  .shell.night-ui > :nth-child(4) { animation-delay: .12s; }
+  .shell.night-ui > :nth-child(n + 5) { animation-delay: .16s; }
+  @keyframes screen-rise { from { opacity: 0; translate: 0 10px; } }
+}

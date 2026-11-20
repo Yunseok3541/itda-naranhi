@@ -11,7 +11,7 @@
 // - [나랑 안 맞아요]: 이유를 고르면 그 정책은 다시 추천하지 않음. 지역·조건 이유는 피드백 루프로 (고민기록 #38)
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { request, type Help, type Mode } from '@/lib/mobile-data';
+import { request, takePoliciesStale, type Help, type Mode } from '@/lib/mobile-data';
 import type { HelperPolicy } from '@/lib/apply-helper';
 import ApplyHelper from './apply-helper';
 import { Hero, HeroIcon, MoreLinks, ScreenBar, Summary } from './screen-kit';
@@ -74,7 +74,10 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
   useEffect(() => {
     let active = true;
     async function load() {
-      const byView = loaded.mode === mode ? loaded.byView : {};
+      // 추천 기준을 바꾸고 돌아왔으면 기억해 둔 두 보기를 모두 버리고 새로 불러옴 (서버도 오늘 추천을 지웠음)
+      const stale = takePoliciesStale();
+      if (stale) { setLoaded({ mode, byView: {} }); setServerCounts({ recommended: null, all: null }); }
+      const byView = !stale && loaded.mode === mode ? loaded.byView : {};
       if (byView[view]) { setLoading(false); setError(''); return; } // 이미 불러온 보기
       setLoading(true); setError(''); onClearError();
       try {

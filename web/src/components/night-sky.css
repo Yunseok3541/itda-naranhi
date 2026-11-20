@@ -201,9 +201,19 @@ html.sky-night-page body {
   background: linear-gradient(90deg, #fff3ce, transparent); transform: rotate(-26deg); transform-origin: left;
 }
 .sky-mode button.sky-pill.sky-meteor:disabled { pointer-events: none; opacity: .55; }
-.sky-meteor-reward { position: fixed; z-index: 2; left: 50%; top: 35dvh; transform: translateX(-50%); color: #ffe29a; font-weight: 700; text-shadow: 0 2px 10px #110b25; pointer-events: none; }
+.sky-meteor-reward {
+  position: fixed; z-index: 2; transform: translate(-50%, -130%); white-space: nowrap;
+  color: #ffe29a; font-weight: 700; text-shadow: 0 2px 10px #110b25; pointer-events: none;
+}
 @media (prefers-reduced-motion: no-preference) {
   .sky-meteor { animation: sky-meteor-pass 5.2s linear both; }
+  .sky-meteor-reward { animation: sky-meteor-reward-rise 1.6s ease-out both; }
+  @keyframes sky-meteor-reward-rise {
+    from { opacity: 0; transform: translate(-50%, -60%) scale(.85); }
+    15% { opacity: 1; transform: translate(-50%, -130%) scale(1); }
+    70% { opacity: 1; }
+    to { opacity: 0; transform: translate(-50%, -230%); }
+  }
   @keyframes sky-meteor-pass {
     from { transform: translate(30px, -30px); opacity: 0; }
     12%, 85% { opacity: 1; }
@@ -379,8 +389,16 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
   .nstar:active .core { transform: scale(1.35); transition: transform .12s; }
   .burst i { animation: burst .7s ease-out forwards; }
   @keyframes burst { 0% { opacity: 1; transform: rotate(var(--a)) translateY(0) scale(1); } 100% { opacity: 0; transform: rotate(var(--a)) translateY(-34px) scale(.3); } }
-  .sheet { animation: sheet-up .28s cubic-bezier(.2, .8, .2, 1); }
-  @keyframes sheet-up { from { transform: translateY(24px); opacity: 0; } }
+  /* 별 상세는 화면 가운데 창이라 아래에서 올라오는 대신 제자리에서 살짝 커지며 나타남 */
+  .sheet[open] { animation: sheet-in .26s cubic-bezier(.2, .8, .2, 1); }
+  .sheet[open]::backdrop { animation: backdrop-in .26s ease-out; }
+  @keyframes sheet-in { from { scale: .94; opacity: 0; } }
+  @keyframes backdrop-in { from { opacity: 0; } }
+  /* 화면 전환: 메인(밤하늘)에 들어오면 위·아래 메뉴가 하늘 위로 천천히 떠오름 (FE_QA "화면 전환을 더 유기적으로") */
+  .sky-locked :is(.sky-top, .night-actions, .sky-actions) { animation: screen-rise .45s cubic-bezier(.2, .8, .2, 1) both; }
+  .sky-locked .night-actions { animation-delay: .06s; }
+  .sky-locked .sky-actions { animation-delay: .1s; }
+  @keyframes screen-rise { from { opacity: 0; translate: 0 10px; } }
   .night-title h1 { animation: fade-in .5s ease-out; }
   @keyframes fade-in { from { opacity: 0; transform: translateY(4px); } }
 }
@@ -545,6 +563,7 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .quest-dialog-body [tabindex="-1"]:focus { outline: none; }
 @media (prefers-reduced-motion: no-preference) {
   .quest-dialog[open] { animation: quest-dialog-rise .22s ease-out; }
+  .quest-dialog[open]::backdrop { animation: backdrop-in .22s ease-out; }
   @keyframes quest-dialog-rise { from { transform: translateY(22px); opacity: .55; } }
 }
 

@@ -2,7 +2,8 @@
 
 > API는 Next.js 앱(`web/src/app/api/`)의 Route Handler로 구현한다 (고민기록 #27).
 > 화면은 같은 앱에서 `fetch('/api/...')`로 호출한다. 화면 쪽 내용은 [화면설계.md](화면설계.md), 문구는 [기능 완료 기준](기획/기능완료기준과_콘텐츠.md), 세션 사용법은 [web/README.md](../web/README.md) "데모 세션"
-> 마지막 갱신: 2026-11-20 (정책 화면 상단 보기 전환: `GET /api/policies?view=recommended|all`, 두 응답에 `view`·`counts`, 모르는 view는 400, 추천을 만드는 중 다시 요청해도 같은 추천. 담당 고은비, 브랜치 `feat/policy-view-filter`)
+> 마지막 갱신: 2026-11-20 저녁 (`PUT /api/profile`로 추천 기준 값이 실제로 바뀌면 그날 저장된 맞춤 정책 추천을 지움 → 다음 `GET /api/policies`가 새로 만듦. DB 변경 없음, 고민기록 #44. 브랜치 `fix/fe-qa-rest`)
+> 이전 갱신: 2026-11-20 (정책 화면 상단 보기 전환: `GET /api/policies?view=recommended|all`, 두 응답에 `view`·`counts`, 모르는 view는 400, 추천을 만드는 중 다시 요청해도 같은 추천. 담당 고은비, 브랜치 `feat/policy-view-filter`)
 > 이전 갱신: 2026-11-20 (유성 터치 +1·데일리 체크인 +100 포인트: `POST /api/meteors`, `GET /api/points`, 체크인 응답 `pointsEarned`·`totalPoints`, 총점에 합산. Neon 변경 SQL `20261121_reward_points.sql`. 담당 고은비, 브랜치 `feat/meteor-points`)
 > 이전 갱신: 2026-11-20 (프로필 이미지: 획득한 별자리만 고르는 `GET·PUT /api/profile/avatar`, 오류 코드 `NOT_ACQUIRED`, Neon 변경 SQL `20261121_profile_avatar.sql` / 데모 시작 질문을 질문별 페이지로 바꿀 때의 저장 계약 확인. 담당 고은비, 브랜치 `feat/profile-avatar`)
 > 이전 갱신: 2026-11-20 오후 (별자리를 도감 캐릭터 10개로 맞춤, Neon 동기화 SQL `20261121_quests_sync.sql`. 담당 고은비, 브랜치 `feat/points`)
@@ -693,6 +694,7 @@ const { cheer, help } = await processReflection({
 // 500 { "code": "SAVE_FAILED", "error": "저장하지 못했어요. 고른 답은 화면에 그대로 있어요." }
 ```
 
+- **추천 기준이 바뀌면 오늘 추천을 새로 (2026-11-20 저녁, 고민기록 #44):** 저장 전후로 `startAnswers`·`policyInfo`·`birthYear`·`currentStage` 중 하나라도 값이 달라지면 같은 문장 안에서 그날의 `policy_recommendations` 행을 지운다. 다음 `GET /api/policies`가 새 기준으로 추천을 다시 만든다(AI 1회). 같은 값으로 다시 저장하면 지우지 않고 재사용(AI 호출 0). 화면은 저장 뒤 `/policies`로 돌아가 새로 불러옴
 - DB: `users.policy_info JSONB` 추가 (`db/migrations/20261120_profile.sql`, 여러 번 실행 안전). ④~⑥은 기존 `start_answers`에 키만 늘어남. **공용 Neon 적용은 PR이 합쳐진 뒤 팀에 알리고 진행**
 - 검증: `web/scripts/verify-profile.mts` 40/40 (로컬 DB, 트랜잭션 롤백, 가짜 AI). `verify-policies.mts` 39/39 그대로
 
