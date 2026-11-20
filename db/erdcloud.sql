@@ -1,7 +1,7 @@
 -- ERDCloud 가져오기(Import)용 DDL (MySQL 문법)
 -- COMMENT가 ERDCloud의 논리명(한글 이름)으로 표시됨
 -- ※ 확인용 파일. 실제 DB는 db/init/01_schema.sql(PostgreSQL) 기준이며, 스키마를 바꾸면 이 파일도 함께 수정
--- ※ 운영 DB 변경 이력: db/migrations/ (마지막: 20261120_erd_v4_alignment.sql)
+-- ※ 운영 DB 변경 이력: db/migrations/ (20261121_reward_points.sql, 20261121_profile_avatar.sql)
 -- ※ PostgreSQL 전용 기능(CHECK, 배열, 뷰)은 빠져 있음
 
 CREATE TABLE users (
@@ -14,6 +14,7 @@ CREATE TABLE users (
   policy_info    JSON         NULL     COMMENT '정책 신청 정보(취업·학력·결혼·연소득·해당 상황, 선택, AI 미전송)',
   share_in_sky   BOOLEAN      NOT NULL DEFAULT FALSE COMMENT '같은 하늘의 별 집계 동의',
   created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '가입 시각',
+  avatar_constellation_id INT NULL COMMENT '프로필 이미지 별자리 ID(획득한 별자리만, NULL = 기본 캐릭터. 외래키 constellations.id는 PostgreSQL 스키마에만)',
   PRIMARY KEY (id)
 ) COMMENT '사용자';
 
@@ -248,6 +249,19 @@ CREATE TABLE center_events (
   PRIMARY KEY (id),
   FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) COMMENT '청년센터 행동 기록';
+
+CREATE TABLE point_events (
+  id           INT          NOT NULL AUTO_INCREMENT COMMENT '적립 ID',
+  user_id      INT          NOT NULL COMMENT '사용자 ID',
+  source       VARCHAR(10)  NOT NULL COMMENT '출처(meteor 유성/checkin 데일리 체크인)',
+  ref_key      VARCHAR(40)  NOT NULL COMMENT '중복 방지 키(유성 번호 또는 한국 날짜)',
+  points       SMALLINT     NOT NULL COMMENT '받은 포인트(유성 1, 체크인 100)',
+  earned_date  DATE         NOT NULL COMMENT '받은 날(한국 날짜, 유성 하루 한도 집계)',
+  created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '적립 시각',
+  PRIMARY KEY (id),
+  UNIQUE (user_id, source, ref_key),
+  FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) COMMENT '포인트 적립 기록(유성·체크인)';
 
 CREATE TABLE policy_feedback (
   id           INT          NOT NULL AUTO_INCREMENT COMMENT '피드백 ID',

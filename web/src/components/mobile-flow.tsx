@@ -8,10 +8,13 @@ import CentersScreen from './centers-screen';
 import SkyPanorama from '@/app/sky-preview/sky-panorama';
 import { StartQuestions } from './profile-form';
 import ProfileHome from './profile-home';
+import { PendingNextLink } from './next-step-card';
 import QuestScreen from './quest-screen';
 import StarScreen from './star-screen';
 import { HelpContext } from './screen-kit';
 import { EMPTY_START, type StartAnswers } from '@/lib/profile';
+import { getCompletedConstellationIds, getStarConstellationId } from '@/lib/constellations';
+import { consumeConstellationCelebration, queueConstellationCelebration } from '@/lib/constellation-celebration';
 import './night-sky.css';
 // 하단 버튼 3개(메인에서만): 왼쪽 프로필 · 가운데 도감(큰 버튼) · 오른쪽 퀘스트(오늘의 별)
 // 정책추천·청년센터는 메인 오른쪽 위, 도움받을 곳은 메인 왼쪽 위, 홈(내 밤하늘)은 다른 화면 머리글의 "나란히"
@@ -34,9 +37,13 @@ const HELP = {
   ],
 };
 
-export default function MobileFlow({screen='sky',starId,centerId}:{screen?:string;starId?:number;centerId?:number}){
+export default function MobileFlow({screen='sky',starId,centerId,completionAttemptId}:{
+  screen?:string;starId?:number;centerId?:number;completionAttemptId?:number;
+}){
+ const resources = useRef<HTMLDialogElement>(null);
  const [mode,M]=useState<Mode>('example'),[ready,R]=useState(false),[loaded,L]=useState(false),[busy,B]=useState(false),[error,E]=useState('');const lock=useRef(false);
  const [stars,S]=useState<Star[]>([]),[selected,SS]=useState<Star|null>(null),[help,H]=useState<Help>(null);
+ const [completedId,setCompletedId]=useState<number>();
  const [needsSession,setNeedsSession]=useState(false);
  const [startAnswers,setStartAnswers]=useState<StartAnswers>(EMPTY_START);
  const [notice,U]=useState('');
@@ -58,7 +65,13 @@ export default function MobileFlow({screen='sky',starId,centerId}:{screen?:strin
          M(mode);
          R(true);
          const sky = await client(mode).sky();
-         if (active) S(sky.stars);
+         if (active) {
+           S(sky.stars);
+           if (screen === 'sky' && completionAttemptId !== undefined) {
+             const id = consumeConstellationCelebration(mode, completionAttemptId);
+             if (id !== undefined && getCompletedConstellationIds(sky.stars).has(id)) setCompletedId(id);
+           }
+         }
        }
      } catch (error) {
        if (active) reportError(error);
@@ -68,7 +81,7 @@ export default function MobileFlow({screen='sky',starId,centerId}:{screen?:strin
    }
    void Promise.resolve().then(() => { if (active) return load(); });
    return () => { active = false; };
- }, []);
+ }, [screen, completionAttemptId]);
  async function run(fn: () => Promise<void>) {
    if (lock.current) return;
    lock.current = true;
@@ -86,8 +99,19 @@ export default function MobileFlow({screen='sky',starId,centerId}:{screen?:strin
    U('데모를 다시 시작했어요. 작성한 내용으로 다시 시도해 주세요.');
  }
  const star=stars.find(s=>s.starId===starId);
- async function reloadSky() {
-   try { S((await client(mode).sky()).stars); }
+ async function reloadSky(result?: { attemptId: number; status: string }) {
+   try {
+     const { stars: refreshed } = await client(mode).sky();
+     S(refreshed);
+     if (result?.status === 'bright' && star && star.status !== 'bright') {
+       const constellationId = getStarConstellationId(star);
+       const savedStar = refreshed.find(item => item.starId === star.starId);
+       const savedHere = savedStar?.memories.some(memory => memory.attemptId === result.attemptId);
+       if (savedHere && getCompletedConstellationIds(refreshed).has(constellationId)) {
+         return queueConstellationCelebration({ mode, constellationId, attemptId: result.attemptId });
+       }
+     }
+   }
    catch (error) { reportError(error); E('기록은 저장됐지만 밤하늘을 다시 읽지 못했어요. 밤하늘에서 다시 불러와 주세요.'); }
  }
  const helpToggle = { open: help?.title===HELP.title, toggle: () => H(h=>h?.title===HELP.title?null:HELP) };
@@ -112,14 +136,19 @@ export default function MobileFlow({screen='sky',starId,centerId}:{screen?:strin
  }, [locked]);
  const footer = <footer>시연용 서비스 · 실제 개인정보를 입력하지 마세요.{ready&&<button className="text-button" disabled={busy} onClick={()=>{localStorage.removeItem('naranhi-mode');R(false);H(null);SS(null);E('');setNeedsSession(false);}}>체험 방식 다시 선택</button>}</footer>;
  if(!loaded)return <main className="shell sky-mode"><p className="night-loading">밤하늘을 준비하고 있어요…</p></main>;
- return <HelpContext.Provider value={helpToggle}>{night&&<SkyPanorama background/>}<main className={night?`shell sky-mode panorama-content${locked?' sky-locked':''}`:'shell night-ui'} lang="ko">{locked
+ return <HelpContext.Provider value={helpToggle}>{night&&<SkyPanorama background dome={locked}/>}<main className={night?`shell sky-mode panorama-content${locked?' sky-locked':''}`:'shell night-ui'} lang="ko">{locked
    // 메인: 왼쪽 위 도움받을 곳, 오른쪽 위 정책추천·청년센터 (머리글 대신 모서리 버튼)
    ? <header className="sky-top">
        <button type="button" className="sky-pill" aria-expanded={help?.title===HELP.title} onClick={()=>H(h=>h?.title===HELP.title?null:HELP)}><span aria-hidden="true">♡</span> 도움받을 곳</button>
-       <div className="sky-top-right">
-         <Link className="sky-pill gold" href="/policies"><span aria-hidden="true">✦</span> 정책추천</Link>
-         <Link className="sky-pill small-pill" href="/centers"><span aria-hidden="true">⌖</span> 청년센터</Link>
-       </div>
+       <button type="button" className="sky-pill gold" aria-haspopup="dialog" onClick={() => resources.current?.showModal()}>
+         <span aria-hidden="true">✦</span> 정책·청년센터
+       </button>
+       <dialog className="sky-map-dialog sky-resource-dialog" ref={resources} aria-label="정책·청년센터">
+         <h2>정책·청년센터</h2>
+         <Link className="ghost sky-resource-link" href="/policies" onClick={() => resources.current?.close()}>정책추천</Link>
+         <Link className="ghost sky-resource-link" href="/centers" onClick={() => resources.current?.close()}>청년센터</Link>
+         <form method="dialog"><button className="ghost">닫기</button></form>
+       </dialog>
      </header>
    : ready
    // 다른 화면: 머리글 없음. 각 화면이 공통 틀의 제목 줄(screen-kit.tsx ScreenBar: ‹ 뒤로 · 제목 · ♡ 도움받을 곳)을 그림
@@ -135,7 +164,7 @@ export default function MobileFlow({screen='sky',starId,centerId}:{screen?:strin
      <tab.Icon /><span>{tab.label}</span>
    </Link>)}
  </nav>}
- {screen==='sky'&&<NightSky stars={stars} selected={selected} onSelect={SS} busy={busy} onReload={()=>run(async()=>S((await client(mode).sky()).stars))} footer={footer}/>}
+ {screen==='sky'&&<NightSky stars={stars} selected={selected} onSelect={SS} busy={busy} onReload={()=>run(async()=>S((await client(mode).sky()).stars))} footer={footer} nextLink={<PendingNextLink mode={mode} />} completedId={completedId}/>}
  {screen==='checkin'&&<QuestScreen mode={mode} busy={busy} run={run} onHelp={H} onError={E}/>}
  {screen==='star'&&<StarScreen key={starId} mode={mode} star={star} busy={busy} run={run} onHelp={H} onSaved={reloadSky}/>}
  {screen==='profile'&&<ProfileHome mode={mode}/>}
