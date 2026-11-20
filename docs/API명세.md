@@ -2,8 +2,9 @@
 
 > API는 Next.js 앱(`web/src/app/api/`)의 Route Handler로 구현한다 (고민기록 #27).
 > 화면은 같은 앱에서 `fetch('/api/...')`로 호출한다. 화면 쪽 내용은 [화면설계.md](화면설계.md), 문구는 [기능 완료 기준](기획/기능완료기준과_콘텐츠.md), 세션 사용법은 [web/README.md](../web/README.md) "데모 세션"
-> 마지막 갱신: 2026-11-20 (유성 터치 +1·데일리 체크인 +100 포인트: `POST /api/meteors`, `GET /api/points`, 체크인 응답 `pointsEarned`·`totalPoints`, 총점에 합산. Neon 변경 SQL `20261121_reward_points.sql`. 담당 고은비, 브랜치 `feat/meteor-points`)
-> 마지막 갱신: 2026-11-20 (프로필 이미지: 획득한 별자리만 고르는 `GET·PUT /api/profile/avatar`, 오류 코드 `NOT_ACQUIRED`, Neon 변경 SQL `20261121_profile_avatar.sql` / 데모 시작 질문을 질문별 페이지로 바꿀 때의 저장 계약 확인. 담당 고은비, 브랜치 `feat/profile-avatar`)
+> 마지막 갱신: 2026-11-20 (정책 화면 상단 보기 전환: `GET /api/policies?view=recommended|all`, 두 응답에 `view`·`counts`, 모르는 view는 400, 추천을 만드는 중 다시 요청해도 같은 추천. 담당 고은비, 브랜치 `feat/policy-view-filter`)
+> 이전 갱신: 2026-11-20 (유성 터치 +1·데일리 체크인 +100 포인트: `POST /api/meteors`, `GET /api/points`, 체크인 응답 `pointsEarned`·`totalPoints`, 총점에 합산. Neon 변경 SQL `20261121_reward_points.sql`. 담당 고은비, 브랜치 `feat/meteor-points`)
+> 이전 갱신: 2026-11-20 (프로필 이미지: 획득한 별자리만 고르는 `GET·PUT /api/profile/avatar`, 오류 코드 `NOT_ACQUIRED`, Neon 변경 SQL `20261121_profile_avatar.sql` / 데모 시작 질문을 질문별 페이지로 바꿀 때의 저장 계약 확인. 담당 고은비, 브랜치 `feat/profile-avatar`)
 > 이전 갱신: 2026-11-20 오후 (별자리를 도감 캐릭터 10개로 맞춤, Neon 동기화 SQL `20261121_quests_sync.sql`. 담당 고은비, 브랜치 `feat/points`)
 > 이전 갱신: 2026-11-19 18시 (포인트: 시도 저장 `pointsEarned`·`totalPoints`, 밤하늘 `totalPoints`·별 `points`, 시드를 루트 `quests.json` 기준 별자리 12개·별 40개로 교체, 별 `focus`·`tags` 칸. 담당 고은비, 브랜치 `feat/points`)
 > 이전 갱신: 2026-11-19 13시 (청년센터·문의 초안 화면 연결 계약, 초안 `sent` 칸, 문의 API 세션 장애 503, 실데이터 전환 계획, AI 실호출 기록)
@@ -553,9 +554,11 @@ const { cheer, help } = await processReflection({
 ### 7. 개인 맞춤 정책 추천 — `GET /api/policies`, `POST /api/policies/{policyId}/click` (AI ⑤, 윤석, 기획: `docs/기획/정책추천.md`)
 
 ```jsonc
-// GET /api/policies  → 오늘의 정책 추천 (하루 한 번 생성·저장, 같은 날은 저장된 결과)
+// GET /api/policies  (= ?view=recommended) → 오늘의 정책 추천 (하루 한 번 생성·저장, 같은 날은 저장된 결과)
 // 200
 {
+  "view": "recommended",     // feat/policy-view-filter 추가. 어느 보기의 응답인지
+  "counts": { "recommended": 5, "all": 209 },   // feat/policy-view-filter 추가. 상단 보기 전환 버튼에 쓰는 개수 (아래 "보기 전환")
   "items": [
     {
       // 2026-11-19 로컬 응답 (키 없음 → 문장 틀 이유)
@@ -579,11 +582,12 @@ const { cheer, help } = await processReflection({
   ],
   "usedFallback": false,     // true면 AI 대신 규칙 순서 ("준비해 둔 순서로 보여 드려요")
   "reused": false,           // 같은 날 다시 요청하면 true (AI 호출 없음)
-  "maxDifficulty": 2,        // 이번 추천에 쓴 난이도 상한 (내 단계 + 1, 후보가 3개 미만이면 넓힘)
+  "maxDifficulty": 2,        // 이번 추천에 쓴 난이도 상한 (내 단계 + 1, 후보가 3개 미만이면 넓힘). 새로 만든 추천에만 (reused=true면 없음)
   "basis": { "region": "서울 마포구", "updatedAt": "2026-11-19 17:32" },   // 화면 상단 "정책 정보 기준"
   "modelVersion": "gemini-3.5-flash-lite"   // 새로 만든 추천에만, 검증용
 }
-// GET /api/policies?view=all → { "items": [...같은 모양, reason은 문장 틀], "basis": {...} }  (AI 없음, 난이도 거르지 않음)
+// GET /api/policies?view=all → { "view": "all", "items": [...같은 모양, reason은 문장 틀], "counts": { "recommended": 5 | null, "all": 209 }, "basis": {...} }  (AI 없음, 난이도 거르지 않음)
+// 400 { "error": "보기는 recommended 또는 all이에요.", "code": "INVALID", "help": null, "field": "view" }   // view가 그 밖의 값 (대소문자 구분)
 // 401 { "error": "데모를 다시 시작해 주세요.", "code": "NO_SESSION", "help": null }
 // 500 { "error": "지금은 정책을 불러오지 못했어요.", "code": "LOAD_FAILED", "help": null }
 // 503 같은 문구 (세션 조회 DB 장애)
@@ -635,6 +639,20 @@ const { cheer, help } = await processReflection({
 - 모델: `POLICY_HELPER_MODEL` (기본 `gemini-3.5-flash-lite`, `/api/health`의 `helperModel`). 로컬 `npm run dev`는 키를 비워 둬서 항상 `no_key` → 실제 AI 확인은 `scripts/verify-apply-helper-live.mts`
 - AI 호출: steps·docs·start와 연습 첫 인사는 0번, script·ask·연습 말 1번당 1번. 연습은 사용자 말 6번까지
 - AI 문장에 원문에 없던 숫자 → 버리고 기본 문장 (ask는 원문 숫자만, 연습 담당자 말은 숫자 금지). 위기 표현이면 AI 없이 안내만
+
+#### 보기 전환 — 정책 화면 상단 [맞춤 추천] / [모든 정책] (2026-11-20, 고민기록 #41)
+
+| 버튼 | 요청 | 무엇이 오나 |
+| ---- | ---- | ----------- |
+| 맞춤 추천 (기본) | `GET /api/policies` 또는 `?view=recommended` | 오늘의 추천 3~5개 (위 규칙 그대로: 난이도 내 단계 + 1, 자격·피드백으로 거름, 분야 다양화, 하루 한 번 저장) |
+| 모든 정책 | `GET /api/policies?view=all` | 지금 신청할 수 있는 정책 전부 (난이도·피드백으로 거르지 않음, AI 없음). 2026-11-20 데이터 기준 209개, 약 190KB |
+
+- **`counts`:** 버튼에 개수를 함께 보여 줄 수 있게 두 응답 모두에 넣는다. `all` = 모든 정책 수, `recommended` = 오늘의 맞춤 추천 수.
+  - 모든 정책 보기에서 맞춤 추천을 아직 만들지 않았으면 `recommended: null` (여기서 AI를 부르지 않으려고). 화면은 "맞춤 추천"만 표시하고 숫자를 비우면 된다.
+  - [나랑 안 맞아요]로 뺀 정책은 `recommended`에서 빠지고 `all`에는 그대로 남는다.
+- **보기를 오가도 맞춤 추천은 같다.** 같은 날은 저장된 추천을 돌려준다(`reused: true`, AI 0회). 처음 추천을 만드는 동안(AI 몇 초) 보기를 바꿨다가 돌아와 요청이 겹쳐도, 먼저 저장된 추천을 두 요청 모두에 돌려준다.
+- **필터링 API는 따로 만들지 않았다.** 상단 버튼 두 개는 `view` 하나로 충분하고, 분야·신청 방식으로 더 거르고 싶으면 항목의 `bucket`·`burden`·`deadline`으로 화면에서 거를 수 있다 (모든 정책도 한 번에 내려옴). 서버 필터가 필요해지면 `?view=all&bucket=` 같은 조건을 추가한다.
+- 검증: `web/scripts/verify-policy-views.mts` **22 / 22**
 
 ### 8. 프로필 — `GET /api/profile`, `PUT /api/profile` (윤석, 기획: `docs/기획/프로필.md`)
 
@@ -888,6 +906,7 @@ GEMINI_MODEL=gemini-3.5-flash-lite node --env-file=.env.local node_modules/tsx/d
 GEMINI_MODEL=gemini-3.5-flash-lite node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-safety.mts
 node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-points.mts            # 유성·체크인 포인트, 합산 밸런스 (20261121_reward_points.sql 적용된 DB)
 node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-avatar.mts            # 프로필 이미지 (20261121_profile_avatar.sql 적용된 DB)
+node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-policy-views.mts      # 정책 보기 전환 (맞춤 추천·모든 정책·counts)
 # 서버를 띄운 뒤 (npm run build && npx next start -p 3107)
 node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-http.mts --base=http://localhost:3107
 node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-inquiry-http.mts --base=http://localhost:3107   # 센터·문의 초안
@@ -902,6 +921,15 @@ node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-ai-live.
 | 새 DB — `verify-star-api.mts --no-key` | **81 / 81 통과** | 기존 별 포인트·추천·시도 회귀 없음 |
 | Neon 경로: master `db/init` + 가상 시도(별 포인트 20) → `20261121_reward_points.sql` 2번 | 에러 없음, 기록 그대로 | 20점 유지. `point_events`·`v_user_points` 정의가 새 DB와 같음 |
 | HTTP (쿠키 세션, `next dev`) | 기대대로 | 세션 없음 401, 체크인 100→0, 유성 201→중복 200·지난 유성 EXPIRED·잘못된 번호 400, 시도 총점 111 = `GET /api/points` = 밤하늘, `/api/health`의 `pointEvents: ready`, 같은 유성 동시 6번 → 적립 1번 |
+### 2026-11-20 정책 보기 전환 검증 (브랜치 `feat/policy-view-filter` = `master` 2ed739e + 이번 변경, 로컬 Docker만, 키 없음)
+
+| 검증 | 결과 | 비고 |
+| ---- | ---- | ---- |
+| 새 DB — `verify-policy-views.mts` | **22 / 22 통과** | view 값 검사, 모든 정책 먼저 → recommended null·AI 없음, 맞춤 추천 기존 로직(난이도·순서), 오가도 같은 추천·counts, 피드백 뒤 counts, 동시 요청 시 먼저 저장된 추천, 정책 없음, DB 실패 500 |
+| 새 DB — `verify-policies` / `verify-feedback-loop` / `verify-apply-helper` / `verify-profile` / `verify-star-api --no-key` | **51 / 25 / 42 / 50 / 81 통과** | 회귀 없음 |
+| HTTP (쿠키 세션, 실제 정책 데이터 292개를 로컬 DB에 넣고) | 기대대로 | 세션 없음 401, `view=foo` 400, 모든 정책 209개·`recommended: null` (190KB, 0.03초) → 맞춤 추천 5개·`counts {5, 209}` → 다시 맞춤 `reused: true` 같은 5개 → 모든 정책 `recommended: 5` |
+| `tsc --noEmit`, eslint (바꾼 파일) | 통과 | |
+
 ### 2026-11-20 프로필 이미지·시작 질문 저장 검증 (브랜치 `feat/profile-avatar` = `master` 761c820 + 이번 변경, 로컬 Docker만, 키 없음)
 
 | 검증 | 결과 | 비고 |
