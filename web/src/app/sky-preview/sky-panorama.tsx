@@ -141,7 +141,7 @@ export default function SkyPanorama({ background = false }: { background?: boole
     const onWindowWheel = (event: WheelEvent) => {
       if (!document.documentElement.classList.contains('sky-locked-page')) return;
       if ((event.target as Element | null)?.closest?.('.night-list-body, .sheet, .help, .char-bubble')) return;
-      skyView.set({ fov: skyView.get().fov * Math.exp(event.deltaY * 0.0015) });
+      skyView.zoom(Math.exp(event.deltaY * 0.0015), true);
     };
     if (background) window.addEventListener('wheel', onWindowWheel, { passive: true });
     loadCelestial().then(data => {
@@ -170,11 +170,11 @@ export default function SkyPanorama({ background = false }: { background?: boole
     if (!host) return;
     const v = skyView.get();
     const perPixel = 1 / scaleFor(v.fov, host.clientWidth, host.clientHeight);
-    skyView.set({ lon: v.lon + dx * perPixel, lat: v.lat + dy * perPixel });
+    skyView.pan(dx * perPixel, dy * perPixel, background);
   }
   /** 확대(factor < 1) · 축소(factor > 1) */
   function zoom(factor: number) {
-    skyView.set({ fov: skyView.get().fov * factor });
+    skyView.zoom(factor, background);
   }
   const spread = () => {
     const [a, b] = [...pointers.current.values()];
@@ -208,6 +208,7 @@ export default function SkyPanorama({ background = false }: { background?: boole
           if (!prev) return;
           const next = { x: event.clientX, y: event.clientY };
           pointers.current.set(event.pointerId, next);
+          if (background) skyView.showPan();
           if (pointers.current.size >= 2) {
             // 두 손가락: 벌린 만큼 확대
             const now = spread();
@@ -215,10 +216,11 @@ export default function SkyPanorama({ background = false }: { background?: boole
             pinch.current = now;
             return;
           }
-          turn(next.x - prev.x, next.y - prev.y);
+          turn(next.x - prev.x, background ? 0 : next.y - prev.y);
         }}
         onLostPointerCapture={event => {
           pointers.current.delete(event.pointerId);
+          if (background && pointers.current.size === 0) skyView.endPan();
           pinch.current = spread();
         }}>
         <canvas ref={canvas} className="panorama-canvas" aria-hidden="true" />

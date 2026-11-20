@@ -5,6 +5,8 @@
 export type Vec3 = [number, number, number];
 export type SkyView = { lon: number; lat: number; fov: number }; // 라디안. fov = 화면 긴 쪽에 보이는 각도
 export type Frame = { left: number; top: number; width: number; height: number }; // 배경 캔버스의 화면 위치(CSS px)
+type ViewBand = { top: number; bottom: number };
+type ZoomTarget = { points: Vec3[]; band?: ViewBand };
 
 export const RAD = Math.PI / 180;
 export const FOV_MIN = 6 * RAD;
@@ -18,7 +20,10 @@ let version = 0;
 let anim = 0;
 let fadeTimer = 0;
 let flying = false;
+let panVisible = false;
+let panTimer = 0;
 const listeners = new Set<() => void>();
+let readZoomTarget: (() => ZoomTarget) | undefined;
 
 const wrap = (a: number) => ((a % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
 const clampView = (v: SkyView): SkyView => ({
@@ -31,14 +36,87 @@ function emit() {
   for (const l of listeners) l();
 }
 
+// At a fixed direction, zoom scales every projected position about the frame center.
+function maxScaleChange(current: SkyView, frame: Frame, target: ZoomTarget) {
+  const { width, height } = frame;
+  const centerX = width / 2, centerY = height / 2;
+  const inset = Math.min(36, width / 6, height / 6);
+  const upper = target.band ? Math.max(inset, Math.min(target.band.top + 24, centerY - 18)) : inset;
+  const lower = target.band ? Math.min(height - inset, Math.max(target.band.bottom - 24, centerY + 18)) : height - inset;
+  const project = projector(current, width, height);
+  let maximum = Infinity;
+  for (const point of target.points) {
+    const projected = project(point);
+    if (!projected) return 0;
+    const x = projected.x - centerX, y = projected.y - centerY;
+    if (x !== 0) maximum = Math.min(maximum, (centerX - inset) / Math.abs(x));
+    if (y < 0) maximum = Math.min(maximum, (centerY - upper) / -y);
+    if (y > 0) maximum = Math.min(maximum, (lower - centerY) / y);
+  }
+  return maximum;
+}
+
+function fovToFit(current: SkyView, frame: Frame, target: ZoomTarget) {
+  const maximum = maxScaleChange(current, frame, target);
+  return maximum > 0 ? 4 * Math.atan(Math.tan(current.fov / 4) / maximum) : FOV_MAX;
+}
+
 export const skyView = {
   get: () => view,
   frame: () => frame,
   version: () => version,
   isFlying: () => flying,
+  isPanVisible: () => panVisible,
+  showPan() {
+    clearTimeout(panTimer);
+    if (!panVisible) { panVisible = true; emit(); }
+  },
+  endPan() {
+    if (!panVisible) return;
+    clearTimeout(panTimer);
+    panTimer = window.setTimeout(() => { panVisible = false; emit(); }, 1500);
+  },
   subscribe(fn: () => void) {
     listeners.add(fn);
     return () => { listeners.delete(fn); };
+  },
+  constrainZoom(read: () => ZoomTarget) {
+    readZoomTarget = read;
+    return () => { if (readZoomTarget === read) readZoomTarget = undefined; };
+  },
+  zoom(factor: number, constrained = false) {
+    const requested = view.fov * factor;
+    const target = constrained && factor < 1 ? readZoomTarget?.() : undefined;
+    if (!frame || !target?.points.length) {
+      skyView.set({ fov: requested });
+      return;
+    }
+    // If the user panned past an edge at the overview scale, center the group before zooming in.
+    const basis = maxScaleChange(view, frame, target) >= 1 - 1e-6
+      ? view : fitView(target.points, frame.width, frame.height, target.band);
+    const fov = Math.max(requested, fovToFit(basis, frame, target), FOV_MIN);
+    if (basis !== view || Math.abs(fov - view.fov) > 1e-6) skyView.set({ ...basis, fov });
+  },
+  pan(lon: number, lat: number, constrained = false) {
+    const target = constrained ? readZoomTarget?.() : undefined;
+    const currentFrame = frame;
+    const next = clampView({ ...view, lon: view.lon + lon, lat: view.lat + lat });
+    if (!currentFrame || !target?.points.length ||
+      view.fov >= fitView(target.points, currentFrame.width, currentFrame.height, target.band).fov - 1e-6 ||
+      maxScaleChange(view, currentFrame, target) < 1 - 1e-6 || maxScaleChange(next, currentFrame, target) >= 1) {
+      skyView.set(next);
+      return;
+    }
+
+    // At close zoom, stop a drag at the last direction that keeps the whole group in view.
+    let low = 0, high = 1;
+    for (let i = 0; i < 12; i++) {
+      const amount = (low + high) / 2;
+      const test = clampView({ ...view, lon: view.lon + lon * amount, lat: view.lat + lat * amount });
+      if (maxScaleChange(test, currentFrame, target) >= 1) low = amount;
+      else high = amount;
+    }
+    if (low > 0) skyView.set({ lon: view.lon + lon * low, lat: view.lat + lat * low });
   },
   /** 바로 바꿈 (끌기·확대). 이동 중이던 애니메이션은 멈춤 */
   set(next: Partial<SkyView>) {
@@ -138,7 +216,7 @@ export function projector(v: SkyView, width: number, height: number) {
  * - band(화면 안 빈 공간의 위·아래 y, 캔버스 기준 px)를 주면 그 가운데에, 없으면 화면 가운데에 놓음
  * - 별자리 반지름이 화면 폭의 38%와 빈 공간 높이의 절반(이름표 자리 빼고) 중 작은 값이 되도록 확대
  */
-export function fitView(points: Vec3[], width: number, height: number, band?: { top: number; bottom: number }): SkyView {
+export function fitView(points: Vec3[], width: number, height: number, band?: ViewBand): SkyView {
   const sum: Vec3 = [0, 0, 0];
   for (const p of points) { sum[0] += p[0]; sum[1] += p[1]; sum[2] += p[2]; }
   const center = toLonLat(sum);
