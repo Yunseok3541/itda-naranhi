@@ -156,6 +156,28 @@ try {
   check("밤하늘 totalPoints = 응답 totalPoints", skyA4.data.totalPoints === br1.data.totalPoints && br2.data.totalPoints === br1.data.totalPoints, skyA4.data.totalPoints);
   check("다른 세션 총점 0", (await B.call("GET", "sky")).data.totalPoints === 0);
 
+  // 퀘스트 후 설문 · 성향 점수 (고민기록 #32): 세션 사용자의 시도만, 건너뛰기 가능, 포인트와 무관
+  const sv = await A.call("POST", `attempts/${at.data.attemptId}/survey`, { satisfaction: 4, achievement: 3 });
+  show("A 설문 저장 (dim 시도)", sv);
+  check("설문 저장 → 200 saved=true", sv.status === 200 && sv.data.saved === true && sv.data.satisfaction === 4 && sv.data.achievement === 3, sv);
+  const svSkip = await A.call("POST", `attempts/${br1.data.attemptId}/survey`, {});
+  check("설문 건너뛰기 → 200 saved=false", svSkip.status === 200 && svSkip.data.saved === false, svSkip);
+  const svBad = await A.call("POST", `attempts/${br1.data.attemptId}/survey`, { satisfaction: 9 });
+  check("설문 범위 밖 → 400 INVALID", svBad.status === 400 && svBad.data.code === "INVALID", svBad);
+  const svOther = await B.call("POST", `attempts/${at.data.attemptId}/survey`, { satisfaction: 1 });
+  check("다른 세션이 A의 시도에 설문 → 404", svOther.status === 404 && svOther.data.code === "NOT_FOUND", svOther);
+  const svNone = await N.call("POST", `attempts/${at.data.attemptId}/survey`, { satisfaction: 1 });
+  const prNone = await N.call("GET", "preferences");
+  check("세션 없이 설문·성향 → 401 NO_SESSION", svNone.status === 401 && prNone.status === 401 && prNone.data.code === "NO_SESSION");
+  const prA = await A.call("GET", "preferences");
+  show("A 성향", prA);
+  check("성향 → 200, 설문 1개라 basis start_answers, 태그 5개·focusPriority 있음",
+    prA.status === 200 && prA.data.basis === "start_answers" && prA.data.surveyedAttempts === 1 && prA.data.tags?.length === 5
+      && Array.isArray(prA.data.top) && prA.data.focusPriority?.length >= 1 && Number.isInteger(prA.data.suggestedStage), prA);
+  check("설문 뒤에도 총점 그대로", (await A.call("GET", "sky")).data.totalPoints === br1.data.totalPoints);
+  const prB = await B.call("GET", "preferences");
+  check("다른 세션 성향: 설문 0개", prB.status === 200 && prB.data.surveyedAttempts === 0, prB);
+
   // 같은 세션에서 바깥 → 집 안: 하루 한 번 저장된 추천을 재사용할 때도 집 안 범위만 나와야 한다
   // 집 안 = 1단계 별 중 GPS가 아닌 별 (recommendations/service.ts scopeOf)
   const C = new Browser("C");

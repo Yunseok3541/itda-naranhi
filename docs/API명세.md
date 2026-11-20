@@ -3,6 +3,7 @@
 > API는 Next.js 앱(`web/src/app/api/`)의 Route Handler로 구현한다 (고민기록 #27).
 > 화면은 같은 앱에서 `fetch('/api/...')`로 호출한다. 화면 쪽 내용은 [화면설계.md](화면설계.md), 문구는 [기능 완료 기준](기획/기능완료기준과_콘텐츠.md), 세션 사용법은 [web/README.md](../web/README.md) "데모 세션"
 > 마지막 갱신: 2026-11-20 오후 (별자리를 도감 캐릭터 10개로 맞춤, Neon 동기화 SQL `20261121_quests_sync.sql`. 담당 고은비, 브랜치 `feat/points`)
+> 이전 갱신: 2026-11-20 (퀘스트 후 설문 `POST /api/attempts/{attemptId}/survey`, 성향 점수 `GET /api/preferences`, `star_attempts` 설문 칸. 담당 고은비, 브랜치 `feat/survey-preference`)
 > 이전 갱신: 2026-11-19 18시 (포인트: 시도 저장 `pointsEarned`·`totalPoints`, 밤하늘 `totalPoints`·별 `points`, 시드를 루트 `quests.json` 기준 별자리 12개·별 40개로 교체, 별 `focus`·`tags` 칸. 담당 고은비, 브랜치 `feat/points`)
 > 이전 갱신: 2026-11-19 13시 (청년센터·문의 초안 화면 연결 계약, 초안 `sent` 칸, 문의 API 세션 장애 503, 실데이터 전환 계획, AI 실호출 기록)
 >
@@ -23,6 +24,8 @@
 | 밤하늘 `GET /api/sky` | 윤석 | `api/sky/route.ts`, `api/_lib/sky.ts` | ⚠ 고은비가 먼저 구현해 둠 → 위와 같음 |
 | 청년센터 `GET /api/centers`, `/api/centers/{id}` | 고은비 | `api/centers/`, `api/_lib/centers*.ts` | 가상 센터 1곳으로 HTTP 검증 완료. 실데이터는 인증키 대기 |
 | 문의 초안 `POST·GET /api/inquiries`, `PATCH /api/inquiries/{id}` (AI ⑥) | 고은비 | `api/inquiries/`, `api/_lib/inquiries.ts` | 생성·수정·재조회·보냄 기록 HTTP 검증 완료 |
+| **퀘스트 후 설문 `POST /api/attempts/{attemptId}/survey`** | **고은비** | `api/attempts/[attemptId]/survey/route.ts`, `api/_lib/survey.ts` | 구현·검증 (`feat/survey-preference`) |
+| **성향 점수 `GET /api/preferences`** | **고은비** | `api/preferences/`, `lib/preference.ts`, `lib/profile.ts`의 `focusPriority()`, `lib/quest-meta.ts` | 구현·검증. 추천 API에는 아직 연결 안 함 |
 
 - `api/_lib/http.ts`는 새 API가 함께 쓰는 응답 형식·날짜 도우미다 (밑줄 폴더라 라우트가 되지 않음).
 - 위기 표현 규칙 `lib/safety.ts`는 공용이다. 고은비가 AI 출력 검사(`isSafeAiText`)와 규칙 안내(`ruleHelp`)를 추가했다.
@@ -627,6 +630,104 @@ const { cheer, help } = await processReflection({
 
 ---
 
+### 9. 퀘스트 후 설문·성향 점수 — `POST /api/attempts/{attemptId}/survey`, `GET /api/preferences` (고은비, 고민기록 #32)
+
+> 별을 따거나 손 뻗어 본 뒤 묻는 **선택 설문**(만족도·성취감)으로 "무엇을 좋아하는가"(성향 태그)를 계산한다. "무엇이 필요한가"(회복 방향 focus)는 시작 질문으로 계산한다. AI는 부르지 않는다.
+> 분류 기준: **단계**(얼마나 어려운가) / **focus**(무엇이 필요한가, 고립·은둔 청년 연구 기준) / **tags**(무엇을 좋아하는가, 퀘스트 후 설문)
+
+#### 9-1. 퀘스트 후 설문 저장 — `POST /api/attempts/{attemptId}/survey`
+
+```jsonc
+// 요청 — 시도 저장(POST /api/attempts) 201 응답의 attemptId로 호출. 두 칸 모두 선택
+{ "satisfaction": 4, "achievement": 3 }   // 1~5 정수. 빠진 칸 = 답하지 않음(null)
+```
+
+```jsonc
+// 200 저장 (2026-11-20 로컬 HTTP 검증 실제 응답, 손 뻗어 보기(dim) 시도)
+{ "attemptId": 26, "saved": true, "satisfaction": 4, "achievement": 3, "surveyedAt": "2026-11-20" }
+// 200 건너뛰기 — 두 칸 다 없음({} 또는 본문 없음). 아무것도 바꾸지 않음
+{ "attemptId": 26, "saved": false }
+// 400 { "error": "만족도는 1~5 중에서 골라 주세요.", "code": "INVALID", "help": null, "field": "satisfaction" }
+// 400 { "error": "attemptId가 올바르지 않아요.", "code": "INVALID", "help": null }
+// 401 { "error": "데모를 다시 시작해 주세요.", "code": "NO_SESSION", "help": null }
+// 404 { "error": "시도를 찾을 수 없어요.", "code": "NOT_FOUND", "help": null }   // 없는 시도, 다른 세션의 시도 (구분하지 않음)
+// 500 { "error": "지금은 저장하지 못했어요. 고른 답은 화면에 그대로 있어요.", "code": "SAVE_FAILED", "help": null }
+// 503 같은 문구·코드   // 세션 조회 DB 장애
+```
+
+규칙
+- **선택 사항.** 건너뛰기 버튼을 답하기와 같은 비중으로 둔다. 건너뛰기는 DB를 보지 않아서 남의 시도인지도 알려 주지 않는다.
+- bright(하늘의 별 따기)·dim(손 뻗어 보기) 모두 설문할 수 있다. 하위 퀘스트로 한 시도도 원래 별의 태그로 센다.
+- **보낸 요청 = 설문 전체.** 다시 보내면 덮어쓰고, 빠진 칸은 null이 된다 (예: `{ "achievement": 1 }`을 다시 보내면 만족도는 지워짐).
+- **포인트와 무관.** 설문해도 `pointsEarned`·`totalPoints`가 바뀌지 않는다.
+- 숫자 문자열(`"4"`), 소수(`3.5`), 0·6은 400. `null`은 답하지 않음.
+
+#### 9-2. 성향 점수 + 필요한 회복 방향 — `GET /api/preferences`
+
+```jsonc
+// 200 설문 3개 이상 → basis "survey" (2026-11-20 로컬 검증 실제 응답, 가상 사용자)
+{
+  "tags": [                                   // 태그 5개 모두, 이 순서 고정. 설문이 없는 태그는 score null, count 0
+    { "tag": "outdoor",  "label": "바깥형", "count": 2, "score": 4.5 },
+    { "tag": "social",   "label": "만남형", "count": 1, "score": 4 },
+    { "tag": "career",   "label": "직업형", "count": 0, "score": null },
+    { "tag": "learning", "label": "배움형", "count": 1, "score": 2 },
+    { "tag": "rest",     "label": "회복형", "count": 0, "score": null }
+  ],
+  "top": ["outdoor", "social"],              // 좋아하는 성향 (최대 2개)
+  "basis": "survey",                         // survey | start_answers (top을 무엇으로 정했는지)
+  "surveyedAttempts": 3,                     // 설문한 시도 수
+  "focusPriority": ["daily", "outing", "work"],  // 시작 질문으로 정한 회복 방향 (앞이 우선)
+  "suggestedStage": 1                        // 시작 질문의 활동 범위로 정한 시작 단계
+}
+// 200 설문 1개 → basis "start_answers" (2026-11-20 로컬 HTTP 검증 실제 응답, 시작 질문 없는 데모 사용자)
+{ "tags": [{ "tag": "outdoor", "label": "바깥형", "count": 1, "score": 3.5 }, "...나머지 4개 count 0"],
+  "top": ["rest", "outdoor"], "basis": "start_answers", "surveyedAttempts": 1, "focusPriority": ["daily", "outing"], "suggestedStage": 1 }
+// 401 NO_SESSION / 404 사용자 없음 / 500·503 { "error": "지금은 정보를 불러오지 못했어요.", "code": "LOAD_FAILED", "help": null }
+```
+
+성향 점수 계산 (`lib/preference.ts`)
+- 시도 점수 = (만족도 + 성취감) ÷ 2. 한쪽만 답했으면 그 값.
+- 그 점수를 그 별의 `tags` 전부에 더해 태그별 평균(`score`, 소수 둘째 자리)과 개수(`count`)를 낸다. 같은 별을 여러 번 설문해도 시도마다 센다.
+- `top`: 평균 **3점(중간) 이상**인 태그 중 점수 → 개수 → 태그 순서로 최대 2개.
+- 설문한 시도가 **3개 미만**이거나 3점 이상인 태그가 없으면, 시작 질문으로 `top`을 정하고 `basis: "start_answers"`.
+- **`score`는 내부 계산용이다.** 화면에 숫자·순위·"당신은 ○○형" 같은 판정으로 보여 주지 않는다 (고민기록 #1, #32).
+
+시작 질문 → 성향 `top` (설문이 부족할 때, 답마다 한 표. 표가 같으면 태그 순서)
+
+| 시작 질문 답 (`users.start_answers`) | 성향 |
+| --- | --- |
+| `with: together` (함께하는 활동도 알아보고 싶어요) | social 만남형 |
+| `with: alone` (혼자 하고 싶어요) | rest 회복형 |
+| `range: home` (집 안) | rest 회복형 |
+| `range: out` (혼자 외출) | outdoor 바깥형 |
+| `range: people` (사람 있는 곳) | outdoor 바깥형 + social 만남형 |
+| `needs`에 `money_job` (생활비·일자리) | career 직업형 |
+| `needs`에 `people` (사람 만나기) | social 만남형 |
+| `needs`에 `health` (몸·마음 건강) | rest 회복형 |
+| 아무 답도 없음 | rest 회복형, outdoor 바깥형 |
+
+시작 질문 → `focusPriority` (`lib/profile.ts`의 `focusPriority()`. 답마다 한 표, 표가 많은 focus가 앞, 같으면 daily·outing·relation·work 순)
+
+| 시작 질문 답 | focus |
+| --- | --- |
+| `range: home` (외출이 거의 없음) | outing 외출 회복 + daily 일상 회복 |
+| `support: no` 또는 `unsure` (힘들 때 연락할 사람이 없거나 모름) | relation 관계 회복 |
+| `living: family` (가족과 지냄) | relation 관계 회복 |
+| `needs`에 `money_job` | work 일·진로 회복 |
+| `needs`에 `health` | daily 일상 회복 |
+| `needs`에 `family` 또는 `people` | relation 관계 회복 |
+| 아무 규칙에도 걸리지 않음 | daily, outing (기본값) |
+
+- `suggestedStage` = 활동 범위로 정한 시작 단계 (`STAGE_BY_RANGE`: home 1, near 2, out 3, people 4, 답 없음 1). 프로필 저장 때 정하는 `current_stage`와 같은 규칙이다.
+- focus는 **내부 계산용**이다. "독립거주–저소득형", "건강·정서취약형", "은둔형" 같은 연구 유형 이름은 응답·화면에 쓰지 않는다.
+- 태그 key·label과 focus key는 `lib/quest-meta.ts`에 상수로 두고(서버리스라 실행 중 파일을 읽지 않음), `scripts/verify-survey.mts`가 루트 `quests.json`과 같은지 확인한다.
+
+추천 규칙 (**아직 구현하지 않음.** 오늘의 별 추천 AI ①·정책 추천 AI ⑤에 연결할 때의 기준)
+1. 현재 단계 범위(시작 단계 + 바로 위)의 별 중
+2. `focusPriority`에서 앞선 focus의 별을 먼저
+3. 그 안에서 `top` 태그를 가진 별을 먼저
+
 ## 만들 것 (기획: `docs/기획/아이디어_v4.md`)
 
 | API | 기능 | 비고 |
@@ -638,6 +739,7 @@ const { cheer, help } = await processReflection({
 | 센터 행동 기록 | 상세 보기(`viewed`)·"참여했어요"(`joined`) 저장 | `center_events` (테이블 준비됨). 센터 "앞까지 가 본 별"은 별 17로 시드 완료 (새 시드에서도 17) |
 | 주변 장소 | GPS 별의 목표 장소 (카카오 로컬) | 좌표 저장 안 함 |
 | 정책 추천 화면 연결 | 위 7번 API → 청년센터·바깥 지도 화면 "나에게 맞는 정책" | API 완료 (`feat/policy-recommend`). 예약 수집은 추후 |
+| 추천에 성향·회복 방향 연결 (AI ①·⑤) | 위 9번의 `focusPriority`·`top`으로 후보 순서 정하기 | 규칙은 9번 "추천 규칙". 지금은 계산 API만 있음 |
 
 ---
 
@@ -717,6 +819,7 @@ AI 출력 검사 (`lib/safety.ts`의 `isSafeAiText`): 위험 표현, 지시·과
 ```bash
 node node_modules/tsx/dist/cli.mjs scripts/gen-quest-seed.mts --check   # quests.json과 시드·Neon 동기화 SQL이 같은지 (고친 뒤에는 --check 없이 실행해 다시 생성)
 node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-star-api.mts --no-key   # 키 없음
+node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-survey.mts             # 설문·성향 점수·시작 질문 → focus (AI 없음)
 node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-star-api.mts --ai-fail  # 잘못된 키
 GEMINI_MODEL=gemini-3.5-flash-lite node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-star-api.mts
 GEMINI_MODEL=gemini-3.5-flash-lite node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-safety.mts
@@ -737,7 +840,17 @@ node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-ai-live.
 | `npm run build` → `next start` HTTP — `verify-http` / `verify-inquiry-http` | **20 / 20**, **25 / 25** | 밤하늘 API: 별자리 10개, 별 수 5·5·4·3·3·4·3·5·3·5 |
 | `eslint`, `tsc` (`next typegen` 뒤) | 오류 없음 | |
 
- (브랜치 `feat/points`, 로컬 Docker만, 키 없음)
+### 2026-11-20 퀘스트 후 설문·성향 점수 (브랜치 `feat/survey-preference` = `feat/points` 6d5a6a8 + 이번 변경, 로컬 Docker만, 키 없음)
+
+| 실행 | 결과 | 비고 |
+| ---- | ---- | ---- |
+| `verify-survey.mts` — 새 DB / 최신 master `db/init` + 포인트 + 설문 / 옛 `db/init` → 변경 SQL 5개(설문 2번) | **45 / 45** ×3 | 상수 = quests.json, focus 규칙 9가지, 점수 계산, 설문 저장·건너뛰기·덮어쓰기·400·404·500, 포인트 그대로, DB 제약 |
+| 변경 SQL `20261120_survey.sql` 2번 실행 | 에러·중복 제약 없음 | 설문 제약 3개 그대로. 기존 시도 2건 내용 그대로(설문 칸만 NULL). 세 DB 스키마 같음 |
+| `npm run build` → `next start` HTTP — `verify-http` / `verify-inquiry-http` | **28 / 28**, **25 / 25** | 설문 저장·건너뛰기·400·다른 세션 404·세션 없음 401, 성향 조회 |
+| 회귀 `verify-star-api` / `verify-profile` / `verify-policies` | **80 / 80**, **40 / 40**, **41 / 41** | |
+| `eslint`, `tsc --noEmit` (`next typegen` 뒤) | 오류 없음 | |
+
+### 2026-11-20 quests.json으로 콘텐츠 교체 뒤 재검증 (브랜치 `feat/points`, 로컬 Docker만, 키 없음)
 
 | 실행 | 결과 | 비고 |
 | ---- | ---- | ---- |
@@ -880,6 +993,15 @@ node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-ai-live.
 - 폐기한 별자리 6개(안드로메다·북쪽왕관·페가수스·목동·오리온·큰곰)와 그전 12개 묶음은 루트 `quests.retired.json`에 보관 (DB·스크립트는 읽지 않음).
 - `quests.json`에 없는 별이 DB에 있으면 멈춘다 (별을 지우면 시도 기록이 깨지므로 자동으로 지우지 않음).
 - 확인: `SELECT id, stage, name, star_count FROM constellations ORDER BY id;` → 10줄, `SELECT count(*) FROM stars;` → 40
+
+## DB 변경 — 퀘스트 후 설문 (`feat/survey-preference`, `db/migrations/20261120_survey.sql`)
+
+`20261120_points.sql` 다음에 실행한다 (파일 이름 순서). 칸·제약 추가만 하고 기존 기록은 지우거나 고치지 않는다. 여러 번 실행해도 안전하다.
+
+| 변경 | 내용 | API에서 할 일 |
+| ---- | ---- | ------------- |
+| 설문 칸 | `star_attempts.satisfaction`·`achievement` (SMALLINT, 1~5, 선택), `surveyed_at` | 9-1 설문 API가 저장 |
+| 제약 | `star_attempts_survey_check`: 설문 값이 하나라도 있을 때만 `surveyed_at`이 있음 | 없음 |
 
 ## 실행 환경
 

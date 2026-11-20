@@ -4,6 +4,8 @@
 // - 정책 신청 정보는 자격 규칙에만 쓰고 AI에 보내지 않는다
 // 화면(클라이언트)과 서버가 같은 목록을 쓰도록 DB 의존이 없는 순수 모듈로 둔다
 
+import { FOCUSES, type Focus } from "./quest-meta";
+
 type Options<K extends string> = readonly (readonly [K, string])[];
 const keys = <K extends string>(o: Options<K>) => o.map(([k]) => k);
 
@@ -33,6 +35,38 @@ export type StartAnswers = {
 
 /** 활동 범위 → 시작 단계 (초안. 추천은 이 단계 + 바로 위 단계까지) */
 export const STAGE_BY_RANGE: Record<NonNullable<StartAnswers["range"]>, number> = { home: 1, near: 2, out: 3, people: 4 };
+
+// ---------- 시작 질문 → 우선 focus (고민기록 #32) ----------
+// 답마다 "필요한 회복 방향"에 한 표씩. 표가 많은 focus를 앞에, 같으면 FOCUSES 순서(daily·outing·relation·work)
+// 유형 이름을 만들지 않고 focus 값만 돌려준다. 추천할 때만 읽고 저장하지 않음
+
+export type FocusPlan = { focusPriority: Focus[]; suggestedStage: number };
+/** 아무 규칙에도 걸리지 않을 때 (답하지 않음 포함) */
+export const DEFAULT_FOCUS: readonly Focus[] = ["daily", "outing"];
+
+/** 규칙 표 (docs/API명세.md "성향 점수"와 같게 유지) */
+export function focusVotes(a: StartAnswers): Focus[] {
+  const votes: Focus[] = [];
+  if (a.range === "home") votes.push("outing", "daily"); // 외출이 거의 없음
+  if (a.support === "no" || a.support === "unsure") votes.push("relation"); // 기댈 사람이 없거나 모름
+  if (a.living === "family") votes.push("relation"); // 가족과 지냄 → 관계
+  for (const n of a.needs ?? []) {
+    if (n === "money_job") votes.push("work");
+    else if (n === "health") votes.push("daily");
+    else if (n === "family" || n === "people") votes.push("relation");
+  }
+  return votes;
+}
+
+export function focusPriority(a: StartAnswers): FocusPlan {
+  const votes = focusVotes(a);
+  const count = (f: Focus) => votes.filter((v) => v === f).length;
+  const ranked = FOCUSES.filter((f) => count(f) > 0).sort((x, y) => count(y) - count(x) || FOCUSES.indexOf(x) - FOCUSES.indexOf(y));
+  return {
+    focusPriority: ranked.length > 0 ? ranked : [...DEFAULT_FOCUS],
+    suggestedStage: a.range ? STAGE_BY_RANGE[a.range] : 1,
+  };
+}
 
 // ---------- 정책 신청 정보 (users.policy_info, 나이는 users.birth_year) ----------
 // 온통청년 정책의 자격 코드와 짝을 맞춘 값만 묻는다 (코드 대응은 lib/policy-eligibility.ts)

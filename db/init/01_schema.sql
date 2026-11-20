@@ -142,6 +142,11 @@ CREATE TABLE star_attempts (
   cheer              TEXT,              -- AI ④ 맞춤 응원
   risk               VARCHAR(10) CHECK (risk IN ('normal', 'caution', 'danger')),  -- 회고 위험도 (AI ③, 안내가 나간 횟수 집계용)
   created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- 퀘스트 후 설문 (선택, 건너뛰어도 됨. bright·dim 모두). 성향 점수(lib/preference.ts)에만 쓰고 포인트와 무관 (고민기록 #32)
+  satisfaction       SMALLINT CHECK (satisfaction BETWEEN 1 AND 5),  -- 만족도 "해 보니 어땠나요?"
+  achievement        SMALLINT CHECK (achievement BETWEEN 1 AND 5),   -- 성취감 "해낸 느낌이 드나요?"
+  surveyed_at        TIMESTAMPTZ,                                     -- 마지막으로 설문을 저장한 시각 (다시 보내면 덮어씀)
+  CONSTRAINT star_attempts_survey_check CHECK ((surveyed_at IS NULL) = (satisfaction IS NULL AND achievement IS NULL)),
   CONSTRAINT star_attempts_sub_quest_fkey      FOREIGN KEY (sub_quest_id, star_id) REFERENCES sub_quests (id, star_id),
   CONSTRAINT star_attempts_next_sub_quest_fkey FOREIGN KEY (next_sub_quest_id, star_id) REFERENCES sub_quests (id, star_id),
   -- 하위 퀘스트 이름은 하위 퀘스트로 한 시도에만
