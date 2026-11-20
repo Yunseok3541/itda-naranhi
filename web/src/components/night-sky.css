@@ -436,7 +436,7 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .char-sub { margin: 2px 0 6px; font-size: .78rem; color: var(--starlight-dim); }
 .char-link { display: inline-block; font-size: .82rem; font-weight: 750; color: var(--star-gold); }
 .sky-guide {
-  position: fixed; z-index: 2; left: 50%; bottom: calc(var(--person-bottom) + min(var(--person-height), 124px) + 9px);
+  position: fixed; z-index: 2; left: 50%; bottom: calc(var(--person-bottom) + var(--person-height) * 1.24 + 18px);
   transform: translateX(-50%); width: min(278px, calc(100% - 32px)); padding: 15px 16px 7px;
   border: 1px solid #bfa1df73; border-radius: 18px;
   background: linear-gradient(155deg, #2e2048, #1e1731); box-shadow: 0 8px 35px #09051677;

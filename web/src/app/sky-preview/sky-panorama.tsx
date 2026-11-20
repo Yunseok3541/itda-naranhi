@@ -290,7 +290,7 @@ export default function SkyPanorama({ background = false, dome = false }: { back
         }}>
         <canvas ref={canvas} className="panorama-canvas" aria-hidden="true" />
         {!dome && <><div className="panorama-hills" aria-hidden="true" /><div className="panorama-grass" aria-hidden="true" /></>}
-        <div className="panorama-person" aria-hidden="true"><SkyPerson /></div>
+        <div className="panorama-person" aria-hidden="true"><SkyPerson sculpted={background} /></div>
       </div>
     </div>
   );
