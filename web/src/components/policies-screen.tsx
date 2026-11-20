@@ -5,16 +5,19 @@
 // - 정책 카드: 방식·마감 칩, 요약, 추천 이유, 신청 조건은 접어 둠
 // - 부가 기능(모든 정책 보기, 추천 기준 바꾸기, 청년센터)은 맨 아래 "더보기"
 // - 원문 근거 칩: 원문 문장에서 찾은 항목만 "있음", 못 찾으면 "확인 필요" (AI 점수는 보여 주지 않음, 고민기록 #37)
+// - [신청 도와줘]: 신청 도우미 창 (apply-helper.tsx, 고민기록 #39)
 // - [나랑 안 맞아요]: 이유를 고르면 그 정책은 다시 추천하지 않음. 지역·조건 이유는 피드백 루프로 (고민기록 #38)
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { request, type Help, type Mode } from '@/lib/mobile-data';
+import type { HelperPolicy } from '@/lib/apply-helper';
+import ApplyHelper from './apply-helper';
 import { Hero, HeroIcon, MoreLinks, ScreenBar, Summary } from './screen-kit';
 
 type Policy = {
   policyId: number; title: string; summary: string; reason: string; burdenLabel: string;
   scope: string; deadline: string | null; url: string | null; tags: string[];
-  needsInquiry: boolean; conditionsToCheck: string[]; mayNotFit: string[];
+  needsInquiry: boolean; conditionsToCheck: string[]; mayNotFit: string[]; burden?: HelperPolicy['burden'];
   evidence?: { item: string; status: 'yes' | 'unknown' }[];
 };
 type FeedbackReason = 'region' | 'eligibility' | 'not_needed' | 'too_hard' | 'other';
@@ -36,6 +39,12 @@ const example: Result = {
   basis: { region: '예시 지역', updatedAt: null },
 };
 
+// 예시 모드 신청 도우미가 쓰는 가상 원문
+const exampleHelperPolicy: HelperPolicy = {
+  title: '예시 생활 지원 정책', burden: 'online',
+  applyText: '온라인 신청→서류 확인→결과 안내', reviewText: null, docsText: '신분증 사본, 주민등록등본',
+};
+
 export default function PoliciesScreen({ mode, onError, onClearError }: { mode: Mode; onError: (error: unknown) => void; onClearError: () => void }) {
   const [view, setView] = useState<'recommended' | 'all'>('recommended');
   const [result, setResult] = useState<Result | null>(null);
@@ -44,6 +53,7 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
   const [retry, setRetry] = useState(0);
   // 피드백을 보낸 정책: 맞춤 추천에서는 카드 대신 고마움 문장만 남긴다
   const [sent, setSent] = useState<Record<number, FeedbackResult>>({});
+  const [helping, setHelping] = useState<Policy | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -103,6 +113,7 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
       </details>}
       {policy.url && /^https?:\/\//i.test(policy.url) && <a className="primary" href={policy.url} target="_blank" rel="noopener noreferrer"
         onClick={() => { if (mode === 'api') void request(`policies/${policy.policyId}/click`, 'POST', {}).catch(() => {}); }}>정책 원문 확인</a>}
+      <button type="button" className="secondary" onClick={() => setHelping(policy)}>신청 도와줘</button>
       {policy.needsInquiry && <Link className="secondary" href="/centers">청년센터에서 문의 준비하기</Link>}
       {sent[policy.policyId]
         ? <SentNote result={sent[policy.policyId]} />
@@ -111,6 +122,7 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
     {sentNotes.length > 0 && <section className="card" aria-live="polite">
       {sentNotes.map(([id, r]) => <p key={id} className="small">{r.message}</p>)}
     </section>}
+    {helping && <ApplyHelper policyId={helping.policyId} title={helping.title} mode={mode} examplePolicy={exampleHelperPolicy} onClose={() => setHelping(null)} />}
     <MoreLinks>
       <button type="button" onClick={() => setView(all ? 'recommended' : 'all')}>{all ? '맞춤 추천 보기' : '모든 정책 보기'}</button>
       <Link href="/profile#settings">추천 기준 바꾸기 (내 정보)</Link>
