@@ -130,3 +130,27 @@
   .night-ui .mind-choice:not(:disabled):hover { border-color: rgba(246, 207, 125, .65); }
   .night-ui .mind-nav .text-button:not(:disabled):hover { background: rgba(255, 255, 255, .07); }
 }
+
+/* ── 권유 카드 ("오늘의 별" 추천 별 아래, mind-check-offer.tsx) ──
+   추천 별을 보는 동안 창 아래쪽에 붙어 있음 (처음부터 보이게, 엄지 영역). 맨 아래까지 내리면 추천 별 다음 제자리 */
+.quest-dialog .mind-offer, .quest-dialog .mind-offer-later { position: sticky; bottom: 0; z-index: 2; }
+/* 창 아래 여백(16px)으로 뒤 추천 별이 비치지 않게 카드 아래를 창 바탕색으로 메움 */
+.quest-dialog .mind-offer::after, .quest-dialog .mind-offer-later::after {
+  content: ""; position: absolute; left: -17px; right: -17px; top: calc(100% + 1px); height: calc(17px + env(safe-area-inset-bottom)); background: #1a142d;
+}
+/* .night-ui .card(반투명 배경)보다 우선하게 .card까지 붙임 → 뒤 글자가 비치지 않는 불투명 배경 */
+.quest-dialog .card.mind-offer, .night-ui .card.mind-offer {
+  margin-top: 14px; padding: 12px 14px; border-color: rgba(190, 160, 255, .55);
+  background: linear-gradient(110deg, #2e2a4f, #221d3c 80%); box-shadow: 0 -12px 24px #0d0a1fd9;
+}
+.mind-offer-head { display: grid; grid-template-columns: 40px minmax(0, 1fr); align-items: center; gap: 12px; }
+.mind-offer-art { display: grid; width: 40px; height: 40px; }
+.mind-offer-art .mind-scope { filter: none; }
+.mind-offer h3 { margin: 0; font-size: .975rem; }
+.mind-offer-head p { margin: 1px 0 0; }
+.mind-offer-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.mind-offer-actions > * { display: grid; place-items: center; min-height: 44px; margin: 0; text-decoration: none; }
+.quest-dialog .mind-offer-later {
+  margin: 14px 0 0; padding: 12px 14px; border-radius: 14px; text-align: center;
+  background: #2a2547; border: 1px solid rgba(190, 160, 255, .35); box-shadow: 0 -12px 24px #0d0a1fd9;
+}

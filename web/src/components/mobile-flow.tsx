@@ -38,8 +38,10 @@ const navigation = [
 
 /** 시작 질문 3개 (별 순서 표시의 화면 읽기용 이름, profile-form.tsx answerFields와 같은 말) */
 const START_STEPS = ['활동 범위', '부담되는 상황', '활동 방식'];
-export default function MobileFlow({screen='sky',starId,centerId,completionAttemptId,memoryStarId,guide=false,tour=false,checkin=false}:{
-  screen?:string;starId?:number;centerId?:number;completionAttemptId?:number;memoryStarId?:number;
+export default function MobileFlow({screen='sky',starId,centerId,completionAttemptId,memoryStarId,guide=false,tour=false,checkin=false,mindCheckFrom='profile'}:{
+  screen?:string;
+  /** 마음 짚기에 어디서 들어왔는지 (뒤로 가기 목적지) */
+  mindCheckFrom?:'sky'|'profile';starId?:number;centerId?:number;completionAttemptId?:number;memoryStarId?:number;
   /** 설정의 "사용 안내 다시 보기"(/sky?guide=1)로 들어왔으면 시작 안내부터 */
   guide?:boolean;
   /** /sky?tour=1: 메뉴 안내만 다시 띄움 (확인·시연용) */
@@ -332,7 +334,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  {screen==='star'&&<StarScreen key={starId} mode={mode} star={star} dailyLimitReached={!isTutorialStar(starId) && hasReachedDailyStarLimit(stars)} busy={busy} run={run} onHelp={H} onSaved={reloadSky}/>}
  {screen==='shop'&&<StarlightShop mode={mode}/>}
  {screen==='profile'&&<ProfileHome mode={mode}/>}
- {screen==='mind-check'&&<MindCheckScreen mode={mode}/>}
+ {screen==='mind-check'&&<MindCheckScreen mode={mode} from={mindCheckFrom}/>}
  {screen==='policy-criteria' && <>
    <ScreenBar title="추천 기준" back="/policies" backLabel="정책 추천으로 돌아가기" />
    <ProfileScreen mode={mode} onSaved={() => router.replace('/policies')} />
