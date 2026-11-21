@@ -872,7 +872,7 @@ html.sky-locked-page { --sky-dock-height: 96px; --person-height: 15dvh; }
   background: #1c1433ee; color: var(--starlight); font-size: .75rem; white-space: nowrap;
 }
 /* 캐릭터 옆 말 걸기: 아이콘만으로는 뜻을 몰라 글자를 붙임 */
-.sky-character-prompt:has(> span) { width: auto; gap: 3px; padding: 0 7px 0 5px; grid-auto-flow: column; right: -44px; }
+.sky-character-prompt:has(> span) { width: auto; gap: 3px; padding: 0 7px 0 5px; grid-auto-flow: column; right: -74px; top: -23px;}
 .sky-character-prompt > span { font-size: .6875rem; font-weight: 700; white-space: nowrap; }
 /* 처음 한 번 안내 카드 (끌기 → 별 누르기) */
 .sky-hint {

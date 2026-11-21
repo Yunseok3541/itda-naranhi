@@ -27,6 +27,8 @@
 .night-ui .avatar-option { display: grid; justify-items: center; gap: 4px; min-height: 0; padding: 6px 2px; border-radius: 14px; background: transparent; border: 1px solid transparent; box-shadow: none; color: var(--starlight); font-weight: 600; }
 .night-ui .avatar-option.chosen { border-color: var(--star-gold); background: rgba(246, 207, 125, .12); }
 .avatar-option small { color: var(--starlight-dim); }
+.night-ui .avatar-locked:disabled { opacity: 1; }
+.avatar-silhouette { width: 56px; height: 56px; }
 
 
 
