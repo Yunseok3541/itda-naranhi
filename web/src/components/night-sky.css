@@ -393,7 +393,7 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .nstar-label {
   position: absolute; box-sizing: border-box; padding: 5px 10px; border: 1px solid rgba(255,255,255,.14); border-radius: 8px;
   font-size: 12px; font-weight: 500; letter-spacing: -.01em; line-height: 1.35; color: var(--starlight); text-align: center;
-  white-space: normal; word-break: keep-all; overflow-wrap: anywhere;
+  white-space: pre-line; word-break: keep-all; overflow-wrap: break-word;
   display: block;
   background: rgba(18,15,40,.55); backdrop-filter: blur(6px); text-shadow: 0 1px 3px #08051c;
 }
@@ -1051,7 +1051,6 @@ html.sky-locked-page { --sky-dock-height: 96px; --person-height: 15dvh; }
   border-radius: 14px; background: radial-gradient(circle at 50% 40%, rgba(170, 155, 225, .25), rgba(16, 15, 48, .2));
 }
 .star-group-friend img { width: 100%; height: 100%; object-fit: contain; }
-.star-group-friend > :not(img) { transform: scale(.42); }
 .star-group-text { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .star-group-text b { font-size: 1rem; font-weight: 700; color: var(--starlight); }
 .star-group-text small { font-size: .75rem; color: var(--starlight-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1077,4 +1076,3 @@ html.sky-locked-page { --sky-dock-height: 96px; --person-height: 15dvh; }
 /* night-row의 "마지막 칸 늘리기"(위 .night-row > span:last-child)가 줄 끝 화살표에 걸리지 않게 */
 .night-list .night-row > span.night-row-go, .night-list .night-row > span.star-group-chevron { flex: none; }
 .star-list-head .star-list-title { display: flex; width: 100%; }
-.star-group-friend > :not(img) { transform: scale(.55); }

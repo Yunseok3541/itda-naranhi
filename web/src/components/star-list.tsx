@@ -90,7 +90,7 @@ export default function StarList({ groups, current, completed, onGroup, onStar, 
               {friend && (done
                 // eslint-disable-next-line @next/next/no-img-element
                 ? <img src={`/catalog/${friend.id}.webp`} alt="" />
-                : <CatalogStardust id={friend.id} large={false} />)}
+                : <CatalogStardust id={friend.id} />)}
             </span>
             <span className="star-group-text">
               <b>{group.name}</b>
