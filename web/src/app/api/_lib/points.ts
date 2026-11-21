@@ -1,6 +1,6 @@
 // 포인트: 유성 터치(+1)·데일리 체크인(+100) 적립과 합계 조회 (docs/API명세.md "9. 포인트", 고민기록 #32)
 // 별 포인트는 시도 저장(_lib/attempts.ts)이 뷰로 계산하고, 여기서는 적립 기록 point_events만 쓴다
-// 총점의 기준은 뷰 v_user_points (별 + 유성 + 체크인). 중복 지급은 UNIQUE (user_id, source, ref_key)가 막는다
+// 잔액의 기준은 뷰 v_user_balance (별 + 유성 + 체크인 − 구매액). 중복 지급은 UNIQUE (user_id, source, ref_key)가 막는다
 import { db as pool } from "@/lib/db";
 import {
   CHECKIN_POINTS,
@@ -35,7 +35,7 @@ export async function catchMeteor(userId: number, body: unknown, db: Db = pool, 
     // 하루 한도는 동시에 여러 유성을 보내면 받을 수 있는 유성 수(유예 60초 + 다음 1개 = 최대 6개)만큼 넘을 수 있다. 같은 유성 중복은 UNIQUE라 생기지 않음
     const { rows } = await db.query<{ total_before: number; today_before: number; already: boolean; earned: number | null }>(
       `WITH prev AS (
-         SELECT COALESCE((SELECT total_points FROM v_user_points WHERE user_id = $1), 0) AS total_before,
+         SELECT COALESCE((SELECT total_points FROM v_user_balance WHERE user_id = $1), 0) AS total_before,
                 (SELECT count(*) FROM point_events
                  WHERE user_id = $1 AND source = 'meteor' AND earned_date = ${TODAY_KST})::int AS today_before,
                 EXISTS (SELECT 1 FROM point_events WHERE user_id = $1 AND source = 'meteor' AND ref_key = $2) AS already
@@ -80,7 +80,7 @@ export async function catchMeteor(userId: number, body: unknown, db: Db = pool, 
 export async function awardCheckinPoints(userId: number, db: Db = pool): Promise<{ pointsEarned: number; totalPoints: number }> {
   const { rows } = await db.query<{ total_before: number; earned: number | null }>(
     `WITH prev AS (
-       SELECT COALESCE((SELECT total_points FROM v_user_points WHERE user_id = $1), 0) AS total_before
+       SELECT COALESCE((SELECT total_points FROM v_user_balance WHERE user_id = $1), 0) AS total_before
      ), ins AS (
        INSERT INTO point_events (user_id, source, ref_key, points, earned_date)
        VALUES ($1, 'checkin', to_char(${TODAY_KST}, 'YYYY-MM-DD'), $2, ${TODAY_KST})
@@ -114,7 +114,7 @@ export async function getPoints(userId: number, db: Db = pool, now: number = Dat
               EXISTS (SELECT 1 FROM point_events
                       WHERE user_id = $1 AND source = 'checkin' AND earned_date = ${TODAY_KST}) AS checkin_today
        FROM (SELECT 1) one
-       LEFT JOIN v_user_points p ON p.user_id = $1`,
+       LEFT JOIN v_user_balance p ON p.user_id = $1`,
       [userId],
     );
     const r = rows[0];

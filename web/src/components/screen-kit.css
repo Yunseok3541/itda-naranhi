@@ -28,9 +28,11 @@
 
 /* 그림 (캐릭터) */
 .avatar { position: relative; display: grid; place-items: center; overflow: hidden; border-radius: 50%; background: radial-gradient(circle at 50% 40%, #3a2c6e, #1a1338); border: 2px solid rgba(190, 160, 255, .55); box-shadow: 0 0 24px rgba(186, 142, 229, .35); }
-.avatar img { width: 86%; height: 86%; object-fit: contain; }
-.avatar-person { position: absolute; inset: 0; }
-.avatar-person .sky-person { width: 100%; height: auto; filter: none; animation: none; }
+.avatar > .sky-person { width: 100%; height: 100%; filter: none; animation: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .accessory-arrives { animation: accessory-arrive 220ms ease-out; }
+  @keyframes accessory-arrive { from { transform: translateY(-6px); opacity: .35; } }
+}
 
 /* 요약 최대 3칸 */
 .screen-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; margin: 6px 0 18px; }
