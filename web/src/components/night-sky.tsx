@@ -174,9 +174,9 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   const [talk, setTalk] = useState<string | null>(null);
   const toggleTalk = () => setTalk(t => (t ? null : QUESTIONS[Math.floor(Date.now() / 86_400_000) % QUESTIONS.length]));
   const sheet = useRef<HTMLDialogElement>(null);
-  const list = useRef<HTMLDetailsElement>(null);
+  const list = useRef<HTMLDialogElement>(null);
   const burstCount = useRef(0);
-  const closeList = () => { if (list.current) list.current.open = false; };
+  const closeList = () => list.current?.close();
 
   // 배경 시점이 바뀌면 다시 그림 (끌기·확대·이동 애니메이션)
   useSyncExternalStore(skyView.subscribe, skyView.version, () => 0);
@@ -407,13 +407,17 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
         {recent >= 0 && recent !== safeIndex && <button type="button" className="recent-pill" onClick={() => jump(recent)}>
           <SkyControlIcon name="refresh" /> 최근 별자리
         </button>}
-        <details className="night-list" ref={list}>
-          <summary><SkyControlIcon name="constellation" /> 모든 별 보기</summary>
-          <div className="night-list-body" role="dialog" aria-label="모든 별 목록">
+        <button type="button" className="night-list-trigger" aria-haspopup="dialog" onClick={event => {
+          event.currentTarget.focus({ preventScroll: true });
+          list.current?.showModal();
+        }}><SkyControlIcon name="constellation" /> 모든 별 보기</button>
+        <dialog className="night-list" ref={list} aria-label="모든 별 목록"
+          onClick={event => { if (event.target === event.currentTarget) closeList(); }}>
+          <div className="night-list-body">
             <div className="sheet-grip" aria-hidden="true" />
             {groups.map((g, gi) => <div key={g.id}>
               <h3><button type="button" className="ghost" onClick={() => { closeList(); jump(gi); }}>{g.name} 보기</button></h3>
-              {g.stars.map(s => <button key={s.starId} type="button" className="night-row" onClick={() => { jump(gi); onSelect(s); closeList(); }}>
+              {g.stars.map(s => <button key={s.starId} type="button" className="night-row" onClick={() => { closeList(); jump(gi); onSelect(s); }}>
                 <span className={`dot ${s.status}`} aria-hidden="true" />
                 <span>{s.title}<small>{labels[s.status]}</small></span>
               </button>)}
@@ -422,7 +426,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
             <button type="button" className="ghost sky-icon-action" onClick={closeList}><SkyControlIcon name="close" /> 닫기</button>
             {footer}
           </div>
-        </details>
+        </dialog>
       </div>
     <div className="night-space">
       {current && (<SkyMinimap groups={groups} centers={centers} skies={skies} view={view} frame={frame}

@@ -13,6 +13,9 @@
 
 
 
+.profile-catalog-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 20px 0 10px; }
+.profile-catalog-header .screen-section { margin: 0; }
+.night-ui .profile-catalog-header a { display: inline-flex; align-items: center; min-height: 36px; padding-inline: 8px; color: var(--star-gold); font-size: .875rem; white-space: nowrap; }
 .profile-strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
 .profile-strip > a { flex: none; display: grid; justify-items: center; align-content: center; gap: 2px; width: 84px; height: 84px; border-radius: 16px; background: rgba(37, 32, 57, .82); border: 1px solid rgba(255, 255, 255, .12); color: var(--starlight); text-decoration: none; }
 .profile-strip img { width: 56px; height: 56px; object-fit: contain; }
@@ -20,8 +23,6 @@
 .strip-item.done { border-color: var(--star-gold); box-shadow: 0 0 14px rgba(246, 207, 125, .3); }
 .strip-item.done small { color: var(--star-gold); }
 .strip-item.yet img { opacity: .35; filter: grayscale(.6); }
-.strip-more { flex: 1 0 84px !important; width: auto !important; font-size: .8125rem; font-weight: 650; }
-.strip-more span { font-size: 1.3rem; }
 
 .badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
 .badge { display: grid; justify-items: center; text-align: center; gap: 3px; padding: 12px 8px; border-radius: 16px; background: rgba(37, 32, 57, .6); border: 1px dashed rgba(255, 255, 255, .14); }

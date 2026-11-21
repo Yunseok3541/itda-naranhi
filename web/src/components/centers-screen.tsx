@@ -5,7 +5,7 @@
 // - 상세: 대표 영역(센터 이름·주소) → 센터 정보 · 프로그램 · 문의 문장 준비 · 앞까지 가 보기 카드
 // - 부가 기능(홈페이지, 저장한 초안 불러오기, 정책)은 맨 아래 "더보기". 요약 칸은 넣지 않음
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ApiError, request, type Help, type Mode } from '@/lib/mobile-data';
 import { Hero, HeroIcon, MoreLinks, ScreenBar, Section } from './screen-kit';
 import type { Center } from '@/app/api/_lib/centers-data';
@@ -26,7 +26,15 @@ export default function CentersScreen({ mode, centerId, onError, onHelp, onClear
   const [draft, setDraft] = useState('');
   const [draftId, setDraftId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState<{ text: string; focusDraft?: boolean } | null>(null);
+  const draftInput = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const input = draftInput.current;
+    if (busy || !message?.focusDraft || !input) return;
+    input.focus({ preventScroll: true });
+    input.scrollIntoView({ block: 'center' });
+  }, [busy, message]);
 
   useEffect(() => {
     let active = true;
@@ -49,7 +57,7 @@ export default function CentersScreen({ mode, centerId, onError, onHelp, onClear
 
   async function run(action: () => Promise<void>) {
     if (busy) return;
-    setBusy(true); setMessage(''); onClearError();
+    setBusy(true); setMessage(null); onClearError();
     try { await action(); } catch (error) { onError(error); } finally { setBusy(false); }
   }
 
@@ -58,7 +66,7 @@ export default function CentersScreen({ mode, centerId, onError, onHelp, onClear
     setDraftId(null);
     if (mode === 'example') {
       setDraft(`안녕하세요. ${center.name}에 처음 문의드려요. ${question.trim()} 알려주시면 감사하겠습니다.`);
-      setDraftId(null); setMessage('예시 문장을 준비했어요. 보내기 전에 내용을 고쳐 주세요.');
+      setMessage({ text: '예시 문장을 준비했어요. 보내기 전에 내용을 고쳐 주세요.', focusDraft: true });
       return;
     }
     const response = await fetch('/api/inquiries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ centerId, question }) });
@@ -67,20 +75,23 @@ export default function CentersScreen({ mode, centerId, onError, onHelp, onClear
     if (data.draft) setDraft(data.draft);
     if (!response.ok) throw new ApiError(data.error ?? '초안을 준비하지 못했어요.', response.status, data.code, data.help ?? null);
     setDraftId(data.draftId);
-    setMessage(data.usedFallback ? '기본 문장으로 초안을 준비해 저장했어요.' : '초안을 준비해 저장했어요. 보내기 전에 확인해 주세요.');
+    setMessage({
+      text: data.usedFallback ? '기본 문장으로 초안을 준비해 저장했어요.' : '초안을 준비해 저장했어요. 보내기 전에 확인해 주세요.',
+      focusDraft: !!data.draft && !data.help,
+    });
   }
 
   async function loadSavedDraft() {
     if (mode === 'example') {
       const saved = localStorage.getItem(`naranhi-example-inquiry-${centerId}`);
-      if (!saved) { setMessage('아직 저장한 초안이 없어요.'); return; }
+      if (!saved) { setMessage({ text: '아직 저장한 초안이 없어요.' }); return; }
       setDraft(saved);
     } else {
       const data = await request<{ drafts: Draft[] }>(`inquiries?centerId=${centerId}`);
-      if (!data.drafts.length) { setMessage('아직 저장한 초안이 없어요.'); return; }
+      if (!data.drafts.length) { setMessage({ text: '아직 저장한 초안이 없어요.' }); return; }
       setDraft(data.drafts[0].draft); setDraftId(data.drafts[0].draftId);
     }
-    setMessage('저장한 초안을 불러왔어요.');
+    setMessage({ text: '저장한 초안을 불러왔어요.', focusDraft: true });
   }
 
   const failed = loadError && <section className="card"><p role="alert">{loadError}</p><button onClick={() => setRetry(value => value + 1)}>다시 불러오기</button></section>;
@@ -124,15 +135,15 @@ export default function CentersScreen({ mode, centerId, onError, onHelp, onClear
         <label>궁금한 점<textarea disabled={busy} maxLength={300} value={question} onChange={event => setQuestion(event.target.value)} placeholder="예약 없이 잠깐 둘러봐도 괜찮을까요?" /></label>
         <button disabled={busy || !question.trim()} onClick={() => run(createDraft)}>{busy ? '준비 중…' : '문의 초안 준비하기'}</button>
         {draft && <>
-          <label>보내기 전에 확인할 초안<textarea disabled={busy} maxLength={1000} value={draft} onChange={event => setDraft(event.target.value)} /></label>
+          <label>보내기 전에 확인할 초안<textarea ref={draftInput} disabled={busy} maxLength={1000} value={draft} onChange={event => setDraft(event.target.value)} /></label>
           <button disabled={busy || !draft.trim()} onClick={() => run(async () => {
             if (mode === 'example') localStorage.setItem(`naranhi-example-inquiry-${centerId}`, draft);
             else if (draftId !== null) await request(`inquiries/${draftId}`, 'PATCH', { draft });
             else throw new Error('초안을 먼저 다시 준비해 주세요.');
-            setMessage(mode === 'example' ? '초안을 이 브라우저에 저장했어요. 실제로 전송하지 않았어요.' : '수정한 초안을 저장했어요. 실제로 전송하지 않았어요.');
+            setMessage({ text: mode === 'example' ? '초안을 이 브라우저에 저장했어요. 실제로 전송하지 않았어요.' : '수정한 초안을 저장했어요. 실제로 전송하지 않았어요.' });
           })}>초안만 저장하기</button>
         </>}
-        {message && <p role="status">{message}</p>}
+        {message && <p role="status">{message.text}</p>}
       </section>
       {center.isSample && <section className="card"><h2>앞까지 가 보기</h2><p>가상 장소의 시연이에요. 직접 기록으로 남길 수 있어요.</p><Link className="secondary" href="/stars/17">앞까지 가 본 별 기록하기</Link></section>}
       <MoreLinks>

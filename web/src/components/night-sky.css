@@ -47,7 +47,7 @@ html.sky-night-page body {
 .sky-mode .help { background: rgba(246, 207, 125, .14); border: 1px solid var(--star-gold-soft); color: var(--starlight); }
 .sky-mode .error { background: rgba(255, 120, 150, .16); color: #ffd3dd; }
 .sky-mode footer { color: rgba(238, 233, 255, .45); }
-.sky-mode button:not(.nstar):not(.sky-pill):not(.char-hotspot):not(.recent-pill):not(.text-button):not(.ghost):not(.sky-minimap):not(.sky-map-target):not(.night-row):not(.dock-main):not(.quest-dialog button):not(.glass-select-trigger),
+.sky-mode button:not(.nstar):not(.sky-pill):not(.char-hotspot):not(.recent-pill):not(.text-button):not(.ghost):not(.sky-minimap):not(.sky-map-target):not(.night-row):not(.night-list-trigger):not(.dock-main):not(.quest-dialog button):not(.glass-select-trigger),
 .sky-mode .primary { background: linear-gradient(180deg, #ffe3a3, var(--star-gold)); color: #24183f; box-shadow: 0 0 24px rgba(246, 207, 125, .35); }
 .sky-mode .ghost { background: transparent; color: var(--starlight-dim); border: 1px solid var(--glass-line); }
 .night-loading { margin-top: 40vh; text-align: center; color: var(--starlight-dim); }
@@ -254,7 +254,7 @@ html.sky-night-page body {
 .burst i { position: absolute; width: 5px; height: 5px; margin: -2.5px; border-radius: 50%; background: var(--star-gold); box-shadow: 0 0 8px var(--star-gold); opacity: 0; }
 
 /* 별자리 넘기기 */
-.night-list summary svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.night-list-trigger svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .night-hint { text-align: center; color: rgba(238, 233, 255, .45); font-size: .8125rem; margin: 6px 0 0; }
 
 /* 기억 시트 (아래에서 올라옴) */
@@ -282,23 +282,20 @@ html.sky-night-page body {
 
 /* 접근성용 전체 목록: 위쪽 왼편 버튼 → 아래에서 올라오는 창 */
 .night-actions { align-self: center; display: flex; align-items: center; gap: 8px; margin-top: 8px; position: relative; z-index: 1; }
-.night-list { position: relative; }
-.night-list summary {
+.sky-mode .night-list-trigger {
   list-style: none; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px; cursor: pointer;
   border-radius: 999px; border: 1px solid var(--glass-line); background: var(--glass);
-  color: var(--starlight-dim); font-size: .875rem; font-weight: 650; text-align: center;
+  color: var(--starlight-dim); font-size: .875rem; font-weight: 650; text-align: center; width: auto;
 }
-.night-list summary::-webkit-details-marker { display: none; }
-/* 열렸을 때 뒤쪽을 어둡게. 어두운 곳을 누르면(= summary 클릭) 닫힘 */
-.night-list[open] > summary::after { content: ""; position: fixed; inset: 0; z-index: 6; background: rgba(5, 6, 26, .6); }
-.night-list-body {
-  position: fixed; z-index: 7; left: 50%; bottom: 0; transform: translateX(-50%);
-  width: min(100%, 520px); max-height: 78dvh; overflow-y: auto; overscroll-behavior: contain;
-  padding: 10px 20px calc(20px + env(safe-area-inset-bottom));
+.night-list {
+  position: fixed; inset: auto 0 0; margin: 0 auto; padding: 0;
+  width: min(100%, 520px); max-width: 100%; max-height: 78dvh; overflow-y: auto; overscroll-behavior: contain;
   border-radius: 22px 22px 0 0; border: 1px solid var(--glass-line); border-bottom: 0;
-  background: #100f30; box-shadow: 0 -10px 40px rgba(0, 0, 0, .45);
+  background: #100f30; color: var(--starlight); box-shadow: 0 -10px 40px rgba(0, 0, 0, .45);
   text-align: left;
 }
+.night-list::backdrop { background: rgba(5, 6, 26, .6); }
+.night-list-body { padding: 10px 20px calc(20px + env(safe-area-inset-bottom)); }
 .night-list-body footer { margin-top: 14px; }
 .night-list h3 { margin: 16px 0 6px; font-size: .9rem; color: var(--starlight-dim); }
 .night-row { display: flex; align-items: center; gap: 12px; text-align: left; background: var(--glass); border: 1px solid var(--glass-line); color: var(--starlight); margin-block: 6px; font-weight: 500; }
@@ -513,7 +510,7 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .night-ui input, .night-ui select, .night-ui textarea {
   background: rgba(10, 8, 30, .55); color: var(--starlight); border: 1px solid rgba(190, 160, 255, .45);
 }
-.night-ui input::placeholder, .night-ui textarea::placeholder { color: rgba(238, 233, 255, .42); }
+.night-ui input::placeholder, .night-ui textarea::placeholder { color: var(--starlight-dim); opacity: 1; }
 .night-ui .check input { accent-color: var(--star-gold); }
 
 /* 버튼 */
@@ -750,7 +747,7 @@ html.sky-locked-page { --sky-dock-height: 96px; --person-height: 15dvh; }
   .sky-top .sky-utility-symbol { width: 29px; height: 29px; }
 }
 .sky-locked .night-hint { color: #ded7eaad; margin-top: 2px; }
-.sky-locked .night-list summary {
+.sky-locked .night-list-trigger {
   font-size: 13px;
   font-weight: 600;
   background: rgba(217,208,245,.23);
