@@ -6,6 +6,7 @@ import { getCompletedConstellationIds } from '@/lib/constellations';
 import { client } from '@/lib/mobile-data';
 import { characters, type Character } from './characters';
 import CatalogStardust from './catalog-stardust';
+import { useCloseDialogOnHide } from '@/components/use-close-dialog-on-hide';
 
 function CharacterArt({ character, acquired, play, large = false }: {
   character: Character;
@@ -56,6 +57,7 @@ export default function CatalogGallery() {
   const [acquired, setAcquired] = useState<ReadonlySet<number> | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
+  useCloseDialogOnHide(dialog);
   const grid = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
@@ -79,7 +81,7 @@ export default function CatalogGallery() {
 
   function statusLabel(character: Character) {
     if (isAcquired(character)) return '만났어요';
-    if (acquired) return '아직 못 만났어요';
+    if (acquired) return '별자리 완성 후 만나요';
     return loadFailed ? '만났는지 확인 못 함' : '확인 중';
   }
 

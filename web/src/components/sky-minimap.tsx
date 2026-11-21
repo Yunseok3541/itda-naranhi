@@ -3,6 +3,7 @@
 import { useId, useRef, type MouseEvent } from 'react';
 import { screenRay, toLonLat, unit, RAD, type Frame, type SkyView, type Vec3 } from '@/lib/sky-view';
 import SkyControlIcon from './sky-control-icon';
+import { useCloseDialogOnHide } from './use-close-dialog-on-hide';
 
 type Constellation = { points: Vec3[]; edges: [number, number][] };
 const rim = 45;
@@ -95,6 +96,7 @@ export default function SkyMinimap({ groups, centers, skies, view, frame, active
   onHorizon: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  useCloseDialogOnHide(dialog);
   const title = useId();
   const chart = { skies, centers, view, frame, active };
   function select(index: number) {

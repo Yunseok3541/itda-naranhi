@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { client, type Mode } from '@/lib/mobile-data';
 import { FOV_MAX, FOV_MIN } from '@/lib/sky-view';
 import { CHECKIN_POINTS, METEOR_POINTS } from '@/lib/points';
@@ -29,6 +29,8 @@ export default function MeteorRewards({ mode, skyTotal, fov = FOV_MAX }: { mode:
   const announced = useRef<number | null>(null);
   const awardTimer = useRef<number>(0);
   const [pointsOpen, setPointsOpen] = useState(false);
+  // 다른 화면으로 갔다 돌아오면 닫혀 있게 (cacheComponents로 숨겨진 화면도 상태가 남음, use-collapse-on-hide.ts 참고)
+  useLayoutEffect(() => () => setPointsOpen(false), []);
   // 별똥별 처음 한 번 안내: 첫 별똥별 옆에 "눌러서 +1". 그 별똥별이 지나가거나 잡으면 끝
   const hints = useSkyHints();
   const meteorHint = meteor !== null && !limitReached && hints.pending('meteor');
@@ -63,7 +65,7 @@ export default function MeteorRewards({ mode, skyTotal, fov = FOV_MAX }: { mode:
         const serverTime = Date.parse(points.serverTime);
         const firstAt = Date.parse(points.meteor.nextMeteorAt);
         const interval = points.meteor.intervalSeconds * 1000;
-        setTotal(value => Math.max(value ?? 0, points.totalPoints));
+        setTotal(points.totalPoints);
         setLimitReached(points.meteor.caughtToday >= points.meteor.dailyLimit);
         if (!Number.isFinite(serverTime) || !Number.isFinite(firstAt) || !Number.isFinite(interval) || interval <= 0) return;
         const now = () => serverTime + performance.now() - (requestStart + requestEnd) / 2;
@@ -89,8 +91,12 @@ export default function MeteorRewards({ mode, skyTotal, fov = FOV_MAX }: { mode:
     }
     function visibility() { void sync(); }
     document.addEventListener('visibilitychange', visibility);
+    window.addEventListener('storage', visibility);
+    window.addEventListener('wardrobe-changed', visibility);
     const initial = window.setTimeout(visibility, 0);
     return () => {
+      window.removeEventListener('storage', visibility);
+      window.removeEventListener('wardrobe-changed', visibility);
       generation++;
       window.clearTimeout(initial);
       window.clearTimeout(spawnTimer);
@@ -99,7 +105,7 @@ export default function MeteorRewards({ mode, skyTotal, fov = FOV_MAX }: { mode:
       window.clearTimeout(awardTimer.current);
       document.removeEventListener('visibilitychange', visibility);
     };
-  }, [mode]);
+  }, [mode, skyTotal]);
 
   async function catchMeteor(id: number, x: number, y: number) {
     if (pending.current || limitReached || announced.current === id) return;
@@ -108,7 +114,7 @@ export default function MeteorRewards({ mode, skyTotal, fov = FOV_MAX }: { mode:
       const result = await client(mode).catchMeteor(id);
       announced.current = id;
       setMeteor(visible => visible === id ? null : visible);
-      setTotal(value => Math.max(value ?? 0, result.totalPoints));
+      setTotal(result.totalPoints);
       setLimitReached(result.meteor.caughtToday >= result.meteor.dailyLimit);
       if (result.pointsEarned === 1) {
         setReward({ id, x, y });
@@ -119,12 +125,12 @@ export default function MeteorRewards({ mode, skyTotal, fov = FOV_MAX }: { mode:
     finally { pending.current = false; }
   }
 
-  const value = Math.max(skyTotal ?? 0, total ?? 0);
+  const value = total ?? skyTotal ?? 0;
   return <>
     {(skyTotal !== undefined || total !== undefined) && <div className="sky-points">
       {/* 숫자만으로는 뜻을 알기 어려워서 누르면 쌓이는 방법을 보여 줌 (docs/기능발견성-조사.md) */}
       <button type="button" className="text-button" aria-expanded={pointsOpen} aria-controls="sky-points-info" onClick={() => setPointsOpen(open => !open)}>
-        <span aria-hidden="true">✦</span> {value} 포인트
+        <span aria-hidden="true">✦</span> {value}P
       </button>
       {pointsOpen && <p id="sky-points-info">별을 따면 +10~40 · 별똥별 +{METEOR_POINTS} · 하루 첫 체크인 +{CHECKIN_POINTS}</p>}
     </div>}

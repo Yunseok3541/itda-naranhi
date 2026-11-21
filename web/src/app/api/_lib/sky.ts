@@ -44,9 +44,9 @@ export async function getSky(userId: number, db: Db = pool): Promise<ApiResult> 
       )
     ).rows;
 
-    // 총 포인트 = 별 + 유성 + 체크인 (뷰 v_user_points, 고민기록 #32). 포인트가 없으면 행이 없어 0
+    // 잔액 = 별 + 유성 + 체크인 − 구매액 (뷰 v_user_balance). 포인트가 없으면 행이 없어 0
     const total = (
-      await db.query<{ total_points: number }>("SELECT total_points FROM v_user_points WHERE user_id = $1", [userId])
+      await db.query<{ total_points: number }>("SELECT total_points FROM v_user_balance WHERE user_id = $1", [userId])
     ).rows[0];
 
     const memories = new Map<number, Memory[]>();

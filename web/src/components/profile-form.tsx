@@ -55,10 +55,10 @@ export function StartResult({ answers, demo = false }: { answers: StartAnswers; 
   </section>;
 }
 
-export function StartQuestions({ value, onChange, disabled, step }: { value: StartAnswers; onChange: (v: StartAnswers) => void; disabled?: boolean; step?: number }) {
+export function StartQuestions({ value, onChange, disabled, step, glass: glassAll }: { value: StartAnswers; onChange: (v: StartAnswers) => void; disabled?: boolean; step?: number; glass?: boolean }) {
   const set = <F extends keyof StartAnswers>(f: F) => (v: StartAnswers[F]) => onChange({ ...value, [f]: v });
   const shows = (index: number) => step === undefined || step === index;
-  const glass = step !== undefined; // 질문별 화면은 밤하늘 반투명 드롭다운
+  const glass = glassAll || step !== undefined; // 질문별 화면·추천 기준 화면은 밤하늘 반투명 드롭다운
   return <>
     {shows(0) && <Pick label="요즘 할 수 있는 활동 범위는?" options={RANGE} value={value.range} onChange={set('range')} disabled={disabled} glass={glass} />}
     {shows(1) && <Many legend="부담되는 상황은? (여러 개 선택 가능)" options={BURDEN} value={value.burden} onChange={set('burden')} disabled={disabled} />}
@@ -75,10 +75,10 @@ export function PolicyInfoQuestions({ value, birthYear, onChange, onBirthYear, d
   const set = <F extends keyof PolicyInfo>(f: F) => (v: PolicyInfo[F]) => onChange({ ...value, [f]: v });
   return <>
     <label>출생연도<input inputMode="numeric" maxLength={4} placeholder={SKIP} disabled={disabled} value={birthYear} onChange={e => onBirthYear(e.target.value.replace(/\D/g, ''))} /></label>
-    <Pick label="일하고 있나요?" options={JOB} value={value.job} onChange={set('job')} disabled={disabled} />
-    <Pick label="학력" options={SCHOOL} value={value.school} onChange={set('school')} disabled={disabled} />
-    <Pick label="결혼" options={MARRIED} value={value.married} onChange={set('married')} disabled={disabled} />
-    <Pick label="본인 연소득" options={INCOME} value={value.income} onChange={set('income')} disabled={disabled} />
+    <Pick label="일하고 있나요?" options={JOB} value={value.job} onChange={set('job')} disabled={disabled} glass />
+    <Pick label="학력" options={SCHOOL} value={value.school} onChange={set('school')} disabled={disabled} glass />
+    <Pick label="결혼" options={MARRIED} value={value.married} onChange={set('married')} disabled={disabled} glass />
+    <Pick label="본인 연소득" options={INCOME} value={value.income} onChange={set('income')} disabled={disabled} glass />
     <Many legend="해당되는 상황이 있나요? (여러 개 선택 가능)" options={SPECIAL} value={value.special} onChange={set('special')} none="해당 없어요" disabled={disabled} />
   </>;
 }
@@ -137,9 +137,8 @@ export function ProfileScreen({ mode, onSaved }: { mode: Mode; onSaved?: () => v
     <h1>{onSaved ? '내 추천 기준' : '내 정보'}</h1>
     <p className="small">{onSaved ? '바꾸고 싶은 답만 고쳐 주세요. 저장하면 새 기준으로 맞춤 정책을 보여 드려요. 모든 답은 선택이에요.' : '모든 답은 선택이에요. 답에 따라 사람을 나누지 않고, 오늘의 별과 정책을 고를 때만 참고해요. 실제 개인정보 대신 가상 내용으로 체험해 주세요.'}</p>
     {error && <p className="error" role="alert">{error}</p>}
-    {onSaved ? <section className="card onboarding-step">
-      <h2>시작 질문</h2>
-      <StartQuestions value={start} onChange={setStart} disabled={busy} />
+    {onSaved ? <section className="card onboarding-step" aria-label="시작 질문">
+      <StartQuestions value={start} onChange={setStart} disabled={busy} glass />
     </section> : step === answerFields.length ? <>
       <StartResult answers={start} />
       <button onClick={() => setStep(0)}>답 다시 보기</button>

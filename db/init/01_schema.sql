@@ -436,6 +436,22 @@ SELECT COALESCE(s.user_id, e.user_id)                                           
 FROM star s
 FULL JOIN ev e ON e.user_id = s.user_id;
 
+CREATE TABLE IF NOT EXISTS shop_purchases (
+  user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  item_id text NOT NULL,
+  paid integer NOT NULL CHECK (paid > 0),
+  purchased_at timestamptz NOT NULL DEFAULT now(),
+  equipped boolean NOT NULL DEFAULT false,
+  PRIMARY KEY (user_id, item_id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS shop_one_equipped ON shop_purchases(user_id) WHERE equipped;
+
+CREATE OR REPLACE VIEW v_user_balance AS
+SELECT p.user_id, p.total_points - COALESCE(s.spent, 0)::int AS total_points,
+       p.bright_stars, p.star_points, p.meteor_points, p.checkin_points
+FROM v_user_points p
+LEFT JOIN (SELECT user_id, sum(paid) AS spent FROM shop_purchases GROUP BY user_id) s USING (user_id);
+
 -- 사용자가 획득한 별자리: 그 별자리의 별을 모두 한 번 이상 땄음(bright) (도감·프로필 이미지, 고민기록 #40)
 -- 화면 lib/constellations.ts의 getCompletedConstellationIds와 같은 기준. 별 수는 star_count가 아니라 실제 stars 행으로 센다
 -- acquired_at = 마지막 별을 처음 딴 시각 (= 별자리를 완성한 순간). 다시 따거나 dim은 영향 없음

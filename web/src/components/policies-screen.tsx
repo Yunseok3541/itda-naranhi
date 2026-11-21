@@ -10,7 +10,7 @@
 // - [신청 도와줘]: 신청 도우미 창 (apply-helper.tsx, 고민기록 #39)
 // - [나랑 안 맞아요]: 이유를 고르면 그 정책은 다시 추천하지 않음. 지역·조건 이유는 피드백 루프로 (고민기록 #38)
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { request, takePoliciesStale, type Help, type Mode } from '@/lib/mobile-data';
 import type { HelperPolicy } from '@/lib/apply-helper';
 import ApplyHelper from './apply-helper';
@@ -149,16 +149,16 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
     finally { setCheckinOffBusy(false); }
   }
   return <>
-    {/* 머리줄 + 보기 전환은 스크롤해도 위에 붙어 있음 (FE_QA: 쭉 내리면 뒤로 가기가 사라짐) */}
+    {/* 머리줄은 스크롤해도 위에 붙어 있음 (FE_QA: 쭉 내리면 뒤로 가기가 사라짐). 보기 전환은 배경 위 버튼으로 함께 스크롤 */}
     <div className="policy-screen-header">
       <ScreenBar title={all ? '모든 정책' : '정책 추천'} {...(all ? { onBack: () => selectView('recommended'), backLabel: '맞춤 추천으로' } : {})} />
-      <div className="policy-view-switch" role="group" aria-label="정책 보기">
+    </div>
+    <div className="policy-view-switch" role="group" aria-label="정책 보기">
         {VIEWS.map(v => <button key={v.value} type="button" className="secondary" aria-pressed={view === v.value}
           onClick={() => selectView(v.value)}>
           {view === v.value && <span aria-hidden="true">✓ </span>}{v.label}
           {count[v.value] !== null && <span className="policy-view-count">{count[v.value]}</span>}
         </button>)}
-      </div>
     </div>
     <Hero
       visual={<HeroIcon>✦</HeroIcon>}
@@ -198,7 +198,7 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
       </div>
       {filtered.length === 0 && <p>조건에 맞는 정책이 없어요.</p>}
     </section>}
-    {(all ? filtered.slice(0, visibleCount) : filtered).map(policy => <article className="card" key={policy.policyId}>
+    {(all ? filtered.slice(0, visibleCount) : filtered).map(policy => <article className="card" key={`${view}-${policy.policyId}`} /* 보기마다 새로 그려 떠오르는 효과(screen-rise)가 탭을 바꿀 때도 보이게 */>
       <div className="card-tags">
         {[policy.scope, policy.burdenLabel].filter(Boolean).map(t => <span key={t}>{t}</span>)}
         {policy.deadline && <span className="gold">{policy.deadline}</span>}
@@ -223,7 +223,6 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
         <button type="button" className="secondary" onClick={() => setHelping(policy)}>신청 도와줘</button>
         {policy.needsInquiry && <Link className="secondary" href="/centers">청년센터에서 문의 준비하기</Link>}
       </div>
-      <p className="small policy-action-note">신청 도와줘: 신청 순서·서류·문의할 말을 물어볼 수 있어요</p>
       {sent[policy.policyId]
         ? <SentNote result={sent[policy.policyId]} />
         : <NotForMe policyId={policy.policyId} mode={mode} onSent={r => setSent(prev => ({ ...prev, [policy.policyId]: r }))} />}
@@ -255,6 +254,8 @@ function NotForMe({ policyId, mode, onSent }: { policyId: number; mode: Mode; on
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [help, setHelp] = useState<Help>(null);
+  // 다른 화면으로 갔다 돌아오면 이유 고르기는 접혀 있게 (고른 이유·한 줄은 남김) (cacheComponents로 숨겨진 화면도 상태가 남음, use-collapse-on-hide.ts 참고)
+  useLayoutEffect(() => () => { setOpen(false); setError(''); }, []);
 
   async function send() {
     if (!reason || busy) return;
@@ -270,7 +271,10 @@ function NotForMe({ policyId, mode, onSent }: { policyId: number; mode: Mode; on
     } finally { setBusy(false); }
   }
 
-  if (!open) return <button type="button" className="policy-not-for-me" onClick={() => setOpen(true)}>나랑 안 맞아요<small>이유를 알려 주면 다시 추천하지 않아요</small></button>;
+  if (!open) return <button type="button" className="policy-not-for-me" onClick={() => setOpen(true)}>
+    나랑 안 맞아요
+    {mode === 'api' && <small>이유를 알려 주면 다시 추천하지 않아요</small>}
+  </button>;
   return <fieldset className="policy-feedback">
     <legend>어떤 점이 안 맞나요?</legend>
     {reasons.map(r => <label key={r.value}>

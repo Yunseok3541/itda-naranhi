@@ -14,6 +14,7 @@ import {
 } from '@/lib/apply-helper';
 import { chatKey, clearChat, loadChat, saveChat } from '@/lib/apply-helper-store';
 import { request, type Help, type Mode } from '@/lib/mobile-data';
+import { useCloseDialogOnHide } from './use-close-dialog-on-hide';
 
 type Reply = HelperReply & { help?: Help };
 type Message = { id: number; from: 'me' | 'bot'; text: string; reply?: Reply };
@@ -40,6 +41,7 @@ export default function ApplyHelper({ policyId, title, mode, examplePolicy, onCl
   policyId: number; title: string; mode: Mode; examplePolicy: HelperPolicy; onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  useCloseDialogOnHide(dialog);
   const end = useRef<HTMLDivElement>(null);
   // 이 탭에 남아 있던 대화 (창을 다시 열면 이어짐). 연습 중이던 것은 이어지지 않고 대화 모드로 시작
   const storeKey = chatKey(mode, policyId);
@@ -136,7 +138,7 @@ export default function ApplyHelper({ policyId, title, mode, examplePolicy, onCl
     </header>
     <div className="apply-helper-log" aria-live="polite">
       <div className="bubble bot">
-        <p>어디서 막혔는지 편하게 말해 주세요. 원문에 있는 내용만 알려 드려요.</p>
+        <p>신청 순서, 필요한 서류, 문의할 말이 궁금하면 편하게 물어보세요.</p>
         <p className="small apply-helper-safety">AI가 답하는 내용은 정확하지 않을 수 있어요. 신청 전에는 정책 원문이나 담당자에게 한 번 더 확인해 주세요.</p>
         <p className="small apply-helper-privacy">이 대화는 서버에 저장하지 않아요. 창을 닫아도 <b>이 브라우저 탭을 닫기 전까지</b>는 이 기기에 남아서 다시 열면 이어져요. 함께 쓰는 기기라면 다 본 뒤 위의 [대화 지우기]를 눌러 주세요.</p>
       </div>

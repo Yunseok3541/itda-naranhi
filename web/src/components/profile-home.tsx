@@ -6,17 +6,19 @@
 // - 프로필 사진은 기본 캐릭터 또는 획득한 도감 캐릭터 중에서 고름
 // - 시작 질문·정책 신청 정보 입력은 설정(⚙) 안으로 (주소 끝 #settings로 바로 열 수 있음)
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import CatalogStardust from '@/app/catalog/catalog-stardust';
 import { characters } from '@/app/catalog/characters';
 import { client, type Mode, type ProfileAvatar, type Star } from '@/lib/mobile-data';
 import { evaluate, NO_FACTS, type MilestoneFacts } from '@/lib/milestones';
 import { groupStars, latestGroupIndex } from './night-sky';
 import { ProfileScreen } from './profile-form';
+import { useShop } from './use-shop';
 import { Avatar, Hero, ScreenBar, Section, Summary } from './screen-kit';
 import './profile-home.css';
 
-const DEFAULT_AVATAR = 'main-character';
+// 'person' = 메인 캐릭터 그림 (screen-kit Avatar → SkyPerson sculpted, 상점 장식도 이 id 기준)
+const DEFAULT_AVATAR = 'person';
 
 const shortDate = (value: string) => {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
@@ -37,7 +39,10 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
   const acquiredCharacters = characters.filter(character => avatarChoices?.constellations?.some(
     item => item.constellationId === character.constellationId && item.acquired,
   ));
+  const { state: wardrobe } = useShop(mode);
   const [picking, setPicking] = useState(false);
+  // 다른 화면으로 갔다 돌아오면 닫혀 있게 (cacheComponents로 숨겨진 화면도 상태가 남음, use-collapse-on-hide.ts 참고)
+  useLayoutEffect(() => () => setPicking(false), []);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -92,7 +97,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
 
     <Hero
       visual={<button type="button" className="avatar-button" aria-label="프로필 그림 바꾸기" onClick={() => setPicking(p => !p)}>
-        <Avatar id={avatar} />
+        <Avatar id={avatar} item={wardrobe?.equipped} />
         <span className="avatar-edit" aria-hidden="true">✎</span>
       </button>}
       title="별을 바라보는 사람"
@@ -100,6 +105,11 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
       chip={walking}
     />
 
+    <Link className="secondary shop-entry" href="/shop">
+      <span className="shop-entry-icon" aria-hidden="true">✦</span>
+      <span>별빛 상점</span>
+      <span className="shop-entry-arrow" aria-hidden="true">→</span>
+    </Link>
     {picking && <section className="card avatar-picker" aria-labelledby="profile-avatar-picker">
       <h3 id="profile-avatar-picker">프로필 고르기</h3>
       {avatarError && <p role="alert">{avatarError}</p>}
