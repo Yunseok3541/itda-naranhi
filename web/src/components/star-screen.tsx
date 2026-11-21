@@ -89,8 +89,8 @@ export default function StarScreen({ mode, star, busy, run, onHelp, onSaved }: {
       : <section className="card">
           <h2>오늘의 기록</h2>
           <p>해낸 만큼, 혹은 손을 뻗은 만큼.<br />어느 쪽이든 소중한 오늘의 기록이에요.</p>
-          <div className="choices">{([['bright', '하늘의 별 따기'], ['dim', '손 뻗어 보기']] as const).map(([v, l]) =>
-            <button key={v} type="button" className="secondary" disabled={busy} aria-pressed={status === v} onClick={() => setStatus(v)}>{l}</button>)}</div>
+          <div className="choices">{([['bright', '하늘의 별 따기', '해냈어요'], ['dim', '손 뻗어 보기', '시도해 봤어요']] as const).map(([v, l, sub]) =>
+            <button key={v} type="button" className="secondary choice-with-sub" disabled={busy} aria-pressed={status === v} onClick={() => setStatus(v)}>{l}<small>{sub}</small></button>)}</div>
           {status === 'dim' && <label>어떤 점이 어려웠나요? (선택)<select value={reason} onChange={e => setReason(e.target.value)}>
             <option value="">말하지 않아도 괜찮아요</option>
             {REASONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}

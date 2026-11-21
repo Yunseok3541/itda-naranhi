@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { client, type Mode } from '@/lib/mobile-data';
 import { FOV_MAX, FOV_MIN } from '@/lib/sky-view';
+import { CHECKIN_POINTS, METEOR_POINTS } from '@/lib/points';
+import { finishHint, useSkyHints } from '@/lib/sky-hints';
 
 const visibleTime = 5200;
 const day = 24 * 60 * 60 * 1000;
@@ -26,6 +28,20 @@ export default function MeteorRewards({ mode, skyTotal, fov = FOV_MAX }: { mode:
   const pending = useRef(false);
   const announced = useRef<number | null>(null);
   const awardTimer = useRef<number>(0);
+  const [pointsOpen, setPointsOpen] = useState(false);
+  // 별똥별 처음 한 번 안내: 첫 별똥별 옆에 "눌러서 +1". 그 별똥별이 지나가거나 잡으면 끝
+  const hints = useSkyHints();
+  const meteorHint = meteor !== null && !limitReached && hints.pending('meteor');
+  const hintedMeteor = useRef<number | null>(null);
+  useEffect(() => {
+    if (meteorHint) hintedMeteor.current = meteor;
+    else if (hintedMeteor.current !== null && meteor !== hintedMeteor.current) finishHint('meteor');
+  }, [meteor, meteorHint]);
+  useEffect(() => {
+    if (!pointsOpen) return;
+    const timer = window.setTimeout(() => setPointsOpen(false), 6000);
+    return () => window.clearTimeout(timer);
+  }, [pointsOpen]);
 
   useEffect(() => {
     let generation = 0;
@@ -105,7 +121,13 @@ export default function MeteorRewards({ mode, skyTotal, fov = FOV_MAX }: { mode:
 
   const value = Math.max(skyTotal ?? 0, total ?? 0);
   return <>
-    {(skyTotal !== undefined || total !== undefined) && <div className="sky-points" aria-label={`총 ${value} 포인트`}><span aria-hidden="true">✦</span> {value} 포인트</div>}
+    {(skyTotal !== undefined || total !== undefined) && <div className="sky-points">
+      {/* 숫자만으로는 뜻을 알기 어려워서 누르면 쌓이는 방법을 보여 줌 (docs/기능발견성-조사.md) */}
+      <button type="button" className="text-button" aria-expanded={pointsOpen} aria-controls="sky-points-info" onClick={() => setPointsOpen(open => !open)}>
+        <span aria-hidden="true">✦</span> {value} 포인트
+      </button>
+      {pointsOpen && <p id="sky-points-info">별을 따면 +10~40 · 별똥별 +{METEOR_POINTS} · 하루 첫 체크인 +{CHECKIN_POINTS}</p>}
+    </div>}
     {meteor !== null && <button key={meteor} type="button" className="sky-pill sky-meteor" aria-label="유성 담기"
       style={{ '--meteor-scale': meteorScale(fov).toFixed(3) } as CSSProperties}
       disabled={limitReached} onClick={event => {
@@ -113,7 +135,7 @@ export default function MeteorRewards({ mode, skyTotal, fov = FOV_MAX }: { mode:
         const box = event.currentTarget.getBoundingClientRect();
         const pointer = event.clientX || event.clientY;
         void catchMeteor(meteor, pointer ? event.clientX : box.left + box.width / 2, pointer ? event.clientY : box.top + box.height / 2);
-      }}><span aria-hidden="true">✦</span></button>}
+      }}><span aria-hidden="true">✦</span>{meteorHint && <span className="sky-meteor-hint" aria-hidden="true">눌러서 +{METEOR_POINTS}</span>}</button>}
     {reward !== null && <div key={reward.id} className="sky-meteor-reward" role="status" style={{ left: reward.x, top: reward.y }}>+1 포인트</div>}
   </>;
 }

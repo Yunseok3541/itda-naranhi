@@ -6,7 +6,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { client, weatherNames, type Checkin, type Help, type Mode, type Recommendation } from '@/lib/mobile-data';
-import { Avatar, Hero, ScreenBar, Section } from './screen-kit';
+import { Avatar, Hero, ScreenBar, Section, Steps } from './screen-kit';
 
 const CHOICES = [['rest', '쉬어 가기'], ['home', '집 안'], ['near', '집 근처'], ['out', '바깥']] as const;
 
@@ -52,11 +52,13 @@ export default function QuestScreen({ mode, busy, run, onHelp, onError, onClose,
       message="한 줄이면 충분해요. 들려준 만큼 오늘의 별을 찾아 줄게요."
       chip={weather ? `마음 날씨 · ${weather}` : undefined}
     /></>}
+    <Steps label="오늘의 별 찾는 순서" steps={['한 줄 기록', '마음 날씨', '오늘의 별']} current={items ? 2 : checkinId != null ? 1 : 0} />
 
     <section className="card quest-entry">
       {!inSheet && <h2>한 줄 기록</h2>}
       <label>마음에 떠오른 한 줄<textarea disabled={busy} maxLength={300} value={text} onChange={e => { setText(e.target.value); reset(); }} placeholder="가상 내용으로 적어 주세요" /></label>
       <fieldset><legend>오늘은 어떤 활동이 괜찮을까요?</legend>
+        <p className="small">고른 범위 안에서 오늘의 별을 찾아요.</p>
         <div className="choices quest-range-options">{CHOICES.map(([v, l]) => <button key={v} type="button" disabled={busy} className="secondary" aria-pressed={choice === v} onClick={() => { setChoice(v); reset(); }}>{l}</button>)}</div>
       </fieldset>
       <button disabled={busy || !text.trim()} onClick={() => run(async () => {
@@ -73,7 +75,7 @@ export default function QuestScreen({ mode, busy, run, onHelp, onError, onClose,
       <div className="card-tags"><span>{mode === 'example' ? '예시 날씨' : check.usedFallback ? '기본 날씨' : 'AI가 고른 날씨'}</span></div>
       {check.pointsEarned === 100 && <p className="checkin-reward" role="status">+100 포인트</p>}
       <h2 ref={weatherHeading} tabIndex={inSheet ? -1 : undefined}>마음 날씨 · {weather}</h2>
-      <p className="small">진단이 아닌 참고 기록이에요.</p>
+      <p className="small">오늘의 한 줄을 날씨로 빗대 본 거예요. 진단이 아닌 참고 기록이에요.</p>
       {check.checkinId !== null && <>
         <details>
           <summary>날씨가 다르면 바꾸기</summary>

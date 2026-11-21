@@ -176,6 +176,9 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
       <button type="button" onClick={() => void stopCheckinHint()} disabled={checkinOffBusy}>{checkinOffBusy ? '바꾸는 중…' : '오늘은 참고하지 않기'}</button>
     </section>}
     {mode === 'example' && <p className="small">가상 정책으로 화면을 체험하고 있어요.</p>}
+    {items.some(p => p.evidence?.length) && <p className="small policy-legend">
+      <span className="yes">원문에 있음</span> 공고에 적혀 있음 · <span className="unknown">확인 필요</span> 공고에서 못 찾음
+    </p>}
     {loading && <p role="status">정책을 불러오고 있어요…</p>}
     {error && <section className="card"><p>잠시 후 다시 불러와 주세요.</p><button onClick={retryView}>다시 불러오기</button></section>}
     {result && items.length === 0 && <section className="card"><h2>지금 보여드릴 정책이 없어요</h2><p>다른 정책을 살펴보거나 내 정보를 확인해 주세요.</p></section>}
@@ -220,6 +223,7 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
         <button type="button" className="secondary" onClick={() => setHelping(policy)}>신청 도와줘</button>
         {policy.needsInquiry && <Link className="secondary" href="/centers">청년센터에서 문의 준비하기</Link>}
       </div>
+      <p className="small policy-action-note">신청 도와줘: 신청 순서·서류·문의할 말을 물어볼 수 있어요</p>
       {sent[policy.policyId]
         ? <SentNote result={sent[policy.policyId]} />
         : <NotForMe policyId={policy.policyId} mode={mode} onSent={r => setSent(prev => ({ ...prev, [policy.policyId]: r }))} />}
@@ -266,7 +270,7 @@ function NotForMe({ policyId, mode, onSent }: { policyId: number; mode: Mode; on
     } finally { setBusy(false); }
   }
 
-  if (!open) return <button type="button" className="policy-not-for-me" onClick={() => setOpen(true)}>나랑 안 맞아요</button>;
+  if (!open) return <button type="button" className="policy-not-for-me" onClick={() => setOpen(true)}>나랑 안 맞아요<small>이유를 알려 주면 다시 추천하지 않아요</small></button>;
   return <fieldset className="policy-feedback">
     <legend>어떤 점이 안 맞나요?</legend>
     {reasons.map(r => <label key={r.value}>

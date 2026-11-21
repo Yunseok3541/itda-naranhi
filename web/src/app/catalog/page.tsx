@@ -20,7 +20,7 @@ export default function CatalogPage() {
         <header className="catalog-intro">
           <div>
             <h1>별자리 도감</h1>
-            <p>별자리마다 사는 작은 친구들을 만나 보세요.</p>
+            <p>별자리마다 사는 작은 친구들을 만나 보세요. 별자리의 별을 모두 따면 그 친구를 만나요.</p>
           </div>
           <span aria-hidden="true" className="catalog-intro-star">✦</span>
         </header>
