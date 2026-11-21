@@ -128,7 +128,7 @@
 
 .catalog-art[data-acquired="false"]::before { opacity: .25; }
 
-.catalog-detail .catalog-reference-art {
+.catalog-detail .catalog-stardust {
   right: auto;
   left: 50%;
   height: 100%;

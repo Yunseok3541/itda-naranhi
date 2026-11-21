@@ -179,7 +179,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
           <button key={character.id} type="button" className="avatar-option avatar-locked" disabled
             aria-label={`${character.nickname}, 미완성`}>
             <span className="avatar avatar-silhouette">
-              <CatalogStardust id={character.id} large={false} />
+              <CatalogStardust id={character.id} />
             </span>
             <small>{character.nickname}</small>
           </button>
@@ -209,8 +209,10 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
             const acquired = acquiredIds.has(character.constellationId);
             return <Link key={character.id} href="/catalog?from=profile" className={`strip-item ${acquired ? 'done' : 'yet'}`}
               aria-label={`${character.constellation.name} ${character.nickname}, ${acquired ? '완성' : '미완성'}`}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`/catalog/${character.id}.webp`} alt="" />
+              {acquired
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={`/catalog/${character.id}.webp`} alt="" />
+                : <span className="profile-strip-art"><CatalogStardust id={character.id} /></span>}
               <small>{character.nickname}</small>
             </Link>;
           })}

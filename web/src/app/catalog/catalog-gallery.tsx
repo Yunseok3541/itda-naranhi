@@ -48,7 +48,7 @@ function CharacterArt({ character, acquired, play, large = false }: {
             onLoad={() => setWaveReady(true)}
           />
         )}
-      </span> : <CatalogStardust id={character.id} large={large} />}
+      </span> : <CatalogStardust id={character.id} />}
     </span>
   );
 }

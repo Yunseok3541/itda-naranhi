@@ -51,10 +51,10 @@
 .profile-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .profile-strip > a { display: grid; justify-items: center; align-content: center; gap: 3px; min-height: 76px; padding: 5px; border-radius: 14px; background: rgba(37, 32, 57, .82); border: 1px solid rgba(255, 255, 255, .12); color: var(--starlight); text-decoration: none; }
 .profile-strip img { width: 100%; max-width: 56px; height: 48px; object-fit: contain; }
+.profile-strip-art { position: relative; width: min(56px, 100%); height: 48px; overflow: hidden; border-radius: 8px; }
 .profile-strip small { font-size: .7rem; color: var(--starlight-dim); }
 .strip-item.done { border-color: var(--star-gold); box-shadow: 0 0 14px rgba(246, 207, 125, .3); }
 .strip-item.done small { color: var(--star-gold); }
-.strip-item.yet img { opacity: .35; filter: grayscale(.6); }
 .profile-catalog-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 10px; }
 .profile-catalog-actions button { width: auto; margin: 0; font-size: .875rem; }
 .night-ui .profile-catalog-actions a { display: inline-flex; align-items: center; min-height: 44px; color: var(--star-gold); font-size: .875rem; }

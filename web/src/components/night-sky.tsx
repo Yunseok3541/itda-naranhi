@@ -75,13 +75,15 @@ const overlaps = (a: Box, b: Box) => a.x < b.x + b.w && b.x < a.x + a.w && a.y <
 function measure(text: string, maxLine: number) {
   const CHAR = 11.8, SPACE = 3.6;
   const lines: number[] = [];
-  let line = 0;
-  for (const word of text.split(/\s+/).filter(Boolean)) {
-    const w = word.length * CHAR;
-    if (line > 0 && line + SPACE + w > maxLine) { lines.push(line); line = w; }
-    else line += (line > 0 ? SPACE : 0) + w;
+  for (const paragraph of text.split('\n')) {
+    let line = 0;
+    for (const word of paragraph.split(/\s+/).filter(Boolean)) {
+      const w = word.length * CHAR;
+      if (line > 0 && line + SPACE + w > maxLine) { lines.push(line); line = w; }
+      else line += (line > 0 ? SPACE : 0) + w;
+    }
+    lines.push(line);
   }
-  lines.push(line);
   return { lines: lines.length, width: Math.max(...lines) };
 }
 
@@ -457,7 +459,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     // 상세 창이 열려 있으면 이름표도 창 위쪽에만
     const openSheet = selected ? document.querySelector('dialog.sheet[open]')?.getBoundingClientRect().top : undefined;
     const band = freeBand();
-    return placeLabel({ ...point, text: star.title }, positions[groupIndex].filter(item => item !== null),
+    return placeLabel({ ...point, text: starDisplayTitle(star.title) }, positions[groupIndex].filter(item => item !== null),
       frame.width, frame.height, openSheet === undefined || !band ? band : { top: band.top, bottom: openSheet - frame.top - 8 }, exclusion);
   }, [detailed, groups, labelStar, positions, frame, safeIndex, selected]);
 
@@ -550,7 +552,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
             <path fill={s.status === 'untried' ? `url(#${starLight})` : undefined}
               d="M10.8 3.8Q12 1.4 13.2 3.8l2.2 4.5 5 .7q2.6.4.7 2.3l-3.6 3.6.9 5.1q.4 2.4-1.8 1.2L12 18.8l-4.6 2.4Q5.2 22.4 5.6 20l.9-5.1-3.6-3.6Q1 9.4 3.6 9l5-.7z" />
           </svg>
-          {labelStar === s.starId && labelSpot && <span className="nstar-label" aria-hidden="true" style={labelSpot}>{s.title}</span>}
+          {labelStar === s.starId && labelSpot && <span className="nstar-label" aria-hidden="true" style={labelSpot}>{starDisplayTitle(s.title)}</span>}
         </button>;
       }))}
       {burst && <span key={burst.key} className="burst" style={{ left: burst.x, top: burst.y }} aria-hidden="true">

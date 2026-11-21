@@ -1,22 +1,6 @@
-.catalog-reference-art {
-  position: absolute;
-  inset: 0;
-  background-image: url('/catalog/stardust-reference.png');
-  background-repeat: no-repeat;
-  pointer-events: none;
-}
-
 .catalog-stardust {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  mask-image: radial-gradient(ellipse closest-side, #000 64%, #000e 82%, transparent 116%);
-  pointer-events: none;
-}
-
-.catalog-stardust-source {
-  opacity: 0;
+  background: url('/catalog/stardust-catalog.webp') no-repeat;
   pointer-events: none;
 }

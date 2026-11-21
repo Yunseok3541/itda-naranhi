@@ -96,7 +96,7 @@ export default function ServiceGuide({ mode, replay = false, onDone, onHelp }: {
             /* 만난 친구: 프로필 그림 고르기의 고를 수 있는 칸과 같은 그림 */
             ? <span className="guide-friend-met"><Avatar id={c.id} size={56} /></span>
             /* 아직 못 만난 친구: 프로필 그림 고르기의 잠긴 칸과 같은 별가루 그림 (profile-home.tsx avatar-silhouette) */
-            : <span className="avatar avatar-silhouette guide-friend-art"><CatalogStardust id={c.id} large={false} /></span>}
+            : <span className="avatar avatar-silhouette guide-friend-art"><CatalogStardust id={c.id} /></span>}
           <small className={met && c === firstFriend ? 'met' : undefined}>{met && c === firstFriend ? c.nickname : c.constellation.name}</small>
         </li>)}
       </ul>
