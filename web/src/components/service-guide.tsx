@@ -1,25 +1,30 @@
 "use client";
 // 처음 시작 안내 (시작 질문을 마친 뒤 한 번, docs/온보딩.md)
-// - 4장: 환영 → 연습 별 3개 따기(별자리 완성) → 별자리 친구(도감) → 하루 한 줄과 포인트
+// - 4장: 환영 → 연습 별 3개 따기(토끼자리 모양 완성 → 첫 친구 달콩, 도감 등록 모달) → 별자리 친구(도감) → 하루 한 줄과 포인트
 // - 읽는 안내보다 직접 해 보기. 연습 별은 누구나 끝낼 수 있는 일이고 실패·포기할 거리가 없음
-// - 연습 별자리는 이 안내 안에서만 빛남. 실제 기록·도감·포인트·지표에 남기지 않음 (기획: 별 개수는 목표가 아님)
+// - 첫 친구는 선물로만 남김(lib/service-guide.ts). 실제 토끼자리 별 3개(카페·도서관·서점)는 '아직'으로 두어
+//   별 기록·포인트·지표(앱 밖 활동)에 섞이지 않음 (기획: 별 개수는 목표가 아님, 2026-11-21 결정)
 // - 언제든 건너뛸 수 있음. 도움받을 곳은 위쪽 모서리 버튼으로 항상 열 수 있음 (mobile-flow.tsx)
-import Image from 'next/image';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { characters } from '@/app/catalog/characters';
+import CatalogStardust from '@/app/catalog/catalog-stardust';
+import { FIRST_FRIEND_CONSTELLATION, giveFirstFriend, useFirstFriend } from '@/lib/service-guide';
+import ConstellationCelebration from './constellation-celebration';
+import { Avatar } from './screen-kit';
 import { weatherNames } from '@/lib/mobile-data';
 import { CHECKIN_POINTS, METEOR_POINTS } from '@/lib/points';
 import './service-guide.css';
 
 const STEPS = ['환영', '연습 별자리', '별자리 친구', '하루 한 줄'] as const;
 const STAR_PATH = 'M10.8 3.8Q12 1.4 13.2 3.8l2.2 4.5 5 .7q2.6.4.7 2.3l-3.6 3.6.9 5.1q.4 2.4-1.8 1.2L12 18.8l-4.6 2.4Q5.2 22.4 5.6 20l.9-5.1-3.6-3.6Q1 9.4 3.6 9l5-.7z';
-/** 연습 별자리: 세 별을 잇는 작은 산 모양 */
+/** 연습 별자리: 세 별을 잇는 작은 산 모양 (메인 하늘의 토끼자리와 같은 모양) */
 const SPOTS = [{ x: 46, y: 104 }, { x: 150, y: 40 }, { x: 254, y: 104 }] as const;
 const PRACTICE = [
   { title: '숨 한 번 크게 쉬기', body: '천천히 들이쉬고, 내쉬어 보세요. 준비되면 별을 따요.' },
   { title: '지금 마음에 가까운 날씨 고르기', body: '정답은 없어요. 고르지 않아도 괜찮아요.' },
   { title: '오늘을 기억할 한 줄 남기기', body: '짧게 적어도, 비워 두어도 괜찮아요.' },
 ] as const;
+const firstFriend = characters.find(c => c.constellationId === FIRST_FRIEND_CONSTELLATION)!;
 const today = new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric', timeZone: 'Asia/Seoul' });
 
 export default function ServiceGuide({ replay = false, onDone }: {
@@ -28,6 +33,7 @@ export default function ServiceGuide({ replay = false, onDone }: {
   onDone: () => void;
 }) {
   const [step, setStep] = useState(0);
+  const met = useFirstFriend();
   const heading = useRef<HTMLHeadingElement>(null);
   const first = useRef(true);
   // 장이 바뀌면 제목으로 초점 (화면 읽기 프로그램이 새 장을 읽도록). 제목이 화면 밖일 때만 보일 만큼 스크롤
@@ -56,7 +62,7 @@ export default function ServiceGuide({ replay = false, onDone }: {
       <p className="small">원할 때 가까운 장소와 사람에게도 천천히 이어 갈 수 있어요. 다 해내지 않아도 괜찮아요.</p>
       <ul className="guide-preview" aria-label="이렇게 둘러봐요">
         <li><span aria-hidden="true">✦</span>연습 별 3개 따 보기</li>
-        <li><span aria-hidden="true">◎</span>별자리 친구 만나는 법</li>
+        <li><span aria-hidden="true">◎</span>첫 별자리 친구 만나기</li>
         <li><span aria-hidden="true">✎</span>하루 한 줄과 포인트</li>
       </ul>
       <p className="small guide-time">1분이면 끝나요. 언제든 건너뛸 수 있어요.</p>
@@ -66,16 +72,20 @@ export default function ServiceGuide({ replay = false, onDone }: {
     {step === 1 && <Practice heading={heading} onNext={next} />}
 
     {step === 2 && <>
-      <h2 ref={heading} tabIndex={-1}>별자리를 완성하면 친구를 만나요</h2>
-      <p>내 밤하늘의 별자리마다 친구가 한 명씩 기다리고 있어요. 별자리의 별을 모두 따면 그 친구를 <b>도감</b>에서 만나요.</p>
-      <ul className="guide-friends" aria-label="아직 만나지 못한 친구들">
-        {characters.slice(0, 4).map(c => <li key={c.id}>
-          <span className="guide-friend-art"><Image src={`/catalog/${c.id}.webp`} alt="" fill sizes="64px" unoptimized /></span>
-          <small>{c.constellation.name}</small>
+      <h2 ref={heading} tabIndex={-1}>{met ? `첫 친구 ${firstFriend.nickname}을 만났어요` : '별자리를 완성하면 친구를 만나요'}</h2>
+      <p>별자리마다 친구가 한 명씩 기다리고 있어요. 앞으로는 내 밤하늘의 별자리 별을 모두 따면 그 친구를 <b>도감</b>에서 만나요.</p>
+      <ul className="guide-friends" aria-label="별자리 친구들">
+        {(met ? [firstFriend, ...characters.filter(c => c !== firstFriend).slice(0, 3)] : characters.slice(0, 4)).map(c => <li key={c.id}>
+          {met && c === firstFriend
+            /* 만난 친구: 프로필 그림 고르기의 고를 수 있는 칸과 같은 그림 */
+            ? <span className="guide-friend-met"><Avatar id={c.id} size={56} /></span>
+            /* 아직 못 만난 친구: 프로필 그림 고르기의 잠긴 칸과 같은 별가루 그림 (profile-home.tsx avatar-silhouette) */
+            : <span className="avatar avatar-silhouette guide-friend-art"><CatalogStardust id={c.id} large={false} /></span>}
+          <small className={met && c === firstFriend ? 'met' : undefined}>{met && c === firstFriend ? c.nickname : c.constellation.name}</small>
         </li>)}
       </ul>
-      <p className="small">아직 만나지 못한 친구 {characters.length}명이 도감에서 기다리고 있어요. 서두르지 않아도 친구들은 계속 기다려요.</p>
-      <p className="small guide-note">방금 딴 연습 별자리는 여기서만 빛나요. 진짜 별자리는 내 밤하늘에서 시작해요.</p>
+      <p className="small">아직 만나지 못한 친구 {characters.length - (met ? 1 : 0)}명이 도감에서 기다리고 있어요. 서두르지 않아도 친구들은 계속 기다려요.</p>
+      {met && <p className="small guide-note">{firstFriend.nickname}은 연습 별자리를 완성한 선물이에요. 내 밤하늘의 {firstFriend.constellation.name} 별 3개는 언제든 진짜로 이어 갈 수 있어요.</p>}
       <button type="button" className="guide-next" onClick={next}>다음</button>
     </>}
 
@@ -104,18 +114,21 @@ function Practice({ heading, onNext }: { heading: RefObject<HTMLHeadingElement |
   const [weather, setWeather] = useState<string | null>(null);
   const [line, setLine] = useState('');
   const [popped, setPopped] = useState<number | null>(null);
+  // 마지막 별을 따면 첫 친구를 만나고, 처음이면 도감 등록 모달
+  const [gift, setGift] = useState(false);
   const complete = done === SPOTS.length;
   const task = PRACTICE[Math.min(done, PRACTICE.length - 1)];
 
   function pick() {
     setPopped(done);
-    setDone(d => d + 1);
+    setDone(done + 1);
+    if (done + 1 === SPOTS.length && giveFirstFriend()) setGift(true);
   }
 
   return <>
     <h2 ref={heading} tabIndex={-1}>{complete ? '연습 별자리를 완성했어요' : '별 하나는 작은 일 하나예요'}</h2>
     <p className="small" aria-live="polite">{complete
-      ? '세 별이 이어져 별자리가 됐어요. 내 밤하늘에서도 이렇게 별을 하나씩 따서 별자리를 이어 가요.'
+      ? `세 별이 이어져 ${firstFriend.constellation.name} 모양이 됐어요. 내 밤하늘에서도 이렇게 별을 하나씩 따서 별자리를 이어 가요.`
       : `연습 별 ${done + 1} / ${SPOTS.length} · 해냈다면 "하늘의 별 따기"로 별을 따요.`}</p>
 
     <svg className={`guide-constellation${complete ? ' complete' : ''}`} viewBox="0 0 300 150" role="img"
@@ -130,6 +143,12 @@ function Practice({ heading, onNext }: { heading: RefObject<HTMLHeadingElement |
         <g className="guide-star-shape"><path d={STAR_PATH} transform="translate(-16.8 -16.8) scale(1.4)" /></g>
       </g>)}
     </svg>
+    <p className="guide-constellation-name" aria-hidden="true">{firstFriend.constellation.name} <small>연습</small></p>
+
+    {gift && <ConstellationCelebration constellationId={FIRST_FRIEND_CONSTELLATION} name={firstFriend.constellation.name}
+      title={<>{firstFriend.constellation.name} 친구<br />{firstFriend.nickname}을 만났어요</>}
+      message="첫 친구가 도감에 담겼어요."
+      onDone={() => setGift(false)} />}
 
     {complete
       ? <div className="guide-memory" role="status">

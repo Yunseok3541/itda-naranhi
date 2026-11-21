@@ -5,9 +5,12 @@ import { useSyncExternalStore } from 'react';
 
 const GUIDE_KEY = 'naranhi-guide-v1';
 const TOUR_KEY = 'naranhi-menu-tour-v1';
+const GIFT_KEY = 'naranhi-first-friend-v1';
+/** 시작 안내의 연습 별자리를 완성하면 만나는 첫 친구: 토끼자리(5) · 달콩. 별 기록·포인트는 만들지 않고 도감에서만 만난 친구로 보여 줌 */
+export const FIRST_FRIEND_CONSTELLATION = 5;
 type TourState = 'pending' | 'done' | null;
 
-const memory: { guide: boolean | null; tour: TourState | undefined } = { guide: null, tour: undefined };
+const memory: { guide: boolean | null; tour: TourState | undefined; gift: boolean | null } = { guide: null, tour: undefined, gift: null };
 const listeners = new Set<() => void>();
 
 function read(key: string) {
@@ -56,6 +59,26 @@ export function finishMenuTour() {
 function subscribe(listener: () => void) {
   listeners.add(listener);
   return () => { listeners.delete(listener); };
+}
+
+/** 첫 친구(달콩)를 이미 만났는지 */
+export function hasFirstFriend() {
+  if (memory.gift === null) memory.gift = read(GIFT_KEY) === String(FIRST_FRIEND_CONSTELLATION);
+  return memory.gift;
+}
+
+/** 연습 별자리를 완성함 → 첫 친구를 만남. 처음 만났으면 true (이미 만났으면 false, 등록 모달을 다시 띄우지 않으려고) */
+export function giveFirstFriend() {
+  if (hasFirstFriend()) return false;
+  memory.gift = true;
+  write(GIFT_KEY, String(FIRST_FRIEND_CONSTELLATION));
+  listeners.forEach(listener => listener());
+  return true;
+}
+
+/** 첫 친구를 만났는지 (도감·프로필·안내 화면이 함께 바뀌도록 구독). 서버 렌더에서는 false */
+export function useFirstFriend() {
+  return useSyncExternalStore(subscribe, hasFirstFriend, () => false);
 }
 
 /** 메인 메뉴 안내를 지금 보여 줘야 하는지. 서버 렌더에서는 보여 주지 않음 */
