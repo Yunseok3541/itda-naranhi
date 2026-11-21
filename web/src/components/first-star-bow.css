@@ -1,18 +1,28 @@
+.first-star-bow { position: absolute; inset: 0; }
+.first-star-bow [data-pose]:not([data-pose="rest"]) { opacity: 0; }
+
 @media (prefers-reduced-motion: no-preference) {
-  .catalog-art[data-greeting="bow"] .first-star-bow,
-  .constellation-celebration[open] [data-bow-ready] .first-star-bow {
-    animation: first-star-bow 1050ms cubic-bezier(.4, 0, .25, 1) both;
-    transform-origin: 51% 82%;
+  .catalog-art .first-star-bow[data-ready],
+  .constellation-celebration[open] .first-star-bow[data-ready] {
+    --bow-duration: 1180ms;
+    --bow-delay: 80ms;
   }
 
-  .constellation-celebration[open] [data-bow-ready] .first-star-bow {
-    animation-delay: 460ms;
-  }
+  .constellation-celebration[open] .first-star-bow[data-ready] { --bow-delay: 470ms; }
+  .first-star-bow[data-ready] [data-pose="rest"] { animation: bow-pose-rest var(--bow-duration) linear var(--bow-delay) both; }
+  .first-star-bow[data-ready] [data-pose="dip"] { animation: bow-pose-dip var(--bow-duration) linear var(--bow-delay) both; }
+  .first-star-bow[data-ready] [data-pose="bow"] { animation: bow-pose-deep var(--bow-duration) linear var(--bow-delay) both; }
 
-  @keyframes first-star-bow {
-    0%, 100% { transform: none; }
-    38% { transform: translateY(5%) rotate(10deg) scaleY(.945); }
-    51% { transform: translateY(4%) rotate(9deg) scaleY(.955); }
-    78% { transform: translateY(-1%) rotate(-1.6deg); }
+  @keyframes bow-pose-rest {
+    0%, 12%, 90%, 100% { opacity: 1; }
+    20%, 82% { opacity: 0; }
+  }
+  @keyframes bow-pose-dip {
+    0%, 12%, 40%, 62%, 90%, 100% { opacity: 0; }
+    20%, 31%, 70%, 82% { opacity: 1; }
+  }
+  @keyframes bow-pose-deep {
+    0%, 31%, 70%, 100% { opacity: 0; }
+    40%, 62% { opacity: 1; }
   }
 }

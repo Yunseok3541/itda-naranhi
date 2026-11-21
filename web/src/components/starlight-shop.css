@@ -115,6 +115,12 @@
 .shop-product-status[data-state="owned"], .shop-product-status[data-state="wearing"] { padding: 2px 7px; border-radius: 999px; }
 .night-ui .shop-product .shop-product-status[data-state="owned"] { background: #443763; color: #f3e8ff; }
 .night-ui .shop-product .shop-product-status[data-state="wearing"] { background: #28473e; color: #dcf8e6; }
+.night-ui .shop-product .shop-product-status[data-state="unavailable"] { color: #ddd2e7; }
+.night-ui .shop-product .shop-product-shortfall { color: #dfc0d3; font-size: .7rem; white-space: nowrap; }
+.shop-product:has([data-state="unavailable"]) .shop-product-art { filter: saturate(.68); }
+.shop-earn { margin-block: 12px; padding-inline: 10px; border-bottom: 1px solid #c6acd94d; }
+.shop-earn summary { min-height: 44px; padding-block: 9px; color: #ffe7b8; }
+.shop-earn ul { margin: 0 0 12px; padding-inline-start: 1.2em; }
 .shop-selection-mark {
   position: absolute;
   top: 4px;

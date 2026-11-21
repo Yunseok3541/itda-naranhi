@@ -1,4 +1,5 @@
 "use client";
+import HelpLines from './help-lines';
 
 // 신청 도우미 (챗봇형, 고민기록 #39 → 자유 대화 #43). 정책 카드의 [신청 도와줘]로 연다
 // - 입력창 하나로 바로 대화 (chat). 확실한 말("서류 뭐야")은 서버가 규칙으로 바로, 나머지는 AI가 원문 안에서 답함
@@ -195,7 +196,7 @@ function Bubble({ message, onPick, disabled }: { message: Message; onPick: (inte
     {r && r.source === 'ai' && (r.intent === 'script' || (r.intent === 'chat' && r.basis === '원문')) && <p className="small">AI가 원문을 바탕으로 만들었어요. 틀릴 수 있어요.</p>}
     {r && r.source === 'ai' && r.intent === 'chat' && r.basis === '일반' && <p className="small apply-helper-general">원문에 없는 일반적인 설명이에요. 이 정책에 맞는지는 원문이나 담당자에게 확인해 주세요.</p>}
     {r && r.source === 'ai' && r.intent === 'practice' && <p className="small">연습용 AI 담당자예요. 실제 안내와 다를 수 있어요.</p>}
-    {r?.help && <div className="help"><h3>{r.help.title}</h3>{r.help.lines.map(line => <p key={line}>{line}</p>)}</div>}
+    {r?.help && <div className="help"><h3>{r.help.title}</h3><HelpLines lines={r.help.lines} /></div>}
     {r && r.followUps.length > 0 && <div className="apply-helper-follow">
       {r.followUps.map(intent => <button key={intent} type="button" disabled={disabled} onClick={() => onPick(intent)}>{INTENT_LABEL[intent]}</button>)}
     </div>}

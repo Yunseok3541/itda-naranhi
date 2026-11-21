@@ -15,7 +15,8 @@ import { groupStars, latestGroupIndex } from './night-sky';
 import { ProfileScreen } from './profile-form';
 import { useCloseDialogOnHide } from './use-close-dialog-on-hide';
 import { useShop } from './use-shop';
-import { Avatar, Hero, MoreLinks, ScreenBar, Section, Summary } from './screen-kit';
+import { Avatar, Hero, ScreenBar, Section, Summary } from './screen-kit';
+import { StatusStar } from './star-list';
 import './profile-home.css';
 
 // 'person' = 메인 캐릭터 그림 (screen-kit Avatar → SkyPerson sculpted, 상점 장식도 이 id 기준)
@@ -83,8 +84,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
   const counts = useMemo(() => ({
     bright: (stars ?? []).filter(s => s.status === 'bright').length,
     dim: (stars ?? []).filter(s => s.status === 'dim').length,
-    met: groups.filter(g => g.stars.some(s => s.status !== 'untried')).length,
-  }), [stars, groups]);
+  }), [stars]);
   const walking = useMemo(() => {
     const open = groups.filter(g => !g.stars.every(s => s.status === 'bright'));
     if (!groups.length) return null;
@@ -102,9 +102,8 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
 
   if (settings) return <>
     <ScreenBar title="설정" backLabel="프로필로 돌아가기" onBack={() => { setSettings(false); history.replaceState(null, '', '/profile'); }} />
+    <Link className="secondary settings-guide-link" href="/sky?guide=1">사용 안내 다시 보기</Link>
     <ProfileScreen mode={mode} />
-    {/* 처음 시작 안내를 다시 보기 (docs/온보딩.md) */}
-    <MoreLinks><Link href="/sky?guide=1">나란히 사용 안내 다시 보기</Link></MoreLinks>
   </>;
 
   return <div className="profile-home">
@@ -122,8 +121,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
         onClick={() => { setDraftName(name); setNameError(''); nameDialog.current?.showModal(); }}>
         {name} <span aria-hidden="true">✎</span>
       </button>}
-      message={<>나만의 밤하늘을 만들어 가는 중 <span aria-hidden="true">✨</span></>}
-      chip={walking}
+      message={walking ?? '나만의 밤하늘을 만들어 가는 중'}
     />
 
     <dialog ref={nameDialog} className="avatar-picker name-editor" aria-labelledby="profile-name-heading"
@@ -153,6 +151,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
     <Link className="secondary shop-entry" href="/shop">
       <span className="shop-entry-icon" aria-hidden="true">✦</span>
       <span>별빛 상점</span>
+      {wardrobe && <span className="shop-entry-balance" aria-label={`사용 가능 포인트 ${wardrobe.balance}P`}>{wardrobe.balance.toLocaleString('ko-KR')}P</span>}
       <span className="shop-entry-arrow" aria-hidden="true">→</span>
     </Link>
     <dialog ref={picker} className="avatar-picker" aria-labelledby="profile-avatar-picker" onClose={() => setPicking(false)}
@@ -195,7 +194,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
     <Summary label="나의 기록" items={[
       { value: counts.bright, label: '딴 별' },
       { value: counts.dim, label: '손을 뻗은 별' },
-      { value: counts.met, label: '만난 별자리' },
+      { value: avatarChoices?.constellations ? acquiredCharacters.length : '–', label: '완성한 별자리' },
     ]} note="딴 별은 해낸 일, 손을 뻗은 별은 시도해 본 일이에요. 둘 다 내 하늘에 남아요." />
 
     <section aria-labelledby="profile-catalog">
@@ -221,9 +220,9 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
           {catalogCharacters.length > PROFILE_CATALOG_PREVIEW_SIZE && <button type="button" className="secondary"
             aria-controls="profile-catalog-items" aria-expanded={catalogExpanded}
             onClick={() => setCatalogExpanded(expanded => !expanded)}>
-            {catalogExpanded ? '도감 접기' : '도감 펼치기'}
+            {catalogExpanded ? '미리보기 접기' : '친구 더 보기'}
           </button>}
-          <Link href="/catalog?from=profile">전체 도감 열기</Link>
+          <Link href="/catalog?from=profile">별자리 도감으로 이동</Link>
         </div>
       </> : avatarError || avatarChoices
         ? <p className="small" role="alert">획득한 별자리를 불러오지 못했어요.</p>
@@ -233,13 +232,13 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
     <Section id="profile-badges" title="나의 배지">
       {earned.length
         ? <div className="badge-grid">{earned.map(b => <div key={b.id} className="badge earned">
-            <span className="badge-icon" aria-hidden="true">{b.icon}</span><strong>{b.name}</strong><small>{b.done}</small>
+            <span className="badge-icon" aria-hidden="true">{b.id === 'dim' ? <StatusStar status="dim" /> : b.icon}</span><strong>{b.name}</strong><small>{b.done}</small>
           </div>)}</div>
         : <p className="small">아직 받은 배지가 없어요. 작은 별 하나부터 천천히 시작해도 괜찮아요.</p>}
       {waiting.length > 0 && <details className="badge-waiting">
         <summary>아직 만나지 않은 배지 {waiting.length}개</summary>
         <div className="badge-grid">{waiting.map(b => <div key={b.id} className="badge">
-          <span className="badge-icon" aria-hidden="true">{b.icon}</span><strong>{b.name}</strong><small>{b.hint}</small>
+          <span className="badge-icon" aria-hidden="true">{b.id === 'dim' ? <StatusStar status="dim" /> : b.icon}</span><strong>{b.name}</strong><small>{b.hint}</small>
         </div>)}</div>
       </details>}
     </Section>
@@ -247,7 +246,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
     <Section id="profile-log" title="나의 활동 기록">
       {records.length
         ? <ul className="profile-log">{records.map(r => <li key={r.attemptId}>
-            <span className="log-icon" aria-hidden="true">{r.status === 'dim' ? '☆' : '✦'}</span>
+            <span className="log-icon" aria-hidden="true"><StatusStar status={r.status === 'dim' ? 'dim' : 'bright'} /></span>
             <span className="log-text">{r.title}{r.reflection ? <small>{r.reflection}</small> : null}</span>
             <time dateTime={r.date}>{shortDate(r.date)}</time>
           </li>)}</ul>

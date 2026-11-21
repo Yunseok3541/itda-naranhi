@@ -3,7 +3,7 @@
 // 청년센터 목록·상세. 공통 틀은 screen-kit.tsx
 // - 목록: 대표 영역(핵심 메시지 + 기준 지역) → 센터 카드
 // - 상세: 대표 영역(센터 이름·주소) → 센터 정보 · 프로그램 · 문의 문장 준비 · 앞까지 가 보기 카드
-// - 부가 기능(홈페이지, 저장한 초안 불러오기, 정책)은 맨 아래 "더보기". 요약 칸은 넣지 않음
+// - 저장한 초안은 센터 소개 바로 아래에서 다시 불러올 수 있음
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { ApiError, request, type Help, type Mode } from '@/lib/mobile-data';
@@ -28,6 +28,7 @@ export default function CentersScreen({ mode, centerId, onError, onHelp, onClear
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; focusDraft?: boolean } | null>(null);
   const draftInput = useRef<HTMLTextAreaElement>(null);
+  const inquiry = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const input = draftInput.current;
@@ -121,6 +122,10 @@ export default function CentersScreen({ mode, centerId, onError, onHelp, onClear
     {center && <>
       <Hero visual={<HeroIcon tone="lavender">⌖</HeroIcon>} title={center.name} message={center.address}
         chip={center.isSample ? '가상 센터 · 실제 장소와 운영 정보가 아니에요' : undefined} />
+      <button className="secondary center-saved-draft" type="button" disabled={busy} onClick={() => {
+        inquiry.current?.scrollIntoView({ block: 'start' });
+        void run(loadSavedDraft);
+      }}>저장한 초안 불러오기</button>
       <section className="card">
         <h2>센터 정보</h2>
         <p>운영시간: {center.hours ?? '확인된 정보가 없어요'}</p>
@@ -130,7 +135,7 @@ export default function CentersScreen({ mode, centerId, onError, onHelp, onClear
       {center.programs.length > 0 && <Section id="center-programs" title="프로그램">
         {center.programs.map(program => <section className="card" key={program.title}><h3>{program.title}</h3><p>{program.summary}</p></section>)}
       </Section>}
-      <section className="card">
+      <section className="card" ref={inquiry}>
         <h2>문의 문장 준비하기</h2><p>궁금한 점을 적으면 초안을 함께 준비해요. 앱에서 실제로 전송하지 않아요.</p>
         <label>궁금한 점<textarea disabled={busy} maxLength={300} value={question} onChange={event => setQuestion(event.target.value)} placeholder="예약 없이 잠깐 둘러봐도 괜찮을까요?" /></label>
         <button disabled={busy || !question.trim()} onClick={() => run(createDraft)}>{busy ? '준비 중…' : '문의 초안 준비하기'}</button>
@@ -148,7 +153,6 @@ export default function CentersScreen({ mode, centerId, onError, onHelp, onClear
       {center.isSample && <section className="card"><h2>앞까지 가 보기</h2><p>가상 장소의 시연이에요. 직접 기록으로 남길 수 있어요.</p><Link className="secondary" href="/stars/17">앞까지 가 본 별 기록하기</Link></section>}
       <MoreLinks>
         {center.url && /^https?:\/\//i.test(center.url) && <a href={center.url} target="_blank" rel="noopener noreferrer">센터 홈페이지</a>}
-        <button type="button" disabled={busy} onClick={() => run(loadSavedDraft)}>저장한 초안 불러오기</button>
         <Link href="/policies">나에게 맞는 정책 보기</Link>
       </MoreLinks>
     </>}

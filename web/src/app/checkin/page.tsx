@@ -1,2 +1,5 @@
-import MobileFlow from "@/components/mobile-flow";
-export default function Page(){return <MobileFlow screen="checkin"/>;}
+import { redirect } from 'next/navigation';
+
+export default function Page() {
+  redirect('/sky?checkin=1');
+}

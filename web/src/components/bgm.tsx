@@ -76,6 +76,7 @@ export function BgmToggle({ className = '' }: { className?: string }) {
         <circle cx="17.5" cy="16" r="2.5" fill="currentColor" stroke="none" />
         {!on && <path d="M3 3l18 18" />}
       </svg>
+      <span aria-hidden="true">음악</span>
     </button>
   );
 }

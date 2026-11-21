@@ -167,13 +167,6 @@ export function screenRay(view: SkyView, width: number, height: number) {
   };
 }
 
-export function foregroundVisibility(view: SkyView, width: number, height: number) {
-  const ground = projector(view, width, height)(unit(view.lon / RAD, 0));
-  if (!ground) return 0;
-  // Fade before the horizon reaches the character's feet above the dock.
-  return Math.max(0, Math.min(1, (height - ground.y - 126) / 38));
-}
-
 /**
  * 주어진 시점·화면 크기로 천구 위 점을 화면 좌표로 바꾸는 함수를 만든다
  * 하늘은 안에서 올려다보므로 동쪽이 왼쪽. 등 뒤(보이지 않는 쪽)는 null

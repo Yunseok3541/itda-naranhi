@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { characters } from '@/app/catalog/characters';
-import './first-star-bow.css';
+import FirstStarBow from './first-star-bow';
 
 /**
  * 별자리를 완성해 도감에 친구가 담길 때 뜨는 모달.
@@ -25,8 +25,6 @@ export default function ConstellationCelebration({ constellationId, name, title,
 
   const stay = !!onDone;
   const [canClose, setCanClose] = useState(!stay);
-  const [artReady, setArtReady] = useState(false);
-  const bow = character?.greeting === 'bow';
   useEffect(() => {
     const modal = dialog.current;
     if (!modal) return;
@@ -55,10 +53,10 @@ export default function ConstellationCelebration({ constellationId, name, title,
       <div className="constellation-award">
         <span aria-hidden="true">✧</span>
         {character ? (
-          <div className="constellation-award-art" data-bow-ready={bow && artReady || undefined}>
-            <Image src={`/catalog/${character.id}.webp`} alt={character.nickname}
-              className={bow ? 'first-star-bow' : undefined}
-              fill unoptimized loading="eager" onLoad={bow ? () => setArtReady(true) : undefined} />
+          <div className="constellation-award-art">
+            {character.greeting === 'bow'
+              ? <FirstStarBow characterId={character.id} alt={character.nickname} play eager />
+              : <Image src={`/catalog/${character.id}.webp`} alt={character.nickname} fill unoptimized loading="eager" />}
           </div>
         ) : <strong aria-hidden="true">✦</strong>}
         <span aria-hidden="true">✧</span>

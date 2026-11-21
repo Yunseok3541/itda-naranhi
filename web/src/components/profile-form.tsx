@@ -104,17 +104,28 @@ export function StartResult({ answers, demo = false }: { answers: StartAnswers; 
   </section>;
 }
 
-export function StartQuestions({ value, onChange, disabled, step }: { value: StartAnswers; onChange: (v: StartAnswers) => void; disabled?: boolean; step?: number; /** 예전 드롭다운 옵션. 이제 모두 별 카드라 쓰지 않음 */ glass?: boolean }) {
+export function StartQuestions({ value, onChange, disabled, step, policy = false }: {
+  value: StartAnswers; onChange: (v: StartAnswers) => void; disabled?: boolean; step?: number; policy?: boolean;
+}) {
   const set = <F extends keyof StartAnswers>(f: F) => (v: StartAnswers[F]) => onChange({ ...value, [f]: v });
-  const shows = (index: number) => step === undefined || step === index;
-  return <>
-    {shows(0) && <Choices legend="요즘 어디까지 괜찮아요?" hint="고른 범위 안에서 오늘의 별을 찾아 드려요" options={RANGE} subs={RANGE_SUB} value={value.range} onChange={set('range')} disabled={disabled} />}
-    {shows(1) && <Choices legend="어떤 게 부담돼요?" hint="여러 개 골라도 돼요. 부담되는 일은 천천히 권해요" options={BURDEN} multiple value={value.burden} onChange={set('burden')} disabled={disabled} />}
-    {shows(2) && <Choices legend="요즘은 어떤 쪽이 편해요?" options={WITH} value={value.with} onChange={set('with')} disabled={disabled} />}
-    {shows(3) && <Choices legend="힘들 때 연락할 수 있는 사람이 있나요?" options={SUPPORT} value={value.support} onChange={set('support')} disabled={disabled} />}
-    {shows(4) && <Choices legend="지금 누구와 지내요?" options={LIVING} value={value.living} onChange={set('living')} disabled={disabled} />}
-    {shows(5) && <Choices legend="요즘 가장 도움이 필요한 건?" hint="여러 개 골라도 돼요" options={NEEDS} multiple value={value.needs} onChange={set('needs')} disabled={disabled} />}
-  </>;
+  const accordion = useId();
+  const rangeHint = policy ? '평소 활동 범위를 정책 추천에 참고해요.'
+    : '평소 활동 범위예요. 오늘 할 수 있는 범위는 오늘의 별에서 따로 골라요.';
+  const questions = [
+    <Choices key="range" legend="평소 어디까지 활동이 괜찮아요?" hint={rangeHint} options={RANGE} subs={RANGE_SUB} value={value.range} onChange={set('range')} disabled={disabled} />,
+    <Choices key="burden" legend="어떤 게 부담돼요?" hint="여러 개 골라도 돼요" options={BURDEN} multiple value={value.burden} onChange={set('burden')} disabled={disabled} />,
+    <Choices key="with" legend="요즘은 어떤 쪽이 편해요?" options={WITH} value={value.with} onChange={set('with')} disabled={disabled} />,
+    <Choices key="support" legend="힘들 때 연락할 수 있는 사람이 있나요?" options={SUPPORT} value={value.support} onChange={set('support')} disabled={disabled} />,
+    <Choices key="living" legend="지금 누구와 지내요?" options={LIVING} value={value.living} onChange={set('living')} disabled={disabled} />,
+    <Choices key="needs" legend="요즘 가장 도움이 필요한 건?" hint="여러 개 골라도 돼요" options={NEEDS} multiple value={value.needs} onChange={set('needs')} disabled={disabled} />,
+  ];
+  if (step !== undefined) return questions[step] ?? null;
+  return policy ? <div className="criteria-questions">
+    {questions.map((question, index) => <details name={accordion} key={question.key} open={index === 0}>
+      <summary>{answerFields[index][1]}<small>{startStepAnswered(value, index) ? '선택함' : '선택 안 함'}</small></summary>
+      {question}
+    </details>)}
+  </div> : <>{questions}</>;
 }
 
 export function PolicyInfoQuestions({ value, birthYear, onChange, onBirthYear, disabled }: {
@@ -182,11 +193,10 @@ export function ProfileScreen({ mode, onSaved }: { mode: Mode; onSaved?: () => v
   const busy = state !== 'ready';
   const birthYear = birth ? Number(birth) : null;
   return <>
-    <h1>{onSaved ? '내 추천 기준' : '내 정보'}</h1>
     <p className="small">{onSaved ? '바꾸고 싶은 답만 고쳐 주세요. 저장하면 새 기준으로 맞춤 정책을 보여 드려요. 모든 답은 선택이에요.' : '모든 답은 선택이에요. 답에 따라 사람을 나누지 않고, 오늘의 별과 정책을 고를 때만 참고해요. 실제 개인정보 대신 가상 내용으로 체험해 주세요.'}</p>
     {error && <p className="error" role="alert">{error}</p>}
-    {onSaved ? <section className="card onboarding-step" aria-label="시작 질문">
-      <StartQuestions value={start} onChange={setStart} disabled={busy} glass />
+    {onSaved ? <section className="card onboarding-step" aria-label="추천 기준 질문">
+      <StartQuestions value={start} onChange={setStart} disabled={busy} policy />
     </section> : step === answerFields.length ? <>
       <StartResult answers={start} />
       <button onClick={() => setStep(0)}>답 다시 보기</button>

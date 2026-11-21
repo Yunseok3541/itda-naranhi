@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { CHECKIN_POINTS, METEOR_POINTS } from '@/lib/points';
 import Image from 'next/image';
 import { useRef, useState } from 'react';
 import { client, type Mode } from '@/lib/mobile-data';
@@ -69,10 +70,19 @@ export default function StarlightShop({ mode }: { mode: Mode }) {
           animate={arrival > 0 && !!notice && !choice} /></div>
         <p className="shop-preview-name" aria-live="polite">{item?.name ?? '장식을 골라 미리 써 보세요'}</p>
       </div>
+      <details className="shop-earn">
+        <summary>포인트 모으는 방법</summary>
+        <ul>
+          <li>하루 첫 한 줄 기록 +{CHECKIN_POINTS}P</li>
+          <li>별을 처음 따면 난이도에 따라 +10~40P</li>
+          <li>별똥별을 잡으면 +{METEOR_POINTS}P</li>
+        </ul>
+      </details>
       <h2 className="shop-heading" id="shop-accessories">머리 장식</h2>
       <div className="shop-stock" role="group" aria-labelledby="shop-accessories">
         {accessories.map(product => {
-          const productState = state.equipped === product.id ? 'wearing' : state.owned.includes(product.id) ? 'owned' : 'priced';
+          const shortfall = Math.max(0, product.price - state.balance);
+          const productState = state.equipped === product.id ? 'wearing' : state.owned.includes(product.id) ? 'owned' : shortfall ? 'unavailable' : 'priced';
           return <button type="button" key={product.id} className="secondary shop-product" data-item={product.id}
             aria-pressed={selected === product.id} disabled={busy} onClick={() => {
               choose(product.id); setNotice(''); setError(''); setArrival(0);
@@ -85,6 +95,7 @@ export default function StarlightShop({ mode }: { mode: Mode }) {
             <small className="shop-product-status" data-state={productState}>
               {productState === 'wearing' ? '착용 중' : productState === 'owned' ? '보유 중' : product.price + 'P'}
             </small>
+            {productState === 'unavailable' && <small className="shop-product-shortfall">{shortfall}P 부족</small>}
           </button>;
         })}
       </div>

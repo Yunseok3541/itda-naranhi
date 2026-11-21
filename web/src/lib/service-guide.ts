@@ -83,11 +83,6 @@ export function giveFirstFriend() {
   return true;
 }
 
-/** 시작 안내에서 첫 친구를 만났는지 (구독). 서버 렌더에서는 false */
-export function useFirstFriend() {
-  return useSyncExternalStore(subscribe, hasFirstFriend, () => false);
-}
-
 /** 메인 메뉴 안내를 지금 보여 줘야 하는지. 서버 렌더에서는 보여 주지 않음 */
 export function useMenuTourPending() {
   return useSyncExternalStore(subscribe, () => tourState() === 'pending', () => false);
