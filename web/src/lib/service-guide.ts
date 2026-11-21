@@ -76,6 +76,13 @@ export function giveFirstFriend() {
   return true;
 }
 
+/** 별자리 완성으로 만난 친구(별자리 ID)에 첫 친구 선물을 더함 (예시 모드의 프로필 그림 고르기용) */
+export function withFirstFriend(acquired: ReadonlySet<number>) {
+  const merged = new Set(acquired);
+  if (hasFirstFriend()) merged.add(FIRST_FRIEND_CONSTELLATION);
+  return merged;
+}
+
 /** 첫 친구를 만났는지 (도감·프로필·안내 화면이 함께 바뀌도록 구독). 서버 렌더에서는 false */
 export function useFirstFriend() {
   return useSyncExternalStore(subscribe, hasFirstFriend, () => false);

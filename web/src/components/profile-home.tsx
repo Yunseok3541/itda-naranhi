@@ -11,6 +11,8 @@ import CatalogStardust from '@/app/catalog/catalog-stardust';
 import { characters } from '@/app/catalog/characters';
 import { client, type Mode, type ProfileAvatar, type Star } from '@/lib/mobile-data';
 import { evaluate, NO_FACTS, type MilestoneFacts } from '@/lib/milestones';
+import { getCompletedConstellationIds } from '@/lib/constellations';
+import { FIRST_FRIEND_CONSTELLATION, useFirstFriend } from '@/lib/service-guide';
 import { groupStars, latestGroupIndex } from './night-sky';
 import { ProfileScreen } from './profile-form';
 import { useShop } from './use-shop';
@@ -39,6 +41,11 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
   const acquiredCharacters = characters.filter(character => avatarChoices?.constellations?.some(
     item => item.constellationId === character.constellationId && item.acquired,
   ));
+  // 나의 별자리 도감 줄: 완성한 별자리 친구 + 시작 안내에서 만난 첫 친구(달콩, 실제 API 모드에서도 보여 줌)
+  const firstFriend = useFirstFriend();
+  const completedIds = useMemo(() => getCompletedConstellationIds(stars ?? []), [stars]);
+  const metCharacters = characters.filter(character => acquiredCharacters.includes(character)
+    || (firstFriend && character.constellationId === FIRST_FRIEND_CONSTELLATION));
   const { state: wardrobe } = useShop(mode);
   const [picking, setPicking] = useState(false);
   // 다른 화면으로 갔다 돌아오면 닫혀 있게 (cacheComponents로 숨겨진 화면도 상태가 남음, use-collapse-on-hide.ts 참고)
@@ -154,14 +161,17 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
         <h2 id="profile-catalog" className="screen-section">나의 별자리 도감</h2>
         <Link href="/catalog" aria-label="별자리 도감 더 보기">더 보기</Link>
       </div>
-      {acquiredCharacters.length > 0
+      {metCharacters.length > 0
         ? <div className="profile-strip">
-          {acquiredCharacters.map(character => <Link key={character.id} href="/catalog" className="strip-item done"
-            aria-label={`${character.constellation.name} ${character.nickname}, 완성`}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={`/catalog/${character.id}.webp`} alt="" />
-            <small>완성</small>
-          </Link>)}
+          {metCharacters.map(character => {
+            const label = completedIds.has(character.constellationId) ? '완성' : '첫 친구';
+            return <Link key={character.id} href="/catalog" className="strip-item done"
+              aria-label={`${character.constellation.name} ${character.nickname}, ${label}`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`/catalog/${character.id}.webp`} alt="" />
+              <small>{label}</small>
+            </Link>;
+          })}
         </div>
         : avatarChoices
           ? <p className="small">아직 획득한 별자리가 없어요.</p>
