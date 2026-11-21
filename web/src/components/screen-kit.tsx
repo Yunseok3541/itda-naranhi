@@ -75,6 +75,20 @@ export function Steps({ steps, current, label }: { steps: string[]; current: num
   </ol>;
 }
 
+/** 짧은 순서(3~5개)를 숫자(1/3) 대신 별로: 지난·지금 단계는 켜진 별 ✦ (지금 별은 은은하게 빛남), 남은 단계는 점 ·
+ *  (처음 시작 안내의 점과 같은 크기·자리). current가 단계 수와 같으면 모두 켜짐 */
+export function StarProgress({ steps, current, label, large = false }: { steps: string[]; current: number; label: string; large?: boolean }) {
+  return <ol className={`star-progress${large ? ' large' : ''}`} aria-label={label}>
+    {steps.map((step, i) => {
+      const state = i < current ? 'done' : i === current ? 'current' : 'todo';
+      return <li key={step} data-state={state} aria-current={state === 'current' ? 'step' : undefined}>
+        {state !== 'todo' && <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 0L9.9 6.1L16 8L9.9 9.9L8 16L6.1 9.9L0 8L6.1 6.1Z" /></svg>}
+        <span className="sr-only">{step}{state === 'done' ? ' (마침)' : state === 'current' ? ' (지금)' : ''}</span>
+      </li>;
+    })}
+  </ol>;
+}
+
 export function Section({ title, children, id }: { title: string; children: ReactNode; id: string }) {
   return <section aria-labelledby={id}>
     <h2 id={id} className="screen-section">{title}</h2>

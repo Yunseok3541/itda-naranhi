@@ -9,6 +9,7 @@ import { DAILY_STAR_LIMIT_MESSAGE, hasReachedDailyStarLimit, isTutorialStar } fr
 import { defaultNextKey, inActivityScope, nextOptions, planMatches, type ActivityScope, type AvailableQuest,
   type NextPlan, type NextRecommendation, type NextSource } from './next-step';
 import { ruleHelp } from './safety';
+import { buildMindResult, parseMindAnswers, scoreMind, type MindAnswers, type MindResult, type MindScores } from './mind-check';
 export type Mode = 'example' | 'api';
 export type Profile = { nickname?: string; startAnswers: StartAnswers | null; policyInfo: PolicyInfo; birthYear: number | null };
 export type ProfileUpdate = { nickname?: string; startAnswers?: Partial<StartAnswers>; policyInfo?: PolicyInfo | null; birthYear?: number | null };
@@ -16,6 +17,14 @@ export type ProfileAvatar = { avatarConstellationId: number | null; constellatio
 export type Points = { totalPoints: number; serverTime: string; meteor: { caughtToday: number; dailyLimit: number; currentMeteorId: number; nextMeteorAt: string; intervalSeconds: number } };
 export type MeteorClaim = { pointsEarned: number; totalPoints: number; meteor: { caughtToday: number; dailyLimit: number } };
 const profileKey = 'naranhi-example-profile';
+// 마음 짚기 예시 기록 (이 브라우저에만, 오래된 것 → 최근 순)
+const mindKey = 'naranhi-example-mind';
+const readMind = (): { checkedAt: string; scores: MindScores }[] => JSON.parse(localStorage.getItem(mindKey) ?? '[]');
+function exampleMind() {
+  const list = readMind();
+  const latest = list.at(-1);
+  return { latest: latest ? buildMindResult(latest, list.at(-2) ?? null) : null };
+}
 export type Help = { title: string; lines: string[] } | null;
 export type Status = 'untried' | 'dim' | 'bright';
 // 예전 예시 기록에는 별자리 메타데이터가 없을 수 있다.
@@ -238,6 +247,15 @@ export function client(mode: Mode) { return {
     if (next.policyInfo === null) next.policyInfo = { job: null, school: null, married: null, income: null, special: null };
     localStorage.setItem(profileKey, JSON.stringify(next));
     return next as Profile;
+  },
+  // 마음 짚기 (UCLA 3문항 + LSNS-6 + WHO-5). 예시 모드는 점수만 이 브라우저에 저장 (계산은 서버와 같은 lib/mind-check)
+  async mindCheck(): Promise<{ latest: MindResult | null }> { return mode === 'api' ? request('mind-check') : exampleMind(); },
+  async saveMindCheck(answers: MindAnswers): Promise<{ latest: MindResult }> {
+    if (mode === 'api') return request('mind-check', 'POST', { answers });
+    const parsed = parseMindAnswers(answers);
+    if ('invalid' in parsed) throw new ApiError('한 묶음 이상 모두 답해 주세요.', 400, 'INVALID');
+    localStorage.setItem(mindKey, JSON.stringify([...readMind(), { checkedAt: new Date().toISOString(), scores: scoreMind(parsed.value) }].slice(-10)));
+    return exampleMind() as { latest: MindResult };
   },
   async avatar(): Promise<ProfileAvatar> { return mode === 'api' ? request('profile/avatar') : exampleAvatar(read()); },
   async saveAvatar(constellationId: number | null): Promise<ProfileAvatar> {

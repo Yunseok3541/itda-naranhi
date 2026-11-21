@@ -67,7 +67,8 @@ html.sky-night-page body {
 }
 .sky-mode .onboarding-step h2 { margin-top: 0; }
 .sky-mode .onboarding-step .choices { display: flex; gap: 10px; margin-top: 18px; }
-.sky-mode .onboarding-step .choices button { flex: 1; border-radius: 16px; }
+.sky-mode .onboarding-step .choices button { flex: 1; border-radius: 16px; white-space: nowrap; }
+@media (max-width: 359px) { .sky-mode .start-survey .choices .ghost { flex: 0 0 auto; width: auto; padding-inline: 18px; } }
 @media (max-height: 640px) {
   .sky-mode .onboarding-step.start-survey { margin-top: 18px; padding-block: 12px; }
   .sky-mode .start-survey .choice-card.with-sub { min-height: 49px; padding-block: 6px; }
@@ -123,7 +124,14 @@ html.sky-night-page body {
 .glass-select-list li[aria-selected="true"] { color: #ffe3a3; }
 .glass-select-check { color: var(--star-gold); }
 .sky-mode .onboarding-step { margin-top: min(12dvh, 100px); }
-.onboarding-step h2 span { margin-left: 6px; color: var(--starlight-dim); font-size: .75em; }
+/* 시작 질문 위: 별 순서(숫자 대신) + 제목 + 건너뛰기 안내를 가운데로 (마음 짚기 질문 위와 같은 모양) */
+.onboarding-step-top { display: grid; justify-items: center; gap: 6px; margin-bottom: 4px; text-align: center; }
+.sky-mode .onboarding-step-top h2, .sky-mode .onboarding-step-top p { margin: 0; }
+/* 시작 질문 세 개를 같은 자리에 겹침 → 질문마다 카드 크기가 달라지지 않음 (지금 질문만 보이고 나머지는 숨김) */
+.onboarding-stack { display: grid; }
+.onboarding-stack > * { grid-area: 1 / 1; min-width: 0; }
+.onboarding-stack > [inert] { visibility: hidden; }
+.onboarding-step-top .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .onboarding-step .choices { grid-template-columns: fit-content(40%) minmax(0, 1fr); }
 .onboarding-step .choices > :first-child { min-width: 4.5em; }
 .onboarding-step .check {
