@@ -81,7 +81,7 @@ export default function CatalogGallery() {
 
   function statusLabel(character: Character) {
     if (isAcquired(character)) return '만났어요';
-    if (acquired) return '아직 못 만났어요';
+    if (acquired) return '별자리 완성 후 만나요';
     return loadFailed ? '만났는지 확인 못 함' : '확인 중';
   }
 

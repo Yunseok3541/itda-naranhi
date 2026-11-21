@@ -12,6 +12,7 @@ import { client, type Mode, type ProfileAvatar, type Star } from '@/lib/mobile-d
 import { evaluate, NO_FACTS, type MilestoneFacts } from '@/lib/milestones';
 import { groupStars, latestGroupIndex } from './night-sky';
 import { ProfileScreen } from './profile-form';
+import { useShop } from './use-shop';
 import { Avatar, Hero, MoreLinks, ScreenBar, Section, Summary } from './screen-kit';
 import './profile-home.css';
 
@@ -33,6 +34,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
   const [avatarError, setAvatarError] = useState('');
   const [avatarBusy, setAvatarBusy] = useState(false);
   const avatar = characters.find(character => character.constellationId === avatarChoices?.avatarConstellationId)?.id ?? DEFAULT_AVATAR;
+  const { state: wardrobe } = useShop(mode);
   const [picking, setPicking] = useState(false);
   // 다른 화면으로 갔다 돌아오면 닫혀 있게 (cacheComponents로 숨겨진 화면도 상태가 남음, use-collapse-on-hide.ts 참고)
   useLayoutEffect(() => () => setPicking(false), []);
@@ -92,7 +94,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
 
     <Hero
       visual={<button type="button" className="avatar-button" aria-label="프로필 그림 바꾸기" onClick={() => setPicking(p => !p)}>
-        <Avatar id={avatar} />
+        <Avatar id={avatar} item={wardrobe?.equipped} />
         <span className="avatar-edit" aria-hidden="true">✎</span>
       </button>}
       title="별을 바라보는 사람"
@@ -100,6 +102,11 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
       chip={walking}
     />
 
+    <Link className="secondary shop-entry" href="/shop">
+      <span className="shop-entry-icon" aria-hidden="true">✦</span>
+      <span>별빛 상점</span>
+      <span className="shop-entry-arrow" aria-hidden="true">→</span>
+    </Link>
     {picking && <section className="card avatar-picker" aria-label="프로필 그림 고르기">
       <h3>프로필 그림 고르기</h3>
       {avatarError && <p role="alert">{avatarError}</p>}

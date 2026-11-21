@@ -1,3 +1,4 @@
+import { accessoryById, type AccessoryId, type ShopState, type ShopAction } from './shop';
 import { readStartAnswers, type PolicyInfo, type StartAnswers } from './profile';
 import { getCompletedConstellationIds } from './constellations';
 import { characters } from '@/app/catalog/characters';
@@ -46,9 +47,17 @@ const kstDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', dateSt
 function rewardsFor(store: Store) {
   return store.rewards ??= { meteorPoints: 0, checkinPoints: 0, meteors: [] };
 }
-function exampleTotal(store: Store) {
+const wardrobeKey = 'naranhi-example-wardrobe';
+type Wardrobe = { purchases: { item: AccessoryId; paid: number }[]; equipped: AccessoryId | null };
+function readWardrobe(): Wardrobe {
+  return JSON.parse(localStorage.getItem(wardrobeKey) ?? '{"purchases":[],"equipped":null}');
+}
+function exampleShop(wardrobe = readWardrobe()): ShopState {
+  return { balance: exampleTotal(read(), wardrobe), owned: wardrobe.purchases.map(p => p.item), equipped: wardrobe.equipped };
+}
+function exampleTotal(store: Store, wardrobe = readWardrobe()) {
   const starPoints = store.stars.reduce((sum, star) => sum + (star.status === 'bright' ? (catalogQuest(star.starId)?.stage ?? 0) * 10 : 0), 0);
-  return starPoints + (store.rewards?.meteorPoints ?? 0) + (store.rewards?.checkinPoints ?? 0);
+  return starPoints + (store.rewards?.meteorPoints ?? 0) + (store.rewards?.checkinPoints ?? 0) - wardrobe.purchases.reduce((sum,p) => sum + p.paid, 0);
 }
 function exampleAvatar(store: Store): ProfileAvatar {
   const acquired = getCompletedConstellationIds(store.stars);
@@ -100,6 +109,24 @@ export function client(mode: Mode) { return {
     if (mode === 'api') return request('sky');
     const store = read();
     return { stars: store.stars, totalPoints: exampleTotal(store) };
+  },
+  async shop(): Promise<ShopState> { return mode === 'api' ? request('shop') : exampleShop(); },
+  async changeAccessory(action: ShopAction, id: AccessoryId): Promise<ShopState> {
+    if (mode === 'api') return request('shop', 'PUT', { action, item: id });
+    return navigator.locks.request(wardrobeKey, () => {
+      const wardrobe = readWardrobe();
+      const item = accessoryById(id);
+      if (!item) throw new Error('장식을 확인해 주세요.');
+      if (!wardrobe.purchases.some(p => p.item === id)) {
+        if (action !== 'buy') throw new Error('보유한 장식을 골라 주세요.');
+        if (exampleTotal(read(), wardrobe) < item.price) throw new Error('포인트가 부족해요.');
+        wardrobe.purchases.push({ item: id, paid: item.price });
+      }
+      if (action !== 'remove') wardrobe.equipped = id;
+      else if (wardrobe.equipped === id) wardrobe.equipped = null;
+      localStorage.setItem(wardrobeKey, JSON.stringify(wardrobe));
+      return exampleShop(wardrobe);
+    });
   },
   async points(): Promise<Points> {
     if (mode === 'api') return request('points');

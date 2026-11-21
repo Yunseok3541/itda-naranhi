@@ -9,7 +9,7 @@
 // - 하단: 메인 이동 탭 없음 (mobile-flow.tsx)
 import Link from 'next/link';
 import { createContext, useContext, type ReactNode } from 'react';
-import { characters } from '@/app/catalog/characters';
+import type { AccessoryId } from '@/lib/shop';
 import SkyPerson from './sky-person';
 import './screen-kit.css';
 
@@ -79,12 +79,9 @@ export function MoreLinks({ children }: { children: ReactNode }) {
 }
 
 /** 대표 영역에 쓰는 그림: 기본 캐릭터 또는 도감 캐릭터 */
-export function Avatar({ id = 'person', size = 96 }: { id?: string; size?: number }) {
-  const c = characters.find(x => x.id === id);
+export function Avatar({ id = 'person', size = 96, item = null }: { id?: string; size?: number; item?: AccessoryId | null }) {
   return <span className="avatar" style={{ width: size, height: size }}>
-    {c
-      ? <img src={`/catalog/${c.id}.webp`} alt="" />  // eslint-disable-line @next/next/no-img-element
-      : <span className="avatar-person"><SkyPerson portrait /></span>}
+    <SkyPerson portrait sculpted character={id} item={item} />
   </span>;
 }
 

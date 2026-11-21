@@ -65,7 +65,7 @@ export default function MeteorRewards({ mode, skyTotal, fov = FOV_MAX, hintPause
         const serverTime = Date.parse(points.serverTime);
         const firstAt = Date.parse(points.meteor.nextMeteorAt);
         const interval = points.meteor.intervalSeconds * 1000;
-        setTotal(value => Math.max(value ?? 0, points.totalPoints));
+        setTotal(points.totalPoints);
         setLimitReached(points.meteor.caughtToday >= points.meteor.dailyLimit);
         if (!Number.isFinite(serverTime) || !Number.isFinite(firstAt) || !Number.isFinite(interval) || interval <= 0) return;
         const now = () => serverTime + performance.now() - (requestStart + requestEnd) / 2;
@@ -91,8 +91,12 @@ export default function MeteorRewards({ mode, skyTotal, fov = FOV_MAX, hintPause
     }
     function visibility() { void sync(); }
     document.addEventListener('visibilitychange', visibility);
+    window.addEventListener('storage', visibility);
+    window.addEventListener('wardrobe-changed', visibility);
     const initial = window.setTimeout(visibility, 0);
     return () => {
+      window.removeEventListener('storage', visibility);
+      window.removeEventListener('wardrobe-changed', visibility);
       generation++;
       window.clearTimeout(initial);
       window.clearTimeout(spawnTimer);
@@ -101,7 +105,7 @@ export default function MeteorRewards({ mode, skyTotal, fov = FOV_MAX, hintPause
       window.clearTimeout(awardTimer.current);
       document.removeEventListener('visibilitychange', visibility);
     };
-  }, [mode]);
+  }, [mode, skyTotal]);
 
   async function catchMeteor(id: number, x: number, y: number) {
     if (pending.current || limitReached || announced.current === id) return;
@@ -110,7 +114,7 @@ export default function MeteorRewards({ mode, skyTotal, fov = FOV_MAX, hintPause
       const result = await client(mode).catchMeteor(id);
       announced.current = id;
       setMeteor(visible => visible === id ? null : visible);
-      setTotal(value => Math.max(value ?? 0, result.totalPoints));
+      setTotal(result.totalPoints);
       setLimitReached(result.meteor.caughtToday >= result.meteor.dailyLimit);
       if (result.pointsEarned === 1) {
         setReward({ id, x, y });
@@ -121,12 +125,12 @@ export default function MeteorRewards({ mode, skyTotal, fov = FOV_MAX, hintPause
     finally { pending.current = false; }
   }
 
-  const value = Math.max(skyTotal ?? 0, total ?? 0);
+  const value = total ?? skyTotal ?? 0;
   return <>
     {(skyTotal !== undefined || total !== undefined) && <div className="sky-points">
       {/* 숫자만으로는 뜻을 알기 어려워서 누르면 쌓이는 방법을 보여 줌 (docs/기능발견성-조사.md) */}
       <button type="button" className="text-button" aria-expanded={pointsOpen} aria-controls="sky-points-info" onClick={() => setPointsOpen(open => !open)}>
-        <span aria-hidden="true">✦</span> {value} 포인트
+        <span aria-hidden="true">✦</span> {value}P
       </button>
       {pointsOpen && <p id="sky-points-info">별을 따면 +10~40 · 별똥별 +{METEOR_POINTS} · 하루 첫 체크인 +{CHECKIN_POINTS}</p>}
     </div>}
