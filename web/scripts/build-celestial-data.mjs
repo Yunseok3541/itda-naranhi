@@ -1,6 +1,6 @@
 // 천구 배경 데이터 만들기 → web/public/sky/celestial.json (한 번 만들어 커밋해 둔 파일. 다시 만들 때만 실행)
 //
-// 원본: d3-celestial 0.7.35 (BSD-3-Clause, Olaf Frohn) 의 data/stars.6.json, data/mw.json
+// 원본: d3-celestial 0.7.35 (BSD-3-Clause, Olaf Frohn) 의 data/stars.6.json, data/mw.json, data/constellations.lines.json
 //   별 위치·밝기는 XHIP(Extended Hipparcos Compilation, VizieR V/137D) 기반
 //   라이선스 전문: web/public/sky/LICENSE-d3-celestial.txt
 //
@@ -12,6 +12,8 @@
 // 결과 형식 (작게 만들려고 배열로 저장)
 //   stars:     [적경(도), 적위(도), 등급, 색지수 B-V×100]  — 5.5등급보다 밝은 별만
 //   milkyway:  [적경(도), 적위(도), 밝기 1~5]            — 하늘을 3° 격자로 나눠 은하수 안에 드는 칸만
+//   lines:     [[적경, 적위, 적경, 적위, ...], ...]      — 실제 별자리 선 (꺾은선 하나 = 배열 하나)
+//              앱 별자리로 쓰는 카시오페이아·돌고래·거문고는 퀘스트 별이 따로 그리므로 뺀다 (lib/sky-constellations.ts)
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
@@ -53,6 +55,12 @@ for (let dec = -90 + GRID / 2; dec < 90; dec += GRID) {
   }
 }
 
+const APP_CONSTELLATIONS = new Set(["Cas", "Del", "Lyr"]);
+const lines = JSON.parse(readFileSync(join(dataDir, "constellations.lines.json"), "utf8")).features
+  .filter((f) => !APP_CONSTELLATIONS.has(f.id))
+  .flatMap((f) => f.geometry.coordinates)
+  .map((line) => line.flatMap(([lon, lat]) => [round(toRa(lon)), round(lat)]));
+
 mkdirSync(dirname(outFile), { recursive: true });
-writeFileSync(outFile, JSON.stringify({ source: "d3-celestial 0.7.35 (BSD-3-Clause), XHIP", magLimit: MAG_LIMIT, grid: GRID, stars, milkyway }));
-console.log(`별 ${stars.length}개, 은하수 칸 ${milkyway.length}개 → ${outFile}`);
+writeFileSync(outFile, JSON.stringify({ source: "d3-celestial 0.7.35 (BSD-3-Clause), XHIP", magLimit: MAG_LIMIT, grid: GRID, stars, milkyway, lines }));
+console.log(`별 ${stars.length}개, 은하수 칸 ${milkyway.length}개, 별자리 선 ${lines.length}개 → ${outFile}`);
