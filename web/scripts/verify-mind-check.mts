@@ -71,10 +71,10 @@ export async function run(db: Db) {
   const got = await getMindCheck(userId, db);
   check("조회: 최근 결과가 저장 응답과 같음", JSON.stringify((got.body as Body).latest) === JSON.stringify(s2), got);
 
-  // 예전 Mini-SPIN 기록(세 점수 모두 NULL)은 비교 대상에서 빠짐
+  // 예전 실제 설문은 UCLA와 Mini-SPIN 점수를 함께 저장했으며 비교 대상에서 빠진다.
   const other = (await db.query<{ id: number }>("INSERT INTO users (nickname) VALUES ('예전 기록') RETURNING id")).rows[0].id;
-  await db.query("INSERT INTO survey_results (user_id, answers, spin_score, created_at) VALUES ($1, '{\"spin\":[1,1,1]}', 3, now() - interval '40 days')", [other]);
-  check("예전 Mini-SPIN만 있는 사용자: 처음과 같음", ((await getMindCheck(other, db)).body as Body).latest === null);
+  await db.query("INSERT INTO survey_results (user_id, answers, ucla_score, spin_score, created_at) VALUES ($1, '{\"ucla\":[1,1,1],\"spin\":[1,1,1]}', 3, 3, now() - interval '40 days')", [other]);
+  check("예전 UCLA·Mini-SPIN 설문만 있는 사용자: 처음과 같음", ((await getMindCheck(other, db)).body as Body).latest === null);
   const after = await saveMindCheck(other, { answers: { who5: [3, 3, 3, 3, 3] } }, db);
   check("예전 기록 뒤 첫 저장: 비교 없음(null)", (after.body as Body).latest.changes === null, after);
   check("다른 사용자 기록은 섞이지 않음", ((await getMindCheck(userId, db)).body as Body).latest.scores.who5 === null);

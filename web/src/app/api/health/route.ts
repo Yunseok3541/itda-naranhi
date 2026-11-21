@@ -9,10 +9,14 @@ export async function GET() {
   let constellations = 0;
   let demoSessions = "unknown";
   let pointEvents = "unknown";
+  let mindCheck = "unknown";
   try {
-    const { rows } = await db.query<{ count: string; sessions: string | null; points: string | null }>(
+    const { rows } = await db.query<{ count: string; sessions: string | null; points: string | null; mind_ready: boolean }>(
       `SELECT (SELECT count(*) FROM constellations) AS count, to_regclass('public.demo_sessions')::text AS sessions,
-              to_regclass('public.point_events')::text AS points`,
+              to_regclass('public.point_events')::text AS points,
+              (SELECT count(*) = 4 FROM information_schema.columns
+               WHERE table_schema = 'public' AND table_name = 'survey_results' AND is_nullable = 'YES'
+                 AND column_name IN ('ucla_score', 'spin_score', 'lsns_score', 'who5_score')) AS mind_ready`,
     );
     constellations = Number(rows[0].count);
     demoSessions = rows[0].sessions
@@ -20,6 +24,7 @@ export async function GET() {
       : "missing (db/migrations/20261119_demo_sessions.sql 적용 필요)";
     // 유성·체크인 포인트 적립 기록 (없으면 유성 API는 500, 체크인은 포인트만 null로 응답)
     pointEvents = rows[0].points ? "ready" : "missing (db/migrations/20261121_reward_points.sql 적용 필요)";
+    mindCheck = rows[0].mind_ready ? "ready" : "missing (db/migrations/20261124_mind_check.sql 적용 필요)";
   } catch (error) {
     const e = error as Error & { code?: string };
     // DB가 꺼져 있으면 code가 ECONNREFUSED, 주소 설정이 없으면 code 없이 옴
@@ -31,6 +36,7 @@ export async function GET() {
     constellations,
     demoSessions,
     pointEvents,
+    mindCheck,
     // AI 제공자: gemini(배포, 무료) / openai(개발·시연, GMS). 키 값은 넣지 않고 있는지만
     aiProvider: AI_PROVIDER,
     aiModel: ACTIVE_MODEL,

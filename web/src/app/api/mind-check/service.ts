@@ -4,16 +4,23 @@ import { db as pool } from "@/lib/db";
 import { buildMindResult, parseMindAnswers, scoreMind, type MindScores } from "@/lib/mind-check";
 import { type ApiResult, type Db, fail, ok } from "../_lib/http";
 
-const errorCode = (error: unknown) => (error as { code?: string }).code ?? (error instanceof Error ? error.message : "unknown");
+const errorCode = (error: unknown) => (error as { code?: string } | null)?.code ?? "unknown";
+const missingSchema = (error: unknown) => {
+  const dbError = error as { code?: string; column?: string } | null;
+  return dbError?.code === "42703" || dbError?.code === "42P01"
+    || (dbError?.code === "23502" && (dbError.column === "spin_score" || dbError.column === "ucla_score"));
+};
+const NOT_READY = "실제 모드의 마음 짚기를 준비하고 있어요. 예시 모드에서 먼저 둘러볼 수 있어요.";
 
 type Row = { created_at: Date; ucla_score: number | null; lsns_score: number | null; who5_score: number | null };
 const toScores = (r: Row): MindScores => ({ ucla: r.ucla_score, lsns: r.lsns_score, who5: r.who5_score });
 
-/** 최근 두 번 (최근 → 그 전). 예전 Mini-SPIN만 있던 기록(세 점수 모두 NULL)은 건너뜀 */
+/** 최근 마음 짚기 두 번을 조회한다. 기존 UCLA·Mini-SPIN 설문에는 spin_score가 있다. */
 async function latestTwo(db: Db, userId: number) {
   const { rows } = await db.query<Row>(
     `SELECT created_at, ucla_score, lsns_score, who5_score FROM survey_results
-      WHERE user_id = $1 AND (ucla_score IS NOT NULL OR lsns_score IS NOT NULL OR who5_score IS NOT NULL)
+      WHERE user_id = $1 AND spin_score IS NULL
+        AND (ucla_score IS NOT NULL OR lsns_score IS NOT NULL OR who5_score IS NOT NULL)
       ORDER BY created_at DESC, id DESC LIMIT 2`,
     [userId],
   );
@@ -31,6 +38,7 @@ export async function getMindCheck(userId: number, db: Db = pool): Promise<ApiRe
     return ok({ latest: resultOf(await latestTwo(db, userId)) });
   } catch (error) {
     console.error("[mind-check] 조회 실패", errorCode(error));
+    if (missingSchema(error)) return fail(503, "LOAD_FAILED", NOT_READY);
     return fail(500, "LOAD_FAILED", "지금은 마음 짚기 기록을 불러오지 못했어요.");
   }
 }
@@ -53,6 +61,7 @@ export async function saveMindCheck(userId: number, body: unknown, db: Db = pool
     return ok({ latest: resultOf(await latestTwo(db, userId)) }, 201);
   } catch (error) {
     console.error("[mind-check] 저장 실패", errorCode(error));
+    if (missingSchema(error)) return fail(503, "SAVE_FAILED", NOT_READY);
     return fail(500, "SAVE_FAILED", "지금은 저장하지 못했어요. 답은 그대로 있어요. 다시 시도해 주세요.");
   }
 }

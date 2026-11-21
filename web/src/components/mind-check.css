@@ -114,8 +114,8 @@
 .night-ui .mind-result h2 { margin: 0; font-size: 1.05rem; }
 .night-ui .mind-care { margin-top: 12px; border-color: var(--star-gold-soft); background: linear-gradient(165deg, rgba(92, 56, 96, .72), rgba(37, 32, 57, .86)); }
 .night-ui .mind-care h2 { margin: 0 0 6px; font-size: 1.05rem; }
-.mind-care h2 span { color: #ff9fbd; }
-.mind-care ul { margin: 8px 0; padding-left: 1.2em; }
+.mind-care h2 svg { display: inline-block; width: 1em; height: 1em; vertical-align: -.12em; color: #ff9fbd; }
+.mind-care > .help-lines { margin: 12px 0; }
 .mind-next {
   display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 14px 0 0; padding: 12px 16px;
   border-radius: 14px; background: rgba(190, 160, 255, .1); border: 1px dashed rgba(190, 160, 255, .45);

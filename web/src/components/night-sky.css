@@ -70,9 +70,10 @@ html.sky-night-page body {
 .sky-mode .onboarding-step .choices button { flex: 1; border-radius: 16px; white-space: nowrap; }
 @media (max-width: 359px) { .sky-mode .start-survey .choices .ghost { flex: 0 0 auto; width: auto; padding-inline: 18px; } }
 @media (max-height: 640px) {
-  .sky-mode .onboarding-step.start-survey { margin-top: 18px; padding-block: 12px; }
+  .sky-mode .onboarding-step.start-survey { margin-top: 10px; padding-block: 10px; }
+  .sky-mode .onboarding-step-top { gap: 4px; }
   .sky-mode .start-survey .choice-card.with-sub { min-height: 49px; padding-block: 6px; }
-  .sky-mode .start-survey .choices { margin-top: 10px; }
+  .sky-mode .start-survey .choices { margin-top: 8px; }
 }
 
 /* 시작 질문 ② 여러 개 고르기: 둥근 반투명 줄, 고르면 금빛 */

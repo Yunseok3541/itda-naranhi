@@ -14,6 +14,8 @@ import { emptyAnswers, isMindCheckDue, itemCount, mindDay, SCALES, scoreMind, ty
 import { HELP_MESSAGE } from '@/lib/safety';
 import { FrequencyDots, MindScopeArt, MoonPhase, ScaleGlyph, StarCluster } from './mind-check-art';
 import { HelpContext, Hero, ScreenBar, StarProgress } from './screen-kit';
+import HelpLines from './help-lines';
+import SkyControlIcon from './sky-control-icon';
 import './mind-check.css';
 
 const NOT_DIAGNOSIS = '의료적인 진단이 아니에요. 지금의 상태를 가볍게 기록하는 용도예요.';
@@ -209,10 +211,10 @@ export default function MindCheckScreen({ mode }: { mode: Mode }) {
         {worse && <p className="small">달라지는 건 자연스러운 일이에요. 오늘의 별은 할 수 있는 만큼만 골라도 괜찮아요.</p>}
       </section>
       {latest.lowWellbeing && <section className="card mind-care" aria-labelledby="mind-care-title">
-        <h2 id="mind-care-title"><span aria-hidden="true">♡</span> 요즘 마음이 많이 지쳐 있을 수 있어요</h2>
+        <h2 id="mind-care-title"><SkyControlIcon name="help" /> 요즘 마음이 많이 지쳐 있을 수 있어요</h2>
         <p>혼자 감당하지 않아도 돼요. 이야기를 나눌 수 있는 곳이 있어요.</p>
-        <ul>{HELP_MESSAGE.lines.map(line => <li key={line}>{line}</li>)}</ul>
-        <button type="button" className="secondary" onClick={help.toggle} aria-expanded={help.open}>도움받을 곳 열기</button>
+        <HelpLines lines={HELP_MESSAGE.lines} />
+        {help && <button type="button" className="secondary" onClick={help.toggle} aria-expanded={help.open}>도움받을 곳 열기</button>}
       </section>}
       <p className="mind-next"><span>다음 마음 짚기</span><strong>{day(latest.nextAt)}쯤</strong></p>
       <p className="small mind-note">{NOT_DIAGNOSIS}</p>
@@ -252,6 +254,6 @@ export default function MindCheckScreen({ mode }: { mode: Mode }) {
       <button type="button" className="secondary" onClick={() => setReload(n => n + 1)}>다시 불러오기</button></div>}
     {latest === undefined && !loadError && <p role="status">지난 기록을 확인하고 있어요…</p>}
     {latest !== undefined && <button type="button" className="mind-start" onClick={start}>{latest ? '다시 짚어 보기' : '짚어 보기 시작'}</button>}
-    <p className="small mind-note">답을 고르면 다음 질문으로 넘어가요. {NOT_DIAGNOSIS}</p>
+    <p className="small mind-note">{NOT_DIAGNOSIS} 저장한 기록은 다음 마음 짚기에서 달라진 점을 비교하는 데 쓰여요.</p>
   </div>;
 }
