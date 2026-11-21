@@ -14,6 +14,7 @@ import {
 } from '@/lib/apply-helper';
 import { chatKey, clearChat, loadChat, saveChat } from '@/lib/apply-helper-store';
 import { request, type Help, type Mode } from '@/lib/mobile-data';
+import { useCloseDialogOnHide } from './use-close-dialog-on-hide';
 
 type Reply = HelperReply & { help?: Help };
 type Message = { id: number; from: 'me' | 'bot'; text: string; reply?: Reply };
@@ -40,6 +41,7 @@ export default function ApplyHelper({ policyId, title, mode, examplePolicy, onCl
   policyId: number; title: string; mode: Mode; examplePolicy: HelperPolicy; onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  useCloseDialogOnHide(dialog);
   const end = useRef<HTMLDivElement>(null);
   // 이 탭에 남아 있던 대화 (창을 다시 열면 이어짐). 연습 중이던 것은 이어지지 않고 대화 모드로 시작
   const storeKey = chatKey(mode, policyId);

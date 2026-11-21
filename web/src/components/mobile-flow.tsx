@@ -18,6 +18,7 @@ import { EMPTY_START, type StartAnswers } from '@/lib/profile';
 import { getCompletedConstellationIds, getStarConstellationId } from '@/lib/constellations';
 import { consumeConstellationCelebration, queueConstellationCelebration } from '@/lib/constellation-celebration';
 import SkyControlIcon from './sky-control-icon';
+import { useCloseDialogOnHide } from './use-close-dialog-on-hide';
 import './night-sky.css';
 // 하단 버튼 3개(메인에서만): 프로필 · 오늘의 별 · 도감
 // 정책추천·청년센터는 메인 오른쪽 위, 도움받을 곳은 메인 왼쪽 위, 홈(내 밤하늘)은 다른 화면 머리글의 "나란히"
@@ -42,6 +43,8 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  const router = useRouter();
  const resources = useRef<HTMLDialogElement>(null);
  const questDialog = useRef<HTMLDialogElement>(null);
+ useCloseDialogOnHide(resources);
+ useCloseDialogOnHide(questDialog);
  const questTrigger = useRef<HTMLButtonElement>(null);
  const questTitle = useId();
  const [mode,M]=useState<Mode>('example'),[ready,R]=useState(false),[loaded,L]=useState(false),[busy,B]=useState(false),[error,E]=useState('');const lock=useRef(false);

@@ -18,6 +18,7 @@ import ConstellationCelebration from './constellation-celebration';
 import { useSkyTour } from './use-sky-tour';
 import MeteorRewards from './meteor-rewards';
 import SkyControlIcon from './sky-control-icon';
+import { useCloseDialogOnHide } from './use-close-dialog-on-hide';
 import { finishHint, useSkyHints } from '@/lib/sky-hints';
 
 const labels = { untried: '아직 만나기 전', dim: '손을 뻗은 별', bright: '딴 별' } as const;
@@ -179,6 +180,8 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   const toggleTalk = () => setTalk(t => (t ? null : QUESTIONS[Math.floor(Date.now() / 86_400_000) % QUESTIONS.length]));
   const sheet = useRef<HTMLDialogElement>(null);
   const list = useRef<HTMLDialogElement>(null);
+  useCloseDialogOnHide(sheet);
+  useCloseDialogOnHide(list);
   const burstCount = useRef(0);
   const closeList = () => list.current?.close();
 
