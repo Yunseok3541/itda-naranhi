@@ -68,7 +68,7 @@ function subscribe(listener: () => void) {
   return () => { listeners.delete(listener); };
 }
 
-/** 시작 안내에서 양자리를 완성해 첫 친구(포실)를 만났는지 (안내의 친구 장, 안내 뒤 메인의 지금 별자리에 씀) */
+/** 시작 안내에서 양자리를 완성해 첫 친구(별마중)를 만났는지 (안내의 친구 장, 안내 뒤 메인의 지금 별자리에 씀) */
 export function hasFirstFriend() {
   if (memory.gift === null) memory.gift = read(GIFT_KEY) === String(FIRST_FRIEND_CONSTELLATION);
   return memory.gift;

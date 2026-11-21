@@ -104,7 +104,7 @@
     {"id": 8, "stage": 3, "name": "백조자리", "theme": "내 속도로 흘러가는 시간", "quests": [12, 33, 32, 13, 31, 58, 59, 60, 61]},
     {"id": 9, "stage": 4, "name": "독수리자리", "theme": "바람을 잠깐 느껴 보기", "quests": [20, 39, 36, 62, 63, 64, 65, 66]},
     {"id": 10, "stage": 3, "name": "화가자리", "theme": "하루에 색 한 방울", "quests": [14, 15, 35, 34, 16]},
-    {"id": 11, "stage": 1, "name": "양자리", "theme": "첫 걸음의 온기", "quests": [67,68,69,70]}
+    {"id": 11, "stage": 1, "name": "양자리", "theme": "저녁 첫 별을 마중하는 마음", "quests": [67,68,69,70]}
   ],
   "quests": [
     {"id": 1, "stage": 1, "focus": "daily", "title": "창문 열고 5분 바깥 공기 쐬기", "description": "창문을 열고 바깥 공기를 5분 느껴 봐요. 나가지 않아도 괜찮아요.", "easier_title": "커튼만 열어 두기", "tags": ["rest"], "is_outside": false},

@@ -6,7 +6,7 @@ import './catalog.css';
 
 export const metadata: Metadata = {
   title: '별자리 도감 · 나란히',
-  description: '포실, 새빛, 윤슬과 함께 나란히의 별자리 친구를 만나요.',
+  description: '별마중, 새빛, 윤슬과 함께 나란히의 별자리 친구를 만나요.',
 };
 
 function CatalogBackLink({ fromProfile = false }: { fromProfile?: boolean }) {

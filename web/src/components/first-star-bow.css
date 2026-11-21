@@ -1,0 +1,18 @@
+@media (prefers-reduced-motion: no-preference) {
+  .catalog-art[data-greeting="bow"] .first-star-bow,
+  .constellation-celebration[open] [data-bow-ready] .first-star-bow {
+    animation: first-star-bow 1050ms cubic-bezier(.4, 0, .25, 1) both;
+    transform-origin: 51% 82%;
+  }
+
+  .constellation-celebration[open] [data-bow-ready] .first-star-bow {
+    animation-delay: 460ms;
+  }
+
+  @keyframes first-star-bow {
+    0%, 100% { transform: none; }
+    38% { transform: translateY(5%) rotate(10deg) scaleY(.945); }
+    51% { transform: translateY(4%) rotate(9deg) scaleY(.955); }
+    78% { transform: translateY(-1%) rotate(-1.6deg); }
+  }
+}

@@ -221,19 +221,19 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .catalog-art[data-greeting="ready"] .catalog-portrait {
+  .catalog-art[data-greeting="wave"] .catalog-portrait {
     animation: catalog-greeting 1.5s ease-in-out both;
   }
 
-  .catalog-art[data-greeting="ready"]::before {
+  .catalog-art[data-greeting]::before {
     animation: catalog-light-drift 1.5s ease-in-out both;
   }
 
-  .catalog-art[data-greeting="ready"] .catalog-wave-frame {
+  .catalog-art[data-greeting="wave"] .catalog-wave-frame {
     animation: catalog-hand-wave 1.5s ease-in-out both;
   }
 
-  .catalog-art[data-greeting="ready"] .catalog-rest-frame {
+  .catalog-art[data-greeting="wave"] .catalog-rest-frame {
     animation: catalog-resting-face 1.5s ease-in-out both;
   }
 

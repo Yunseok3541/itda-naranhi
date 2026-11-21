@@ -16,7 +16,7 @@ INSERT INTO constellations (id, stage, name, theme, star_count) VALUES
   (8, 3, '백조자리', '내 속도로 흘러가는 시간', 9),
   (9, 4, '독수리자리', '바람을 잠깐 느껴 보기', 8),
   (10, 3, '화가자리', '하루에 색 한 방울', 5),
-  (11, 1, '양자리', '첫 걸음의 온기', 4);
+  (11, 1, '양자리', '저녁 첫 별을 마중하는 마음', 4);
 
 SELECT setval('constellations_id_seq', 11);
 

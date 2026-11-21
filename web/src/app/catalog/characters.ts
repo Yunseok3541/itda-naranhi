@@ -6,6 +6,8 @@ type CharacterArt = {
   color: string;
   story: string;
   constellationId: number;
+  greeting?: 'bow';
+  gesture?: string;
 };
 
 export type Character = CharacterArt & {
@@ -64,9 +66,11 @@ const artwork: CharacterArt[] = [
     story: '물감은 색을 세 방울쯤 올린 팔레트에 작은 붓을 들고 다녀요. 오늘을 한 가지 색으로 그린다면 무슨 색일까요?',
   },
   {
-    id: 'posil', nickname: '포실',
+    id: 'posil', nickname: '별마중',
     color: '#e5bf9c', constellationId: 11,
-    story: '포실은 처음 내딛는 걸음을 옆에서 기다려요. 목에 단 네 개의 별은 오늘 해 본 작은 일들을 기억해요.',
+    greeting: 'bow',
+    gesture: '첫 별을 보면 꾸벅 인사하기',
+    story: '별마중은 저녁 첫 별이 보이면 고개를 한 번 꾸벅 숙여요. 그러면 연보라색 목도리에 달린 작은 별도 살랑 흔들리며 함께 인사해요.',
   },
 ];
 

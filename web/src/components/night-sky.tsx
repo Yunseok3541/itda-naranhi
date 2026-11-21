@@ -198,7 +198,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     const radius = Math.max(1.5 * RAD, ...skies[i].points.map(point => angleBetween(center, point)));
     return { character, center, axes: skyImageAxes(center, radius * 0.82) };
   }), [centers, completed, groups, skies]);
-  // 시작 안내를 마친 직후면 그 안내가 정한 별자리(첫 친구 포실의 양자리)를 "지금 별자리"로. 확대는 하지 않고 넓은 화면(캐릭터가 보이는)으로 시작해
+  // 시작 안내를 마친 직후면 그 안내가 정한 별자리(첫 친구 별마중의 양자리)를 "지금 별자리"로. 확대는 하지 않고 넓은 화면(캐릭터가 보이는)으로 시작해
   // 메뉴 안내를 그 위에서 하고, 첫 안내 카드의 "가까이 보기"를 누르면 양자리로 확대 (lib/service-guide.ts)
   const [guideFocus] = useState(peekSkyFocus);
   useEffect(() => { if (guideFocus !== null) clearSkyFocus(); }, [guideFocus]);

@@ -7,6 +7,7 @@ import { client } from '@/lib/mobile-data';
 import { characters, type Character } from './characters';
 import CatalogStardust from './catalog-stardust';
 import { useCloseDialogOnHide } from '@/components/use-close-dialog-on-hide';
+import '@/components/first-star-bow.css';
 
 function CharacterArt({ character, acquired, play, large = false }: {
   character: Character;
@@ -16,6 +17,7 @@ function CharacterArt({ character, acquired, play, large = false }: {
 }) {
   const [imageReady, setImageReady] = useState(false);
   const [waveReady, setWaveReady] = useState(false);
+  const bow = character.greeting === 'bow';
 
   return (
     <span
@@ -23,11 +25,11 @@ function CharacterArt({ character, acquired, play, large = false }: {
       style={{ '--companion-light': character.color } as CSSProperties}
       data-character={character.id}
       data-acquired={acquired}
-      data-greeting={acquired && play && imageReady && waveReady ? 'ready' : undefined}
+      data-greeting={acquired && play && imageReady && (bow || waveReady) ? (bow ? 'bow' : 'wave') : undefined}
     >
       {acquired ? <span className="catalog-portrait">
         <Image
-          className="catalog-rest-frame"
+          className={bow ? 'catalog-rest-frame first-star-bow' : 'catalog-rest-frame'}
           src={`/catalog/${character.id}.webp`}
           alt=""
           fill
@@ -35,7 +37,7 @@ function CharacterArt({ character, acquired, play, large = false }: {
           loading={large ? 'eager' : 'lazy'}
           onLoad={() => setImageReady(true)}
         />
-        {play && (
+        {play && !bow && (
           <Image
             className="catalog-wave-frame"
             src={`/catalog/${character.id}-wave.webp`}
@@ -158,7 +160,7 @@ export default function CatalogGallery() {
               <span className="catalog-acquisition" data-acquired={isAcquired(selected)}>{statusLabel(selected)}</span>
               <p className="catalog-theme">{selected.constellation.theme}</p>
               <p className="catalog-story">{selected.story}</p>
-              <p className="catalog-activity">내 밤하늘에서 활동할 수 있어요</p>
+              <p className="catalog-activity">{selected.gesture ?? '내 밤하늘에서 활동할 수 있어요'}</p>
             </div>
           </div>
         )}
