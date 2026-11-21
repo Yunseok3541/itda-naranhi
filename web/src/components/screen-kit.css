@@ -265,3 +265,26 @@ button.policy-save:focus-visible { outline: 2px solid #ffe1a0; outline-offset: 2
 .quest-weather-options > summary:focus-visible { outline: 2px solid var(--star-gold); outline-offset: 2px; }
 .quest-weather-options .glass-select-list { position: static; margin-top: 8px; box-shadow: none; }
 .quest-weather-options + button { margin-top: 12px; }
+
+/* 별 순서 표시 (StarProgress): 처음 시작 안내의 점(.guide-progress)과 같은 크기·간격, 켜진 단계만 별 */
+.star-progress { display: flex; align-items: center; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.star-progress li { position: relative; display: grid; place-items: center; width: 8px; height: 8px; border-radius: 999px; background: rgba(255, 255, 255, .22); }
+.star-progress li:not([data-state="todo"]) { width: 16px; height: 16px; background: none; color: var(--star-gold); }
+.star-progress svg { width: 100%; height: 100%; fill: currentColor; }
+.star-progress li[data-state="done"] svg { opacity: .9; }
+.star-progress li[data-state="current"] svg { filter: drop-shadow(0 0 5px rgba(246, 207, 125, .9)); }
+.star-progress.large { gap: 14px; }
+.star-progress.large li:not([data-state="todo"]) { width: 30px; height: 30px; }
+.star-progress.large li[data-state="done"] svg { opacity: 1; filter: drop-shadow(0 0 6px rgba(246, 207, 125, .7)); }
+.star-progress .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  /* 별이 켜지는 순간 (점 → 별) */
+  .star-progress li:not([data-state="todo"]) svg { animation: star-progress-on .5s cubic-bezier(.3, 1.5, .5, 1) both; }
+  .star-progress.large li:nth-child(2) svg { animation-delay: .18s; }
+  .star-progress.large li:nth-child(3) svg { animation-delay: .36s; }
+  .star-progress.large li:nth-child(4) svg { animation-delay: .54s; }
+  @keyframes star-progress-on { from { transform: scale(.2) rotate(-60deg); opacity: 0; } }
+  /* 지금 단계 별: 켜진 뒤 은은하게 숨 쉼 */
+  .star-progress:not(.large) li[data-state="current"] svg { animation: star-progress-on .5s cubic-bezier(.3, 1.5, .5, 1) both, star-progress-glow 2.4s ease-in-out .5s infinite; }
+  @keyframes star-progress-glow { 50% { filter: drop-shadow(0 0 1px rgba(246, 207, 125, .5)); } }
+}

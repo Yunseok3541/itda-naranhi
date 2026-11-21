@@ -11,7 +11,9 @@ import CatalogStardust from '@/app/catalog/catalog-stardust';
 import { characters } from '@/app/catalog/characters';
 import { client, type Mode, type ProfileAvatar, type Star } from '@/lib/mobile-data';
 import { evaluate, NO_FACTS, type MilestoneFacts } from '@/lib/milestones';
+import { isMindCheckDue, mindDay, type MindResult } from '@/lib/mind-check';
 import { groupStars, latestGroupIndex } from './night-sky';
+import { MindScopeArt } from './mind-check-art';
 import { ProfileScreen } from './profile-form';
 import { useCloseDialogOnHide } from './use-close-dialog-on-hide';
 import { useShop } from './use-shop';
@@ -54,6 +56,8 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
   const picker = useRef<HTMLDialogElement>(null);
   useCloseDialogOnHide(picker);
   const [error, setError] = useState('');
+  // 마음 짚기 최근 기록 (못 불러오면 undefined 그대로 → 기본 안내 문구)
+  const [mind, setMind] = useState<MindResult | null | undefined>(undefined);
 
   useEffect(() => {
     let active = true;
@@ -62,6 +66,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
     }).catch(() => { if (active) setError('프로필 이름을 불러오지 못했어요.'); });
     client(mode).sky().then(r => { if (active) setStars(r.stars); }).catch(e => { if (active) setError(e instanceof Error ? e.message : '기록을 불러오지 못했어요.'); });
     client(mode).milestones().then(f => { if (active) setFacts(f); }).catch(() => { /* 배지를 못 불러와도 나머지는 보여 줌 */ });
+    client(mode).mindCheck().then(r => { if (active) setMind(r.latest); }).catch(() => { /* 못 불러와도 들어가는 길은 그대로 */ });
     client(mode).avatar().then(r => { if (active) setAvatarChoices(r); }).catch(e => { if (active) setAvatarError(e instanceof Error ? e.message : '프로필 그림을 불러오지 못했어요.'); });
     return () => { active = false; };
   }, [mode]);
@@ -153,6 +158,14 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
     <Link className="secondary shop-entry" href="/shop">
       <span className="shop-entry-icon" aria-hidden="true">✦</span>
       <span>별빛 상점</span>
+      <span className="shop-entry-arrow" aria-hidden="true">→</span>
+    </Link>
+    {/* 마음 짚기 (선택, 4주마다. 고민기록 #57): 지난번·다음 날짜를 함께 보여 줌 (기능발견성 F-③ 의미 한 줄) */}
+    <Link className="secondary shop-entry mind-entry" href="/mind-check" data-due={(mind && isMindCheckDue(mind)) || undefined}>
+      <span className="mind-entry-art" aria-hidden="true"><MindScopeArt size={42} /></span>
+      <span>마음 짚기<small>{!mind ? '4주마다 내 마음을 짚어 보는 14문항'
+        : isMindCheckDue(mind) ? `다시 짚어 볼 때예요 · 지난번 ${mindDay(mind.checkedAt)}`
+        : `지난번 ${mindDay(mind.checkedAt)} · 다음은 ${mindDay(mind.nextAt)}쯤`}</small></span>
       <span className="shop-entry-arrow" aria-hidden="true">→</span>
     </Link>
     <dialog ref={picker} className="avatar-picker" aria-labelledby="profile-avatar-picker" onClose={() => setPicking(false)}

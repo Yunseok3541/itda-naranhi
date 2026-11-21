@@ -13,6 +13,7 @@ import StarlightShop from './starlight-shop';
 import ProfileHome from './profile-home';
 import { PendingNextLink } from './next-step-card';
 import QuestScreen from './quest-screen';
+import MindCheckScreen from './mind-check-screen';
 import StarScreen from './star-screen';
 import { HelpContext, ScreenBar } from './screen-kit';
 import { EMPTY_START, type StartAnswers } from '@/lib/profile';
@@ -316,6 +317,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  {screen==='star'&&<StarScreen key={starId} mode={mode} star={star} dailyLimitReached={!isTutorialStar(starId) && hasReachedDailyStarLimit(stars)} busy={busy} run={run} onHelp={H} onSaved={reloadSky}/>}
  {screen==='shop'&&<StarlightShop mode={mode}/>}
  {screen==='profile'&&<ProfileHome mode={mode}/>}
+ {screen==='mind-check'&&<MindCheckScreen mode={mode}/>}
  {screen==='policy-criteria' && <>
    <ScreenBar title="추천 기준" back="/policies" backLabel="정책 추천으로 돌아가기" />
    <ProfileScreen mode={mode} onSaved={() => router.replace('/policies')} />
