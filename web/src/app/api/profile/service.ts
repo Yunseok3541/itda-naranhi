@@ -8,10 +8,11 @@ import { type ApiResult, type Db, fail, ok, todayKst } from "../_lib/http";
 
 const errorCode = (error: unknown) => (error as { code?: string }).code ?? (error instanceof Error ? error.message : "unknown");
 
-type Row = { start_answers: unknown; policy_info: unknown; birth_year: number | null; current_stage: number };
+type Row = { nickname: string; start_answers: unknown; policy_info: unknown; birth_year: number | null; current_stage: number };
 
 function toBody(r: Row) {
   return {
+    nickname: r.nickname,
     startAnswers: r.start_answers === null ? null : readStartAnswers(r.start_answers), // null = 아직 시작 질문을 거치지 않음
     policyInfo: readPolicyInfo(r.policy_info),
     birthYear: r.birth_year,
@@ -22,7 +23,7 @@ function toBody(r: Row) {
 /** 200 { startAnswers, policyInfo, birthYear, currentStage } */
 export async function getProfile(userId: number, db: Db = pool): Promise<ApiResult> {
   try {
-    const r = (await db.query<Row>("SELECT start_answers, policy_info, birth_year, current_stage FROM users WHERE id = $1", [userId])).rows[0];
+    const r = (await db.query<Row>("SELECT start_answers, policy_info, birth_year, current_stage, nickname FROM users WHERE id = $1", [userId])).rows[0];
     if (!r) return fail(404, "NOT_FOUND", "사용자를 찾을 수 없어요.");
     return ok(toBody(r));
   } catch (error) {
@@ -49,6 +50,11 @@ export async function saveProfile(userId: number, body: unknown, db: Db = pool):
     sets.push(`${column} = $${values.length}`);
   };
 
+  if ("nickname" in b) {
+    const name = typeof b.nickname === "string" ? b.nickname.trim() : "";
+    if (!name || name.length > 30) return fail(400, "INVALID", "이름은 1~30자로 입력해 주세요.");
+    set("nickname", name);
+  }
   if ("startAnswers" in b) {
     const r = parseStartAnswers(b.startAnswers ?? {});
     if ("invalid" in r) return fail(400, "INVALID", "선택지에 없는 답이 있어요.", { field: r.invalid });
@@ -80,7 +86,7 @@ export async function saveProfile(userId: number, body: unknown, db: Db = pool):
       await db.query<Row>(
         `WITH old AS (SELECT start_answers, policy_info, birth_year, current_stage FROM users WHERE id = $1),
          updated AS (
-           UPDATE users SET ${sets.join(", ")} WHERE id = $1 RETURNING start_answers, policy_info, birth_year, current_stage
+           UPDATE users SET ${sets.join(", ")} WHERE id = $1 RETURNING start_answers, policy_info, birth_year, current_stage, nickname
          ),
          reset AS (
            DELETE FROM policy_recommendations p USING old, updated

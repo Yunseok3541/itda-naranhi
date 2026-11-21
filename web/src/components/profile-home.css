@@ -29,6 +29,10 @@
   box-shadow: 0 16px 48px rgba(6, 4, 20, .65);
 }
 .avatar-picker::backdrop { background: rgba(7, 5, 22, .72); }
+.night-ui .profile-name { width: auto; max-width: 100%; margin: 0 auto; padding: 4px 8px; color: var(--starlight); font: inherit; overflow-wrap: anywhere; }
+.profile-name span { color: var(--star-gold); font-size: .9em; }
+.name-editor h2 { margin: 0; font-size: 1.15rem; }
+.name-editor .choices button { margin: 0; }
 .avatar-picker-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; }
 .avatar-picker-header h2 { margin: 0; font-size: 1.125rem; }
 .avatar-picker-header button { width: auto; min-height: 44px; margin: 0; padding: 0 12px; }

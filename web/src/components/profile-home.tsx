@@ -37,6 +37,12 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
   const [avatarChoices, setAvatarChoices] = useState<ProfileAvatar | null>(null);
   const [avatarError, setAvatarError] = useState('');
   const [avatarBusy, setAvatarBusy] = useState(false);
+  const [name, setName] = useState('별을 바라보는 사람');
+  const [draftName, setDraftName] = useState('');
+  const [nameBusy, setNameBusy] = useState(false);
+  const [nameError, setNameError] = useState('');
+  const nameDialog = useRef<HTMLDialogElement>(null);
+  useCloseDialogOnHide(nameDialog);
   const [catalogExpanded, setCatalogExpanded] = useState(false);
   const avatar = characters.find(character => character.constellationId === avatarChoices?.avatarConstellationId)?.id ?? DEFAULT_AVATAR;
   const acquiredIds = new Set(avatarChoices?.constellations?.filter(item => item.acquired).map(item => item.constellationId));
@@ -51,6 +57,9 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
 
   useEffect(() => {
     let active = true;
+    client(mode).profile().then(p => {
+      if (active) setName(p.nickname || '별을 바라보는 사람');
+    }).catch(() => { if (active) setError('프로필 이름을 불러오지 못했어요.'); });
     client(mode).sky().then(r => { if (active) setStars(r.stars); }).catch(e => { if (active) setError(e instanceof Error ? e.message : '기록을 불러오지 못했어요.'); });
     client(mode).milestones().then(f => { if (active) setFacts(f); }).catch(() => { /* 배지를 못 불러와도 나머지는 보여 줌 */ });
     client(mode).avatar().then(r => { if (active) setAvatarChoices(r); }).catch(e => { if (active) setAvatarError(e instanceof Error ? e.message : '프로필 그림을 불러오지 못했어요.'); });
@@ -109,11 +118,38 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
         <Avatar id={avatar} item={wardrobe?.equipped} />
         <span className="avatar-edit" aria-hidden="true">✎</span>
       </button>}
-      title="별을 바라보는 사람"
+      title={<button type="button" className="text-button profile-name" aria-label={`${name}, 프로필 이름 수정`} aria-haspopup="dialog"
+        onClick={() => { setDraftName(name); setNameError(''); nameDialog.current?.showModal(); }}>
+        {name} <span aria-hidden="true">✎</span>
+      </button>}
       message={<>나만의 밤하늘을 만들어 가는 중 <span aria-hidden="true">✨</span></>}
       chip={walking}
     />
 
+    <dialog ref={nameDialog} className="avatar-picker name-editor" aria-labelledby="profile-name-heading"
+      onCancel={event => { if (nameBusy) event.preventDefault(); }}>
+      <form onSubmit={async event => {
+        event.preventDefault();
+        const nickname = draftName.trim();
+        if (!nickname || nameBusy) return;
+        setNameBusy(true); setNameError('');
+        try {
+          const saved = await client(mode).saveProfile({ nickname });
+          setName(saved.nickname ?? nickname);
+          nameDialog.current?.close();
+        } catch { setNameError('이름을 저장하지 못했어요. 다시 시도해 주세요.'); }
+        finally { setNameBusy(false); }
+      }}>
+        <h2 id="profile-name-heading">프로필 이름 수정</h2>
+        <label>이름 (최대 30자)<input value={draftName} maxLength={30} required disabled={nameBusy}
+          onChange={e => setDraftName(e.target.value)} /></label>
+        {nameError && <p role="alert">{nameError}</p>}
+        <div className="choices">
+          <button type="button" className="secondary" disabled={nameBusy} onClick={() => nameDialog.current?.close()}>취소</button>
+          <button disabled={nameBusy || !draftName.trim()}>{nameBusy ? '저장 중…' : '저장'}</button>
+        </div>
+      </form>
+    </dialog>
     <Link className="secondary shop-entry" href="/shop">
       <span className="shop-entry-icon" aria-hidden="true">✦</span>
       <span>별빛 상점</span>
