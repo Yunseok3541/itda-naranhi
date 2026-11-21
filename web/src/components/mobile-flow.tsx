@@ -20,6 +20,9 @@ import { consumeConstellationCelebration, queueConstellationCelebration } from '
 import SkyControlIcon from './sky-control-icon';
 import { useCloseDialogOnHide } from './use-close-dialog-on-hide';
 import { useCollapseOnHide } from './use-collapse-on-hide';
+import ServiceGuide from './service-guide';
+import MenuTour from './menu-tour';
+import { finishGuide, guideSeen, useMenuTourPending } from '@/lib/service-guide';
 import './night-sky.css';
 // 하단 버튼 3개(메인에서만): 프로필 · 오늘의 별 · 도감
 // 정책추천·청년센터는 메인 오른쪽 위, 도움받을 곳은 메인 왼쪽 위, 홈(내 밤하늘)은 다른 화면 머리글의 "나란히"
@@ -38,8 +41,10 @@ const HELP = {
   ],
 };
 
-export default function MobileFlow({screen='sky',starId,centerId,completionAttemptId,memoryStarId}:{
+export default function MobileFlow({screen='sky',starId,centerId,completionAttemptId,memoryStarId,guide=false}:{
   screen?:string;starId?:number;centerId?:number;completionAttemptId?:number;memoryStarId?:number;
+  /** 설정의 "사용 안내 다시 보기"(/sky?guide=1)로 들어왔으면 시작 안내부터 */
+  guide?:boolean;
 }){
  const router = useRouter();
  const resources = useRef<HTMLDialogElement>(null);
@@ -57,6 +62,9 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  const [startAnswers,setStartAnswers]=useState<StartAnswers>(EMPTY_START);
  const [startStep,setStartStep]=useState<number | null>(null);
  const [showStartResult,setShowStartResult]=useState(false);
+ // 처음 시작 안내(service-guide.tsx): 시작 질문을 처음 마쳤을 때, 또는 설정에서 다시 볼 때
+ const [guiding,setGuiding]=useState(guide);
+ const tourPending=useMenuTourPending();
  // 다른 화면으로 갔다 돌아오면 도움받을 곳 패널·펼친 접기 칸은 닫혀 있게 (cacheComponents로 숨겨진 화면도 상태가 남음)
  const shell = useRef<HTMLElement>(null);
  useCollapseOnHide(shell);
@@ -157,6 +165,13 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
    localStorage.setItem('naranhi-mode', mode);
    setShowStartResult(true);
  }
+ /** 시작 안내를 끝내거나 건너뜀 → 메인에 처음 들어갈 때 메뉴 한 장 안내(menu-tour.tsx) */
+ function finishServiceGuide() {
+   finishGuide();
+   setGuiding(false);
+   if (!ready) void run(enterAfterOnboarding);
+   else router.replace('/sky');
+ }
  async function enterAfterOnboarding() {
    const sky = await client(mode).sky();
    S(sky.stars);
@@ -182,9 +197,9 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  }
  const helpToggle = { open: help?.title===HELP.title, toggle: () => H(h=>h?.title===HELP.title?null:HELP) };
  // 메인(밤하늘)과 첫 화면은 어두운 밤하늘 테마, 나머지 화면은 아직 기존 테마
- const night = screen==='sky'||!ready;
+ const night = screen==='sky'||!ready||guiding;
  // 메인 "내 밤하늘"은 스크롤 없이 한 화면에 고정 (night-sky.css의 .sky-locked). 아래 안내는 "모든 별 목록" 창 안으로
- const locked = ready&&screen==='sky';
+ const locked = ready&&screen==='sky'&&!guiding;
  // 페이지 스크롤 잠금은 <html>에 표시. 다른 화면으로 가면 Next가 이전 화면을 숨겨 둔 채 DOM에 남기므로
  // CSS :has(.sky-locked)로는 잠금이 풀리지 않음 → 화면이 보일 때만 붙이고 벗어나면 뗀다
  // 밤하늘 색(어두운 배경·밝은 글자)은 <html> 표시로. 이제 모든 화면이 밤하늘 분위기라 이 컴포넌트가 보이는 동안 항상 붙임
@@ -200,14 +215,14 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
    root.classList.add('sky-locked-page');
    return () => root.classList.remove('sky-locked-page');
  }, [locked]);
- const footer = <footer>시연용 서비스 · 실제 개인정보를 입력하지 마세요.{ready&&<button className="text-button" disabled={busy} onClick={()=>{localStorage.removeItem('naranhi-mode');R(false);H(null);SS(null);E('');setNeedsSession(false);setStartStep(null);setStartAnswers(EMPTY_START);setShowStartResult(false);}}>체험 방식 다시 선택</button>}</footer>;
+ const footer = <footer>시연용 서비스 · 실제 개인정보를 입력하지 마세요.{ready&&!guiding&&<button className="text-button" disabled={busy} onClick={()=>{localStorage.removeItem('naranhi-mode');R(false);H(null);SS(null);E('');setNeedsSession(false);setStartStep(null);setStartAnswers(EMPTY_START);setShowStartResult(false);}}>체험 방식 다시 선택</button>}</footer>;
  const feedback = <>
    {help && <aside className="help help-panel" role="alert"><h2>{help.title}</h2>{help.lines.map(line => <p key={line}>{line}</p>)}<button type="button" className="text-button" onClick={() => H(null)}>닫기</button></aside>}
    {error && <p className="error" role="alert">{error}</p>}
    {needsSession && <section className="card"><p>데모 세션을 다시 시작해 주세요. 작성한 글은 이 화면에 그대로 있어요.</p><button disabled={busy} onClick={() => run(restartSession)}>데모 다시 시작</button></section>}
  </>;
  if(!loaded)return <main className="shell sky-mode"><p className="night-loading">밤하늘을 준비하고 있어요…</p></main>;
- return <HelpContext.Provider value={helpToggle}>{night&&<SkyPanorama background dome={locked}/>}<main ref={shell} className={night?`shell sky-mode panorama-content${locked?' sky-locked':''}${!ready?' sky-intro':''}`:'shell night-ui'} lang="ko">{locked
+ return <HelpContext.Provider value={helpToggle}>{night&&<SkyPanorama background dome={locked}/>}<main ref={shell} className={night?`shell sky-mode panorama-content${locked?' sky-locked':''}${!ready||guiding?' sky-intro':''}`:'shell night-ui'} lang="ko">{locked
    // 메인: 왼쪽 위 도움받을 곳, 오른쪽 위 정책추천·청년센터 (머리글 대신 모서리 버튼)
    ? <header className="sky-top">
        <button type="button" className="sky-pill sky-utility sky-help-button" aria-expanded={help?.title===HELP.title} onClick={()=>H(h=>h?.title===HELP.title?null:HELP)}>
@@ -227,7 +242,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
          <form method="dialog"><button className="ghost sky-icon-action"><SkyControlIcon name="close" /> 닫기</button></form>
        </dialog>
      </header>
-   : ready
+   : ready&&!guiding
    // 다른 화면: 머리글 없음. 각 화면이 공통 틀의 제목 줄(screen-kit.tsx ScreenBar: ‹ 뒤로 · 제목 · ♡ 도움받을 곳)을 그림
    ? null
    // 첫 화면·시작 질문: 메인과 같은 모서리 버튼 (왼쪽 도움받을 곳, 오른쪽 별자리 도감. 청년센터·정책은 데모를 시작해야 쓸 수 있어 도감으로)
@@ -240,9 +255,11 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
        </Link>
      </header>}
  {!questOpen && feedback}
- {!ready ? showStartResult ? <>
+ {guiding ? <ServiceGuide replay={ready} onDone={finishServiceGuide} />
+ : !ready ? showStartResult ? <>
    <StartResult answers={startAnswers} demo />
-   <button type="button" disabled={busy} onClick={() => run(enterAfterOnboarding)}>{busy ? '준비 중…' : screen === 'sky' ? '내 밤하늘 열기' : '계속하기'}</button>
+   {/* 시작 안내를 아직 안 봤으면 먼저 안내로 (다시 시작해도 한 번 본 안내는 다시 나오지 않음) */}
+   <button type="button" disabled={busy} onClick={() => guideSeen() ? run(enterAfterOnboarding) : setGuiding(true)}>{busy ? '준비 중…' : !guideSeen() ? '다음' : screen === 'sky' ? '내 밤하늘 열기' : '계속하기'}</button>
  </> : startStep === null ? <>
    <div className="intro"><span className="welcome-icon" aria-hidden="true">✦<sup>✧</sup></span><h1>오늘의 작은 시도가<br/>별이 되는 곳</h1><p>다 해내지 않아도 괜찮아요.<br/>손을 뻗은 순간도 하늘에 남아요.</p>
      <button type="button" onClick={() => setStartStep(0)}>데모 시작</button>
@@ -272,8 +289,9 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
          <span className="dock-icon"><SkyControlIcon name={tab.icon} /></span><span>{tab.label}</span>
        </Link>)}
  </nav>}
+ {locked&&tourPending&&stars.length>0&&<MenuTour/>}
  {screen==='sky'&&<NightSky stars={stars} selected={selected} onSelect={SS} busy={busy} onReload={()=>run(async()=>{const sky=await client(mode).sky();S(sky.stars);setTotalPoints(sky.totalPoints);})} footer={footer} nextLink={<PendingNextLink mode={mode} />} completedId={completedId} mode={mode} totalPoints={totalPoints}
-   onOpenQuest={openQuest}/>}
+   onOpenQuest={openQuest} hintsPaused={tourPending}/>}
  {locked && <dialog className="quest-dialog night-ui" ref={questDialog} aria-labelledby={questTitle}
    onClick={event => { if (event.target === event.currentTarget) closeQuest(); }}
    onClose={event => {

@@ -12,7 +12,7 @@ import { client, type Mode, type ProfileAvatar, type Star } from '@/lib/mobile-d
 import { evaluate, NO_FACTS, type MilestoneFacts } from '@/lib/milestones';
 import { groupStars, latestGroupIndex } from './night-sky';
 import { ProfileScreen } from './profile-form';
-import { Avatar, Hero, ScreenBar, Section, Summary } from './screen-kit';
+import { Avatar, Hero, MoreLinks, ScreenBar, Section, Summary } from './screen-kit';
 import './profile-home.css';
 
 const DEFAULT_AVATAR = 'person';
@@ -83,6 +83,8 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
   if (settings) return <>
     <ScreenBar title="설정" backLabel="프로필로 돌아가기" onBack={() => { setSettings(false); history.replaceState(null, '', '/profile'); }} />
     <ProfileScreen mode={mode} />
+    {/* 처음 시작 안내를 다시 보기 (docs/온보딩.md) */}
+    <MoreLinks><Link href="/sky?guide=1">나란히 사용 안내 다시 보기</Link></MoreLinks>
   </>;
 
   return <div className="profile-home">
