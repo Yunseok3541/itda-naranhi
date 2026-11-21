@@ -125,7 +125,10 @@ export default function ApplyHelper({ policyId, title, mode, examplePolicy, onCl
   }
 
   const chatFull = inputMode === 'chat' && chatTurns >= CHAT_MAX_TURNS;
-  return <dialog ref={dialog} className="apply-helper" aria-labelledby="apply-helper-title" onClose={onClose}>
+  return <dialog ref={dialog} className="apply-helper" aria-labelledby="apply-helper-title" onClose={event => {
+    // 개발 모드에서 효과가 다시 실행되면 이전 close 이벤트가 재개방 후 도착할 수 있다.
+    if (!event.currentTarget.open) onClose();
+  }}>
     <header>
       <div>
         <p className="small">신청 도우미</p>
