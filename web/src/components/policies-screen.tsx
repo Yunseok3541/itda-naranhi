@@ -11,9 +11,11 @@
 // - [나랑 안 맞아요]: 이유를 고르면 그 정책은 다시 추천하지 않음. 지역·조건 이유는 피드백 루프로 (고민기록 #38)
 import Link from 'next/link';
 import { useEffect, useLayoutEffect, useState } from 'react';
-import { request, takePoliciesStale, type Help, type Mode } from '@/lib/mobile-data';
+import { client, policyCriteriaVersion, request, type Help, type Mode } from '@/lib/mobile-data';
+import type { StartAnswers } from '@/lib/profile';
 import type { HelperPolicy } from '@/lib/apply-helper';
 import ApplyHelper from './apply-helper';
+import GlassSelect from './glass-select';
 import { Hero, HeroIcon, MoreLinks, ScreenBar, Summary } from './screen-kit';
 
 type Policy = {
@@ -33,7 +35,6 @@ const reasons: { value: FeedbackReason; label: string }[] = [
 ];
 type View = 'recommended' | 'all';
 type Counts = { recommended: number | null; all: number | null };
-// view·counts는 API에만 있음 (예시 모드 데이터에는 없음)
 // checkinNeeds: 오늘 체크인에서 읽어 추천에 참고한 것 (고민기록 #47). 맞춤 추천에만
 type Result = { view?: View; counts?: Counts; items: Policy[]; usedFallback?: boolean; checkinNeeds?: { key: string; label: string }[]; basis: { region: string; updatedAt: string | null } };
 const VIEWS: { value: View; label: string }[] = [
@@ -43,6 +44,17 @@ const VIEWS: { value: View; label: string }[] = [
 const pageSize = 24;
 const emptyFilters = { query: '', scope: '', method: '' };
 
+function savedPolicyKey(mode: Mode) {
+  return `naranhi-saved-policies-${mode}`;
+}
+
+function readSavedPolicies(mode: Mode): number[] {
+  try {
+    const ids: unknown = JSON.parse(localStorage.getItem(savedPolicyKey(mode)) ?? '[]');
+    return Array.isArray(ids) ? ids.filter(Number.isSafeInteger) : [];
+  } catch { return []; }
+}
+
 const example: Result = {
   items: [{ policyId: 1, title: '예시 생활 지원 정책', summary: '정책 화면을 체험하기 위한 가상 정보예요. 실제 모집 중인 정책이 아니에요.',
     reason: '집에서 내용을 확인해 볼 수 있는 지원을 살펴봐요.', burdenLabel: '온라인 신청', scope: '예시 지역', deadline: null,
@@ -50,6 +62,25 @@ const example: Result = {
     evidence: [{ item: '온라인 신청', status: 'yes' }, { item: '방문', status: 'unknown' }, { item: '상담·면접', status: 'unknown' }, { item: '서류 제출', status: 'yes' }] }],
   basis: { region: '예시 지역', updatedAt: null },
 };
+
+// 예시 정책은 모두 같은 가상의 온라인 신청 절차를 사용한다.
+const exampleCatalog: { need: NonNullable<StartAnswers['needs']>[number]; policy: Policy }[] = [
+  { need: 'money_job', policy: example.items[0] },
+  { need: 'health', policy: { ...example.items[0], policyId: 2, title: '예시 마음건강 상담 지원', reason: '몸·마음 건강을 돌보는 데 도움이 되는 상담을 살펴봐요.', scope: '예시 전국', tags: ['몸·마음 건강'] } },
+  { need: 'family', policy: { ...example.items[0], policyId: 3, title: '예시 가족 상담 지원', reason: '가족과의 관계에 관해 이야기할 수 있는 곳을 살펴봐요.', tags: ['가족과의 관계'] } },
+  { need: 'people', policy: { ...example.items[0], policyId: 4, title: '예시 청년 소모임 지원', reason: '다른 사람과 함께할 수 있는 작은 모임을 살펴봐요.', tags: ['사람 만나기'] } },
+];
+
+async function examplePolicies(view: View): Promise<Result> {
+  const needs = view === 'recommended' ? (await client('example').profile()).startAnswers?.needs : null;
+  const matches = exampleCatalog.filter(({ need }) => needs?.includes(need)).map(({ policy }) => policy);
+  const recommended = matches.length ? matches : example.items;
+  return {
+    ...example,
+    items: view === 'all' ? exampleCatalog.map(({ policy }) => policy) : recommended,
+    counts: { all: exampleCatalog.length, recommended: view === 'all' ? null : recommended.length },
+  };
+}
 
 // 예시 모드 신청 도우미가 쓰는 가상 원문
 const exampleHelperPolicy: HelperPolicy = {
@@ -62,8 +93,8 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
   const [filters, setFilters] = useState(emptyFilters);
   const [visibleCount, setVisibleCount] = useState(pageSize);
   // 보기별로 불러온 결과 (모드가 바뀌면 버림). 같은 날 맞춤 추천은 서버에서도 같은 결과라 다시 부르지 않아도 됨
-  const [loaded, setLoaded] = useState<{ mode: Mode; byView: Partial<Record<View, Result>> }>({ mode, byView: {} });
-  // 가장 최근 API 응답의 counts (아직 열지 않은 보기의 개수를 버튼에 보여 줄 때 씀)
+  const [loaded, setLoaded] = useState<{ mode: Mode; version: number; byView: Partial<Record<View, Result>> }>({ mode, version: 0, byView: {} });
+  // 아직 열지 않은 보기의 개수를 버튼에 보여 줄 때 쓰는 값
   const [serverCounts, setServerCounts] = useState<Counts>({ recommended: null, all: null });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -72,20 +103,44 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
   const [sent, setSent] = useState<Record<number, FeedbackResult>>({});
   const [helping, setHelping] = useState<Policy | null>(null);
   const [checkinOffBusy, setCheckinOffBusy] = useState(false);
+  const [savedPolicies, setSavedPolicies] = useState(() => ({
+    example: readSavedPolicies('example'), api: readSavedPolicies('api'),
+  }));
+  const [saveMessage, setSaveMessage] = useState('');
+
+  function toggleSavedPolicy(policy: Policy) {
+    const current = savedPolicies[mode];
+    const wasSaved = current.includes(policy.policyId);
+    const next = wasSaved ? current.filter(id => id !== policy.policyId) : [...current, policy.policyId];
+    try {
+      localStorage.setItem(savedPolicyKey(mode), JSON.stringify(next));
+      setSavedPolicies({ ...savedPolicies, [mode]: next });
+      setSaveMessage(wasSaved ? `${policy.title} 찜을 해제했어요.` : `${policy.title}을 이 브라우저에 찜했어요.`);
+    } catch {
+      setSaveMessage('찜 상태를 저장하지 못했어요. 다시 시도해 주세요.');
+    }
+  }
 
   useEffect(() => {
     let active = true;
     async function load() {
       // 추천 기준을 바꾸고 돌아왔으면 기억해 둔 두 보기를 모두 버리고 새로 불러옴 (서버도 오늘 추천을 지웠음)
-      const stale = takePoliciesStale();
-      if (stale) { setLoaded({ mode, byView: {} }); setServerCounts({ recommended: null, all: null }); }
+      const version = policyCriteriaVersion();
+      const stale = version !== loaded.version;
+      if (stale) {
+        setLoaded({ mode, version, byView: {} });
+        setServerCounts({ recommended: null, all: null });
+        setFilters(emptyFilters);
+        setVisibleCount(pageSize);
+        if (view !== 'recommended') { setView('recommended'); return; }
+      }
       const byView = !stale && loaded.mode === mode ? loaded.byView : {};
       if (byView[view]) { setLoading(false); setError(''); return; } // 이미 불러온 보기
       setLoading(true); setError(''); onClearError();
       try {
-        const data = mode === 'example' ? example : await request<Result>(`policies${view === 'all' ? '?view=all' : ''}`);
-        // 응답이 오기 전에 보기를 바꿨어도 결과는 그 보기 자리에 저장 (화면에는 지금 보기만 보임)
-        setLoaded(prev => ({ mode, byView: { ...(prev.mode === mode ? prev.byView : {}), [view]: data } }));
+        const data = mode === 'example' ? await examplePolicies(view) : await request<Result>(`policies${view === 'all' ? '?view=all' : ''}`);
+        if (!active) return;
+        setLoaded(prev => ({ mode, version, byView: { ...(prev.mode === mode && prev.version === version ? prev.byView : {}), [view]: data } }));
         if (data.counts) setServerCounts(data.counts);
       } catch (error) {
         if (active) { setError(error instanceof Error ? error.message : '정책을 불러오지 못했어요.'); onError(error); }
@@ -185,12 +240,10 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
     {all && result && items.length > 0 && <section className="card policy-filters" aria-label="정책 필터">
       <label>정책 검색<input type="search" placeholder="예: 월세, 일자리" value={filters.query} onChange={event => updateFilters({ ...filters, query: event.target.value })} /></label>
       <div className="choices">
-        <label>지원 지역<select value={filters.scope} onChange={event => updateFilters({ ...filters, scope: event.target.value })}>
-          <option value="">전체 지역</option>{scopes.map(scope => <option key={scope}>{scope}</option>)}
-        </select></label>
-        <label>신청 방식<select value={filters.method} onChange={event => updateFilters({ ...filters, method: event.target.value })}>
-          <option value="">전체 방식</option>{methods.map(method => <option key={method}>{method}</option>)}
-        </select></label>
+        <GlassSelect label="지원 지역" value={filters.scope} onChange={scope => updateFilters({ ...filters, scope })}
+          options={[{ value: '', label: '전체 지역' }, ...scopes.map(scope => ({ value: scope, label: scope }))]} />
+        <GlassSelect label="신청 방식" value={filters.method} onChange={method => updateFilters({ ...filters, method })}
+          options={[{ value: '', label: '전체 방식' }, ...methods.map(method => ({ value: method, label: method }))]} />
       </div>
       <div className="policy-filter-status">
         <span role="status">{filtered.length}개 정책</span>
@@ -198,12 +251,23 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
       </div>
       {filtered.length === 0 && <p>조건에 맞는 정책이 없어요.</p>}
     </section>}
-    {(all ? filtered.slice(0, visibleCount) : filtered).map(policy => <article className="card" key={`${view}-${policy.policyId}`} /* 보기마다 새로 그려 떠오르는 효과(screen-rise)가 탭을 바꿀 때도 보이게 */>
-      <div className="card-tags">
-        {[policy.scope, policy.burdenLabel].filter(Boolean).map(t => <span key={t}>{t}</span>)}
-        {policy.deadline && <span className="gold">{policy.deadline}</span>}
+    <span className="sr-only" role="status">{saveMessage}</span>
+    {(all ? filtered.slice(0, visibleCount) : filtered).map(policy => {
+      const saved = savedPolicies[mode].includes(policy.policyId);
+      return <article className="card" key={`${view}-${policy.policyId}`} /* 보기마다 새로 그려 떠오르는 효과(screen-rise)가 탭을 바꿀 때도 보이게 */>
+      <div className="policy-card-heading">
+        <div>
+          <div className="card-tags">
+            {[policy.scope, policy.burdenLabel].filter(Boolean).map(t => <span key={t}>{t}</span>)}
+            {policy.deadline && <span className="gold">{policy.deadline}</span>}
+          </div>
+          <h2>{policy.title}</h2>
+        </div>
+        <button type="button" className="policy-save" aria-pressed={saved}
+          aria-label={`${policy.title} 찜`} onClick={() => toggleSavedPolicy(policy)}>
+          <span className="policy-save-heart" aria-hidden="true">{saved ? '♥︎' : '♡'}</span>
+        </button>
       </div>
-      <h2>{policy.title}</h2>
       <p>{policy.summary}</p>
       {policy.reason && <p className="policy-reason"><span aria-hidden="true">✦</span> {policy.reason}</p>}
       {policy.tags.length > 0 && <p className="small">{policy.tags.join(' · ')}</p>}
@@ -226,12 +290,13 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
       {sent[policy.policyId]
         ? <SentNote result={sent[policy.policyId]} />
         : <NotForMe policyId={policy.policyId} mode={mode} onSent={r => setSent(prev => ({ ...prev, [policy.policyId]: r }))} />}
-    </article>)}
+    </article>;
+    })}
     {all && visibleCount < filtered.length && <button className="secondary" onClick={() => setVisibleCount(count => count + pageSize)}>정책 더 보기</button>}
     {sentNotes.length > 0 && <section className="card" aria-live="polite">
       {sentNotes.map(([id, r]) => <p key={id} className="small">{r.message}</p>)}
     </section>}
-    {helping && <ApplyHelper policyId={helping.policyId} title={helping.title} mode={mode} examplePolicy={exampleHelperPolicy} onClose={() => setHelping(null)} />}
+    {helping && <ApplyHelper policyId={helping.policyId} title={helping.title} mode={mode} examplePolicy={{ ...exampleHelperPolicy, title: helping.title }} onClose={() => setHelping(null)} />}
     <MoreLinks>
       <Link href="/policies/criteria">추천 기준 바꾸기</Link>
       <Link href="/centers">청년센터 살펴보기</Link>
