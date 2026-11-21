@@ -18,6 +18,7 @@ import ConstellationCelebration from './constellation-celebration';
 import { useSkyTour } from './use-sky-tour';
 import MeteorRewards from './meteor-rewards';
 import SkyControlIcon from './sky-control-icon';
+import StarList from './star-list';
 import { useCloseDialogOnHide } from './use-close-dialog-on-hide';
 import { finishHint, useSkyHints } from '@/lib/sky-hints';
 
@@ -188,6 +189,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   useCloseDialogOnHide(list);
   const burstCount = useRef(0);
   const closeList = () => list.current?.close();
+  const [listKey, setListKey] = useState(0);
 
   // 처음 한 번 안내 (끌기 → 별 누르기). 직접 해 보면 끝남
   const hints = useSkyHints();
@@ -427,22 +429,18 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
         </button>}
         <button type="button" className="night-list-trigger" aria-haspopup="dialog" onClick={event => {
           event.currentTarget.focus({ preventScroll: true });
+          setListKey(k => k + 1);
           list.current?.showModal();
         }}><SkyControlIcon name="constellation" /> 모든 별 보기</button>
         <dialog className="night-list" ref={list} aria-label="모든 별 목록"
           onClick={event => { if (event.target === event.currentTarget) closeList(); }}>
           <div className="night-list-body">
             <div className="sheet-grip" aria-hidden="true" />
-            {groups.map((g, gi) => <div key={g.id}>
-              <h3><button type="button" className="ghost" onClick={() => { closeList(); jump(gi); }}>{g.name} 보기</button></h3>
-              {g.stars.map(s => <button key={s.starId} type="button" className="night-row" onClick={() => { closeList(); jump(gi); onSelect(s); }}>
-                <span className={`dot ${s.status}`} aria-hidden="true" />
-                <span>{s.title}<small>{labels[s.status]}</small></span>
-              </button>)}
-            </div>)}
-            <button type="button" className="ghost sky-icon-action" disabled={busy} onClick={onReload}><SkyControlIcon name="refresh" /> 밤하늘 다시 불러오기</button>
-            <button type="button" className="ghost sky-icon-action" onClick={closeList}><SkyControlIcon name="close" /> 닫기</button>
-            {footer}
+            {/* 열 때마다 새로 그려 지금 별자리·진행 중인 별자리만 펼친 상태로 시작 */}
+            <StarList key={listKey} groups={groups} current={safeIndex} completed={completed}
+              onGroup={gi => { closeList(); jump(gi); }}
+              onStar={(gi, s) => { closeList(); jump(gi); onSelect(s); }}
+              onClose={closeList} onReload={onReload} busy={busy} footer={footer} />
           </div>
         </dialog>
       </div>
