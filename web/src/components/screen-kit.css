@@ -29,6 +29,7 @@
 /* 그림 (캐릭터) */
 .avatar { position: relative; display: grid; place-items: center; overflow: hidden; border-radius: 50%; background: radial-gradient(circle at 50% 40%, #3a2c6e, #1a1338); border: 2px solid rgba(190, 160, 255, .55); box-shadow: 0 0 24px rgba(186, 142, 229, .35); }
 .avatar img { width: 86%; height: 86%; object-fit: contain; }
+.avatar .avatar-main-character { width: 94%; height: 94%; object-fit: cover; object-position: center top; }
 .avatar-person { position: absolute; inset: 0; }
 .avatar-person .sky-person { width: 100%; height: auto; filter: none; animation: none; }
 
