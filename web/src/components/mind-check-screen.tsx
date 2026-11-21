@@ -147,7 +147,7 @@ export default function MindCheckScreen({ mode }: { mode: Mode }) {
           <StarProgress steps={STEPS} current={q.scaleIndex} label="마음 짚기 순서" />
           <span className="mind-question-topic">{q.scale.step}</span>
         </div>
-        <div key={pos} className="mind-question-body" data-dir={dir}>
+        <div key={pos} className="mind-question-body step-slide" data-dir={dir}>
           <p className="mind-question-lead">{lsns ? q.group : q.scale.prompt}</p>
           <h2 id="mind-q-title" ref={heading} tabIndex={-1}>{q.item}</h2>
           {lsns && <p className="mind-question-ask">{q.scale.prompt}</p>}
