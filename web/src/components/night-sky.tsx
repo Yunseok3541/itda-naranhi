@@ -20,7 +20,7 @@ import MeteorRewards from './meteor-rewards';
 import SkyControlIcon from './sky-control-icon';
 import { useCloseDialogOnHide } from './use-close-dialog-on-hide';
 import { finishHint, useSkyHints } from '@/lib/sky-hints';
-import { clearSkyFocus, FIRST_FRIEND_CONSTELLATION, peekSkyFocus, useFirstFriend } from '@/lib/service-guide';
+import { clearSkyFocus, peekSkyFocus } from '@/lib/service-guide';
 
 const labels = { untried: '아직 만나기 전', dim: '손을 뻗은 별', bright: '딴 별' } as const;
 /** 캐릭터 말풍선 질문 (날마다 하나씩 돌아가며). 오늘의 별 체크인으로 이어짐 */
@@ -147,16 +147,14 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     const c = toLonLat(sum);
     return unit(c.lon / RAD, c.lat / RAD);
   }), [skies]);
-  // 별자리 뒤 친구 그림: 완성한 별자리 + 시작 안내에서 만난 첫 친구(달콩, 토끼자리 별은 '아직' 그대로)
-  const firstFriend = useFirstFriend();
   const companions = useMemo(() => groups.map((group, i) => {
-    if (!completed.has(group.id) && !(firstFriend && group.id === FIRST_FRIEND_CONSTELLATION)) return null;
+    if (!completed.has(group.id)) return null;
     const character = characters.find(art => art.constellationId === group.id);
     if (!character) return null;
     const center = centers[i];
     const radius = Math.max(1.5 * RAD, ...skies[i].points.map(point => angleBetween(center, point)));
     return { character, center, axes: skyImageAxes(center, radius * 0.82) };
-  }), [centers, completed, firstFriend, groups, skies]);
+  }), [centers, completed, groups, skies]);
   // 시작 안내를 마친 직후면 그 안내가 정한 별자리(첫 친구 달콩의 토끼자리)를 "지금 별자리"로. 확대는 하지 않고 넓은 화면(캐릭터가 보이는)으로 시작해
   // 메뉴 안내를 그 위에서 하고, 첫 안내 카드의 "가까이 보기"를 누르면 토끼자리로 확대 (lib/service-guide.ts)
   const [guideFocus] = useState(peekSkyFocus);

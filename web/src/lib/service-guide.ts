@@ -6,7 +6,7 @@ import { useSyncExternalStore } from 'react';
 const GUIDE_KEY = 'naranhi-guide-v1';
 const TOUR_KEY = 'naranhi-menu-tour-v1';
 const GIFT_KEY = 'naranhi-first-friend-v1';
-/** 시작 안내의 연습 별자리를 완성하면 만나는 첫 친구: 토끼자리(5) · 달콩. 별 기록·포인트는 만들지 않고 도감에서만 만난 친구로 보여 줌 */
+/** 시작 안내에서 별 3개를 따서 완성하는 첫 별자리: 토끼자리(5) · 친구 달콩. 별은 실제 기록으로 남아 도감·프로필은 완성 규칙 그대로 */
 export const FIRST_FRIEND_CONSTELLATION = 5;
 type TourState = 'pending' | 'done' | null;
 
@@ -69,13 +69,13 @@ function subscribe(listener: () => void) {
   return () => { listeners.delete(listener); };
 }
 
-/** 첫 친구(달콩)를 이미 만났는지 */
+/** 시작 안내에서 토끼자리를 완성해 첫 친구(달콩)를 만났는지 (안내의 친구 장, 안내 뒤 메인의 지금 별자리에 씀) */
 export function hasFirstFriend() {
   if (memory.gift === null) memory.gift = read(GIFT_KEY) === String(FIRST_FRIEND_CONSTELLATION);
   return memory.gift;
 }
 
-/** 연습 별자리를 완성함 → 첫 친구를 만남. 처음 만났으면 true (이미 만났으면 false, 등록 모달을 다시 띄우지 않으려고) */
+/** 시작 안내에서 토끼자리를 완성함. 처음이면 true */
 export function giveFirstFriend() {
   if (hasFirstFriend()) return false;
   memory.gift = true;
@@ -84,14 +84,7 @@ export function giveFirstFriend() {
   return true;
 }
 
-/** 별자리 완성으로 만난 친구(별자리 ID)에 첫 친구 선물을 더함 (예시 모드의 프로필 그림 고르기용) */
-export function withFirstFriend(acquired: ReadonlySet<number>) {
-  const merged = new Set(acquired);
-  if (hasFirstFriend()) merged.add(FIRST_FRIEND_CONSTELLATION);
-  return merged;
-}
-
-/** 첫 친구를 만났는지 (도감·프로필·안내 화면이 함께 바뀌도록 구독). 서버 렌더에서는 false */
+/** 시작 안내에서 첫 친구를 만났는지 (구독). 서버 렌더에서는 false */
 export function useFirstFriend() {
   return useSyncExternalStore(subscribe, hasFirstFriend, () => false);
 }

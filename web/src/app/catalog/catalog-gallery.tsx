@@ -3,7 +3,6 @@
 import Image from 'next/image';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { getCompletedConstellationIds } from '@/lib/constellations';
-import { FIRST_FRIEND_CONSTELLATION, useFirstFriend } from '@/lib/service-guide';
 import { client } from '@/lib/mobile-data';
 import { characters, type Character } from './characters';
 import CatalogStardust from './catalog-stardust';
@@ -76,10 +75,8 @@ export default function CatalogGallery() {
     return () => { active = false; };
   }, []);
 
-  // 시작 안내의 연습 별자리를 완성하면 만나는 첫 친구(달콩)는 별자리를 완성하지 않아도 만난 친구 (docs/온보딩.md)
-  const firstFriend = useFirstFriend();
   function isAcquired(character: Character) {
-    return acquired?.has(character.constellationId) === true || (firstFriend && character.constellationId === FIRST_FRIEND_CONSTELLATION);
+    return acquired?.has(character.constellationId) === true;
   }
 
   function statusLabel(character: Character) {

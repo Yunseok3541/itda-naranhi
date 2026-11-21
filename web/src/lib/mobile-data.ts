@@ -1,7 +1,6 @@
 import { accessoryById, type AccessoryId, type ShopState, type ShopAction } from './shop';
 import { readStartAnswers, type PolicyInfo, type StartAnswers } from './profile';
 import { getCompletedConstellationIds } from './constellations';
-import { withFirstFriend } from './service-guide';
 import { characters } from '@/app/catalog/characters';
 import { CHECKIN_POINTS, METEOR_DAILY_LIMIT, METEOR_INTERVAL_SECONDS, METEOR_POINTS, isMeteorCatchable, meteorIdAt, meteorStartsAt } from './points';
 import { NO_FACTS, readFacts, type MilestoneFacts } from './milestones';
@@ -69,8 +68,7 @@ function exampleTotal(store: Store, wardrobe = readWardrobe()) {
   return starPoints + (store.rewards?.meteorPoints ?? 0) + (store.rewards?.checkinPoints ?? 0) - wardrobe.purchases.reduce((sum,p) => sum + p.paid, 0);
 }
 function exampleAvatar(store: Store): ProfileAvatar {
-  // 시작 안내에서 만난 첫 친구(달콩)도 고를 수 있음 (docs/온보딩.md)
-  const acquired = withFirstFriend(getCompletedConstellationIds(store.stars));
+  const acquired = getCompletedConstellationIds(store.stars);
   const selected = store.avatarConstellationId === undefined
     ? characters.find(character => character.id === localStorage.getItem('naranhi-avatar'))?.constellationId ?? null
     : store.avatarConstellationId;
@@ -205,7 +203,7 @@ export function client(mode: Mode) { return {
   async saveAvatar(constellationId: number | null): Promise<ProfileAvatar> {
     if (mode === 'api') return request('profile/avatar', 'PUT', { constellationId });
     const store = read();
-    if (constellationId !== null && !withFirstFriend(getCompletedConstellationIds(store.stars)).has(constellationId)) throw new ApiError('아직 별을 모두 따지 않은 별자리예요.', 403, 'NOT_ACQUIRED');
+    if (constellationId !== null && !getCompletedConstellationIds(store.stars).has(constellationId)) throw new ApiError('아직 별을 모두 따지 않은 별자리예요.', 403, 'NOT_ACQUIRED');
     store.avatarConstellationId = constellationId;
     write(store);
     return exampleAvatar(store);
