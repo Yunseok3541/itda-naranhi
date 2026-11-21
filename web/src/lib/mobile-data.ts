@@ -5,7 +5,7 @@ import { characters } from '@/app/catalog/characters';
 import { CHECKIN_POINTS, METEOR_DAILY_LIMIT, METEOR_INTERVAL_SECONDS, METEOR_POINTS, isMeteorCatchable, meteorIdAt, meteorStartsAt } from './points';
 import { NO_FACTS, readFacts, type MilestoneFacts } from './milestones';
 import { catalogConstellations, catalogQuest, catalogQuests } from './quest-catalog';
-import { DAILY_STAR_LIMIT_MESSAGE, hasReachedDailyStarLimit } from './star-limit';
+import { DAILY_STAR_LIMIT_MESSAGE, hasReachedDailyStarLimit, isTutorialStar } from './star-limit';
 import { defaultNextKey, inActivityScope, nextOptions, planMatches, type ActivityScope, type AvailableQuest,
   type NextPlan, type NextRecommendation, type NextSource } from './next-step';
 import { ruleHelp } from './safety';
@@ -18,7 +18,7 @@ export type MeteorClaim = { pointsEarned: number; totalPoints: number; meteor: {
 const profileKey = 'naranhi-example-profile';
 export type Help = { title: string; lines: string[] } | null;
 export type Status = 'untried' | 'dim' | 'bright';
-// constellationId 등은 실제 API(/api/sky)에만 있음. 예시 모드는 별 번호로 별자리를 나눔 (night-sky.tsx)
+// 예전 예시 기록에는 별자리 메타데이터가 없을 수 있다.
 export type Star = { starId: number; title: string; status: Status; memories: { attemptId: number; date: string; reflection: string | null; status?: 'dim' | 'bright'; stopReason?: string | null; subQuestId?: number | null; parentAttemptId?: number | null; customTitle?: string | null }[]; description?: string | null; constellationId?: number; constellationName?: string; position?: number; verifyType?: string };
 // GPS(도착 확인) 별인지: 실제 API는 /api/sky의 verifyType으로 판단 (별 ID는 시드마다 바뀜)
 // 예시 모드 저장 데이터에는 verifyType이 없어 예시 목록의 GPS 별(16 편의점, 17 가상 청년센터)로 판단
@@ -45,14 +45,19 @@ function read(): Store {
   if (!raw) return { stars: catalogStars.map(star => ({ ...star, memories: [] })), checkins: {} };
   const store = JSON.parse(raw) as Store;
   const existing = new Map(store.stars.map(star => [star.starId, star]));
-  const missing = catalogStars.filter(star => !existing.has(star.starId));
-  if (missing.length) {
+  if (!existing.has(41)) {
     // 예전 40개 버전에서 이미 얻은 친구는 별이 추가되어도 계속 쓸 수 있다.
     store.previouslyAcquired ??= catalogConstellations
-      .filter(group => group.quests.filter(id => id <= 40).every(id => existing.get(id)?.status === 'bright'))
+      .filter(group => {
+        const legacyIds = group.quests.filter(id => id <= 40);
+        return legacyIds.length > 0 && legacyIds.every(id => existing.get(id)?.status === 'bright');
+      })
       .map(group => group.id);
-    store.stars.push(...missing.map(star => ({ ...star, memories: [] })));
   }
+  store.stars = catalogStars.map(star => {
+    const saved = existing.get(star.starId);
+    return saved ? { ...star, status: saved.status, memories: saved.memories } : { ...star, memories: [] };
+  });
   return store;
 }
 function write(s: Store) { localStorage.setItem(key, JSON.stringify(s)); }
@@ -276,7 +281,9 @@ export function client(mode: Mode) { return {
       if (body.parentAttemptId && (!s.nextPlan || s.nextPlan.attemptId !== body.parentAttemptId || !planMatches(s.nextPlan, body.starId, body.subQuestId ?? null))) throw new Error('이어갈 행동을 다시 확인해 주세요.');
       const now = new Date();
       const newlyBright = star.status !== 'bright' && body.status === 'bright';
-      if (star.status !== 'bright' && hasReachedDailyStarLimit(s.stars, now)) throw new Error(DAILY_STAR_LIMIT_MESSAGE);
+      if (star.status !== 'bright' && !isTutorialStar(star.starId) && hasReachedDailyStarLimit(s.stars, now)) {
+        throw new Error(DAILY_STAR_LIMIT_MESSAGE);
+      }
       const customTitle = body.subQuestId ? catalogQuest(star.starId)?.easier_title : null;
       const id = Math.max(now.getTime(), ...s.stars.flatMap(st => st.memories.map(m => m.attemptId + 1)));
       const pointsEarned = newlyBright ? catalogQuest(star.starId)!.stage * 10 : 0;

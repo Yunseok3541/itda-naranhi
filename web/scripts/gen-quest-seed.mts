@@ -140,7 +140,7 @@ const syncPath = "db/migrations/20261124_constellation_shapes.sql";
 
 const seedSql = `-- 별자리 ${data.constellations.length}개 · 별 ${data.quests.length}개 (원본: 루트 quests.json, 규칙: docs/고민기록.md #31)
 ${GENERATED}
--- 별자리 = 도감 캐릭터 10명 (id = web/src/app/catalog/characters.ts 순서, 이름·테마도 도감과 같음). 난이도 = constellations.stage (${stageCount})
+-- 별자리 = 도감 캐릭터 ${data.constellations.length}명 (web/src/app/catalog/characters.ts의 constellationId, 이름·테마도 도감과 같음). 난이도 = constellations.stage (${stageCount})
 -- 추천 범위는 기존 규칙: gps 별 = 바깥, stage 1 = 집 안, stage 2 이상 = 집 근처 (api/recommendations/service.ts scopeOf)
 -- 포인트: 별을 처음 밝히면 그 별자리 난이도 × 10 (뷰 v_star_points). 별자리 합계 = 난이도 × 10 × 별 수
 -- 운영 DB(Neon)는 ${syncPath}로 맞춤 (같은 스크립트가 함께 만듦, 기록을 지우지 않음)

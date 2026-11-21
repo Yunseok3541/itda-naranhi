@@ -1,6 +1,6 @@
--- 별자리 10개 · 별 66개 (원본: 루트 quests.json, 규칙: docs/고민기록.md #31)
+-- 별자리 11개 · 별 70개 (원본: 루트 quests.json, 규칙: docs/고민기록.md #31)
 -- ⚠ 자동 생성 파일: 직접 고치지 말고 루트 quests.json을 고친 뒤 web/에서 `node node_modules/tsx/dist/cli.mjs scripts/gen-quest-seed.mts`
--- 별자리 = 도감 캐릭터 10명 (id = web/src/app/catalog/characters.ts 순서, 이름·테마도 도감과 같음). 난이도 = constellations.stage (1단계 2개, 2단계 3개, 3단계 2개, 4단계 3개)
+-- 별자리 = 도감 캐릭터 11명 (web/src/app/catalog/characters.ts의 constellationId, 이름·테마도 도감과 같음). 난이도 = constellations.stage (1단계 3개, 2단계 3개, 3단계 2개, 4단계 3개)
 -- 추천 범위는 기존 규칙: gps 별 = 바깥, stage 1 = 집 안, stage 2 이상 = 집 근처 (api/recommendations/service.ts scopeOf)
 -- 포인트: 별을 처음 밝히면 그 별자리 난이도 × 10 (뷰 v_star_points). 별자리 합계 = 난이도 × 10 × 별 수
 -- 운영 DB(Neon)는 db/migrations/20261124_constellation_shapes.sql로 맞춤 (같은 스크립트가 함께 만듦, 기록을 지우지 않음)
@@ -15,9 +15,10 @@ INSERT INTO constellations (id, stage, name, theme, star_count) VALUES
   (7, 4, '카멜레온자리', '오늘의 색 발견하기', 5),
   (8, 3, '백조자리', '내 속도로 흘러가는 시간', 9),
   (9, 4, '독수리자리', '바람을 잠깐 느껴 보기', 8),
-  (10, 3, '화가자리', '하루에 색 한 방울', 5);
+  (10, 3, '화가자리', '하루에 색 한 방울', 5),
+  (11, 1, '양자리', '첫 걸음의 온기', 4);
 
-SELECT setval('constellations_id_seq', 10);
+SELECT setval('constellations_id_seq', 11);
 
 -- 별 ID = quests.json의 quest id. verify_type 기본 self, gps면 place_type(카카오로 가장 가까운 장소 제안)
 -- category: 청년센터 단계별 퀘스트 = center, 봉사 = volunteer, 나머지 daily
@@ -34,6 +35,10 @@ INSERT INTO stars (id, constellation_id, position, title, description, verify_ty
   (23, 2, 3, '무료 온라인 강의 하나 들어 보기', '관심 있는 무료 강의 하나를 들어 봐요. 나눠서 들어도 괜찮아요.', 'self', NULL, 'daily', false, 'work', ARRAY['learning']::text[]),
   (4, 2, 4, '관심사 커뮤니티에 댓글 하나 남기기', '좋아하는 주제의 글에 짧은 댓글을 남겨 봐요. 한 단어여도 괜찮아요.', 'self', NULL, 'daily', false, 'relation', ARRAY['social']::text[]),
   (25, 2, 5, '가족이나 친구에게 안부 문자 보내기', '"잘 지내?" 한마디면 충분해요. 답장을 기다리지 않아도 괜찮아요.', 'self', NULL, 'daily', false, 'relation', ARRAY['social']::text[]),
+  (67, 11, 1, '숨 한 번 편하게 고르기', '내 속도로 한 번 숨을 고르고 있던 자리에 잠깐 머물러 봐요.', 'self', NULL, 'daily', false, 'daily', ARRAY['rest']::text[]),
+  (68, 11, 2, '지금 마음에 가까운 날씨 고르기', '지금 마음을 날씨로 빗대어 봐요. 떠오르는 날씨가 없어도 괜찮아요.', 'self', NULL, 'daily', false, 'daily', ARRAY['rest']::text[]),
+  (69, 11, 3, '오늘의 작은 기억 한 줄 남기기', '지금 눈에 들어온 것이나 오늘 남기고 싶은 일을 한 줄로 적어 봐요.', 'self', NULL, 'daily', false, 'daily', ARRAY['rest']::text[]),
+  (70, 11, 4, '지금 해 본 작은 일 인정해 주기', '여기까지 와 본 나에게 조용히 한마디 해 주세요. 수고했어요.', 'self', NULL, 'daily', false, 'daily', ARRAY['rest']::text[]),
   -- 2단계 · 집 근처 (혼자 외출)
   (6, 3, 1, '편의점에서 간식 사 먹기', '가까운 편의점에서 먹고 싶은 간식 하나를 골라요. 도착하면 별이 켜져요.', 'gps', 'convenience', 'daily', true, 'outing', ARRAY['outdoor']::text[]),
   (26, 3, 2, '동네 빵집에서 빵 하나 사 오기', '동네 빵집에서 마음에 드는 빵 하나를 골라요.', 'self', NULL, 'daily', true, 'outing', ARRAY['outdoor']::text[]),
@@ -94,7 +99,7 @@ INSERT INTO stars (id, constellation_id, position, title, description, verify_ty
   (65, 9, 7, '체험 장소까지 가는 길을 미리 살펴보기', '예정된 체험이 없어도 관심 장소의 교통편과 돌아오는 길을 같이 살펴봐요.', 'self', NULL, 'daily', false, 'outing', ARRAY['outdoor', 'career']::text[]),
   (66, 9, 8, '오늘 해 본 일에서 배운 점 한 가지 적기', '체험, 일, 공부 중 작은 일 하나를 골라 다음에도 써 보고 싶은 점을 적어요.', 'self', NULL, 'daily', false, 'work', ARRAY['career', 'learning']::text[]);
 
-SELECT setval('stars_id_seq', 66);
+SELECT setval('stars_id_seq', 70);
 
 -- 더 작게 해 보기용 하위 퀘스트 = quests.json의 easier_title (별마다 1개, 하위 퀘스트 ID = 별 ID)
 -- AI ①은 이 목록 안에서만 고름
@@ -164,9 +169,13 @@ INSERT INTO sub_quests (id, star_id, position, title) VALUES
   (63, 63, 1, '모집 안내에서 질문거리 한 단어 찾기'),
   (64, 64, 1, '직무 소개에서 도구 이름 하나 읽기'),
   (65, 65, 1, '지도에서 장소 한 곳에 표시 남기기'),
-  (66, 66, 1, '배운 점을 한 단어로 적기');
+  (66, 66, 1, '배운 점을 한 단어로 적기'),
+  (67, 67, 1, '어깨 힘을 잠깐 빼 보기'),
+  (68, 68, 1, '떠오르는 날씨 하나 생각해 보기'),
+  (69, 69, 1, '오늘 떠오른 단어 하나 적기'),
+  (70, 70, 1, '속으로 수고했다고 말해 보기');
 
-SELECT setval('sub_quests_id_seq', 66);
+SELECT setval('sub_quests_id_seq', 70);
 
 -- 사용자는 시드로 만들지 않음 (users.id = 1 고정 사용 금지)
 -- 데모 사용자는 POST /api/demo/session 이 브라우저마다 새로 만든다 (web/src/lib/demo-session.ts)

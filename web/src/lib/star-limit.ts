@@ -1,3 +1,5 @@
+import { TUTORIAL_STAR_IDS } from './quest-catalog';
+
 export const DAILY_STAR_LIMIT = 10;
 
 export const DAILY_STAR_LIMIT_MESSAGE =
@@ -5,11 +7,16 @@ export const DAILY_STAR_LIMIT_MESSAGE =
 
 const kstDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', dateStyle: 'short' });
 
-type StarHistory = { memories: readonly { date: string; status?: string }[] };
+type StarHistory = { starId?: number; memories: readonly { date: string; status?: string }[] };
+
+export function isTutorialStar(starId: number | undefined): boolean {
+  return starId !== undefined && TUTORIAL_STAR_IDS.includes(starId);
+}
 
 export function hasReachedDailyStarLimit(stars: readonly StarHistory[], now = new Date()): boolean {
   const today = kstDay.format(now);
-  const collectedToday = stars.filter(({ memories }) => {
+  const collectedToday = stars.filter(({ starId, memories }) => {
+    if (isTutorialStar(starId)) return false;
     const firstBright = memories.reduce((earliest, memory) => {
       if (memory.status !== 'bright') return earliest;
       const timestamp = Date.parse(memory.date);

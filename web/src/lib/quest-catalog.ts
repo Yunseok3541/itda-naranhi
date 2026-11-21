@@ -16,6 +16,8 @@ export type CatalogQuest = {
 
 export const catalogQuests: readonly CatalogQuest[] = source.quests;
 export const catalogConstellations = source.constellations;
+export const FIRST_FRIEND_CONSTELLATION = 11;
+export const TUTORIAL_STAR_IDS = catalogConstellations.find(group => group.id === FIRST_FRIEND_CONSTELLATION)!.quests;
 export function catalogQuest(id: number) {
   return catalogQuests.find(q => q.id === id);
 }

@@ -16,7 +16,7 @@ import QuestScreen from './quest-screen';
 import StarScreen from './star-screen';
 import { HelpContext, ScreenBar } from './screen-kit';
 import { EMPTY_START, type StartAnswers } from '@/lib/profile';
-import { DAILY_STAR_LIMIT_MESSAGE, hasReachedDailyStarLimit } from '@/lib/star-limit';
+import { DAILY_STAR_LIMIT_MESSAGE, hasReachedDailyStarLimit, isTutorialStar } from '@/lib/star-limit';
 import { getCompletedConstellationIds, getStarConstellationId } from '@/lib/constellations';
 import { consumeConstellationCelebration, queueConstellationCelebration } from '@/lib/constellation-celebration';
 import SkyControlIcon from './sky-control-icon';
@@ -25,7 +25,7 @@ import { useCollapseOnHide } from './use-collapse-on-hide';
 import ServiceGuide from './service-guide';
 import { BgmToggle } from './bgm';
 import MenuTour from './menu-tour';
-import { finishGuide, guideSeen, useMenuTourPending } from '@/lib/service-guide';
+import { finishGuide, guideSeen, restartMenuTour, useMenuTourPending } from '@/lib/service-guide';
 import './night-sky.css';
 // 하단 버튼 3개(메인에서만): 프로필 · 오늘의 별 · 도감
 // 정책추천·청년센터는 메인 오른쪽 위, 도움받을 곳은 메인 왼쪽 위, 홈(내 밤하늘)은 다른 화면 머리글의 "나란히"
@@ -44,10 +44,12 @@ const HELP = {
   ],
 };
 
-export default function MobileFlow({screen='sky',starId,centerId,completionAttemptId,memoryStarId,guide=false}:{
+export default function MobileFlow({screen='sky',starId,centerId,completionAttemptId,memoryStarId,guide=false,tour=false}:{
   screen?:string;starId?:number;centerId?:number;completionAttemptId?:number;memoryStarId?:number;
   /** 설정의 "사용 안내 다시 보기"(/sky?guide=1)로 들어왔으면 시작 안내부터 */
   guide?:boolean;
+  /** /sky?tour=1: 메뉴 안내만 다시 띄움 (확인·시연용) */
+  tour?:boolean;
 }){
  const router = useRouter();
  const resources = useRef<HTMLDialogElement>(null);
@@ -68,6 +70,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  // 처음 시작 안내(service-guide.tsx): 시작 질문을 처음 마쳤을 때, 또는 설정에서 다시 볼 때
  const [guiding,setGuiding]=useState(guide);
  const tourPending=useMenuTourPending();
+ useEffect(() => { if (tour) { restartMenuTour(); router.replace('/sky'); } }, [tour, router]);
  // 다른 화면으로 갔다 돌아오면 도움받을 곳 패널·펼친 접기 칸은 닫혀 있게 (cacheComponents로 숨겨진 화면도 상태가 남음)
  const shell = useRef<HTMLElement>(null);
  useCollapseOnHide(shell);
@@ -171,9 +174,11 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  /** 시작 안내를 끝내거나 건너뜀 → 메인에 처음 들어갈 때 메뉴 한 장 안내(menu-tour.tsx) */
  function finishServiceGuide() {
    finishGuide();
+   // 다시 보기(/sky?guide=1)는 안내를 띄운 채 /sky로 바로 이동 → 새로 그려진 메인이 양자리를 비춤
+   // (여기서 안내를 먼저 닫으면 이 화면의 메인이 잠깐 그려지며 비출 별자리를 써 버림)
+   if (ready) { router.replace('/sky'); return; }
    setGuiding(false);
-   if (!ready) void run(enterAfterOnboarding);
-   else router.replace('/sky');
+   void run(enterAfterOnboarding);
  }
  async function enterAfterOnboarding() {
    const sky = await client(mode).sky();
@@ -260,7 +265,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
        <BgmToggle />
      </header>}
  {!questOpen && feedback}
- {guiding ? <ServiceGuide replay={ready} onDone={finishServiceGuide} />
+ {guiding ? <ServiceGuide mode={mode} replay={ready} onDone={finishServiceGuide} onHelp={H} />
  : !ready ? showStartResult ? <>
    <StartResult answers={startAnswers} demo />
    {/* 시작 안내를 아직 안 봤으면 먼저 안내로 (다시 시작해도 한 번 본 안내는 다시 나오지 않음) */}
@@ -308,7 +313,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
      dialog={{ titleId: questTitle, onClose: closeQuest, feedback: questOpen && feedback }} />
  </dialog>}
  {screen==='checkin'&&<QuestScreen mode={mode} busy={busy} run={run} onHelp={H} onError={E}/>}
- {screen==='star'&&<StarScreen key={starId} mode={mode} star={star} dailyLimitReached={hasReachedDailyStarLimit(stars)} busy={busy} run={run} onHelp={H} onSaved={reloadSky}/>}
+ {screen==='star'&&<StarScreen key={starId} mode={mode} star={star} dailyLimitReached={!isTutorialStar(starId) && hasReachedDailyStarLimit(stars)} busy={busy} run={run} onHelp={H} onSaved={reloadSky}/>}
  {screen==='shop'&&<StarlightShop mode={mode}/>}
  {screen==='profile'&&<ProfileHome mode={mode}/>}
  {screen==='policy-criteria' && <>

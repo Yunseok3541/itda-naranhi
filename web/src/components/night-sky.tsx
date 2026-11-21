@@ -21,7 +21,8 @@ import SkyControlIcon from './sky-control-icon';
 import StarList from './star-list';
 import { useCloseDialogOnHide } from './use-close-dialog-on-hide';
 import { finishHint, useSkyHints } from '@/lib/sky-hints';
-import { DAILY_STAR_LIMIT_MESSAGE, hasReachedDailyStarLimit } from '@/lib/star-limit';
+import { clearSkyFocus, peekSkyFocus } from '@/lib/service-guide';
+import { DAILY_STAR_LIMIT_MESSAGE, hasReachedDailyStarLimit, isTutorialStar } from '@/lib/star-limit';
 import { starDisplayDescription, starDisplayTitle } from '@/lib/star-display';
 
 const labels = { untried: '아직 만나기 전', dim: '손을 뻗은 별', bright: '딴 별' } as const;
@@ -197,6 +198,10 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     const radius = Math.max(1.5 * RAD, ...skies[i].points.map(point => angleBetween(center, point)));
     return { character, center, axes: skyImageAxes(center, radius * 0.82) };
   }), [centers, completed, groups, skies]);
+  // 시작 안내를 마친 직후면 그 안내가 정한 별자리(첫 친구 포실의 양자리)를 "지금 별자리"로. 확대는 하지 않고 넓은 화면(캐릭터가 보이는)으로 시작해
+  // 메뉴 안내를 그 위에서 하고, 첫 안내 카드의 "가까이 보기"를 누르면 양자리로 확대 (lib/service-guide.ts)
+  const [guideFocus] = useState(peekSkyFocus);
+  useEffect(() => { if (guideFocus !== null) clearSkyFocus(); }, [guideFocus]);
   // 처음에는 가장 최근에 기록한 별자리, 기록이 없으면 아직 다 따지 않은 첫 별자리
   const [index, setIndex] = useState(() => {
     const all = groups;
@@ -204,6 +209,8 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     if (completedIndex >= 0) return completedIndex;
     const memoryIndex = selected ? all.findIndex(group => group.id === getStarConstellationId(selected)) : -1;
     if (memoryIndex >= 0) return memoryIndex;
+    const guideIndex = guideFocus === null ? -1 : all.findIndex(group => group.id === guideFocus);
+    if (guideIndex >= 0) return guideIndex;
     const recent = latestGroupIndex(all);
     if (recent >= 0) return recent;
     const i = all.findIndex(g => g.stars.some(s => s.status !== 'bright'));
@@ -466,7 +473,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     : undefined;
 
   const hint = selected || talk || hintsPaused ? null : hints.current;
-  const questBlocked = selected && selected.status !== 'bright' && hasReachedDailyStarLimit(stars);
+  const questBlocked = selected && selected.status !== 'bright' && !isTutorialStar(selected.starId) && hasReachedDailyStarLimit(stars);
   return <section className={`night${hint === 'star' ? ' hint-star' : ''}`} aria-label="내 밤하늘">
     <MeteorRewards key={mode} mode={mode} skyTotal={totalPoints} hintPaused={hintsPaused} />
 

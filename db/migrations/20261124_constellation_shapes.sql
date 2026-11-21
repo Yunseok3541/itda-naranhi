@@ -1,4 +1,4 @@
--- 동기화 SQL: 루트 quests.json → 별자리 10개·별 66개·하위 퀘스트 66개
+-- 동기화 SQL: 루트 quests.json → 별자리 11개·별 70개·하위 퀘스트 70개
 -- ⚠ 자동 생성 파일: 직접 고치지 말고 루트 quests.json을 고친 뒤 web/에서 `node node_modules/tsx/dist/cli.mjs scripts/gen-quest-seed.mts`
 -- 대상: 이미 운영 중인 DB (팀 공용 Neon). 새로 만드는 DB는 db/init/02_seed.sql에 같은 내용이 있음
 -- 순서: 기존 별 동기화(20261121_quests_sync.sql)와 프로필 도감(20261121_profile_avatar.sql) 적용 이후
@@ -8,8 +8,8 @@
 -- quests.json을 고칠 때마다 다시 생성되고, Neon에서 다시 실행하면 됨. 여러 번 실행해도 결과가 같음 (한 트랜잭션)
 -- 적용: Neon 콘솔 → SQL Editor에 이 파일 내용을 붙여넣고 Run
 --       또는 psql "$DATABASE_URL" -f db/migrations/20261124_constellation_shapes.sql
--- 확인: SELECT id, stage, name, star_count FROM constellations ORDER BY id;   → 1 카시오페이아자리, 2 돌고래자리, 3 거문고자리, 4 작은곰자리, 5 토끼자리, 6 여우자리, 7 카멜레온자리, 8 백조자리, 9 독수리자리, 10 화가자리
---       SELECT count(*) FROM stars;  → 66      SELECT count(*) FROM sub_quests;  → 66
+-- 확인: SELECT id, stage, name, star_count FROM constellations ORDER BY id;   → 1 카시오페이아자리, 2 돌고래자리, 3 거문고자리, 4 작은곰자리, 5 토끼자리, 6 여우자리, 7 카멜레온자리, 8 백조자리, 9 독수리자리, 10 화가자리, 11 양자리
+--       SELECT count(*) FROM stars;  → 70      SELECT count(*) FROM sub_quests;  → 70
 
 BEGIN;
 
@@ -66,7 +66,8 @@ INSERT INTO constellations (id, stage, name, theme, star_count) VALUES
   (7, 4, '카멜레온자리', '오늘의 색 발견하기', 5),
   (8, 3, '백조자리', '내 속도로 흘러가는 시간', 9),
   (9, 4, '독수리자리', '바람을 잠깐 느껴 보기', 8),
-  (10, 3, '화가자리', '하루에 색 한 방울', 5)
+  (10, 3, '화가자리', '하루에 색 한 방울', 5),
+  (11, 1, '양자리', '첫 걸음의 온기', 4)
 ON CONFLICT (id) DO UPDATE SET stage = EXCLUDED.stage, name = EXCLUDED.name, theme = EXCLUDED.theme, star_count = EXCLUDED.star_count;
 
 -- 2. 별: 별자리 안 순서(constellation_id, position)가 서로 겹치지 않게 잠깐 음수 순서로 비켜 둔 뒤 덮어씀
@@ -83,6 +84,10 @@ INSERT INTO stars (id, constellation_id, position, title, description, verify_ty
   (23, 2, 3, '무료 온라인 강의 하나 들어 보기', '관심 있는 무료 강의 하나를 들어 봐요. 나눠서 들어도 괜찮아요.', 'self', NULL, 'daily', false, 'work', ARRAY['learning']::text[]),
   (4, 2, 4, '관심사 커뮤니티에 댓글 하나 남기기', '좋아하는 주제의 글에 짧은 댓글을 남겨 봐요. 한 단어여도 괜찮아요.', 'self', NULL, 'daily', false, 'relation', ARRAY['social']::text[]),
   (25, 2, 5, '가족이나 친구에게 안부 문자 보내기', '"잘 지내?" 한마디면 충분해요. 답장을 기다리지 않아도 괜찮아요.', 'self', NULL, 'daily', false, 'relation', ARRAY['social']::text[]),
+  (67, 11, 1, '숨 한 번 편하게 고르기', '내 속도로 한 번 숨을 고르고 있던 자리에 잠깐 머물러 봐요.', 'self', NULL, 'daily', false, 'daily', ARRAY['rest']::text[]),
+  (68, 11, 2, '지금 마음에 가까운 날씨 고르기', '지금 마음을 날씨로 빗대어 봐요. 떠오르는 날씨가 없어도 괜찮아요.', 'self', NULL, 'daily', false, 'daily', ARRAY['rest']::text[]),
+  (69, 11, 3, '오늘의 작은 기억 한 줄 남기기', '지금 눈에 들어온 것이나 오늘 남기고 싶은 일을 한 줄로 적어 봐요.', 'self', NULL, 'daily', false, 'daily', ARRAY['rest']::text[]),
+  (70, 11, 4, '지금 해 본 작은 일 인정해 주기', '여기까지 와 본 나에게 조용히 한마디 해 주세요. 수고했어요.', 'self', NULL, 'daily', false, 'daily', ARRAY['rest']::text[]),
   -- 2단계 · 집 근처 (혼자 외출)
   (6, 3, 1, '편의점에서 간식 사 먹기', '가까운 편의점에서 먹고 싶은 간식 하나를 골라요. 도착하면 별이 켜져요.', 'gps', 'convenience', 'daily', true, 'outing', ARRAY['outdoor']::text[]),
   (26, 3, 2, '동네 빵집에서 빵 하나 사 오기', '동네 빵집에서 마음에 드는 빵 하나를 골라요.', 'self', NULL, 'daily', true, 'outing', ARRAY['outdoor']::text[]),
@@ -222,17 +227,21 @@ INSERT INTO sub_quests (id, star_id, position, title) VALUES
   (63, 63, 1, '모집 안내에서 질문거리 한 단어 찾기'),
   (64, 64, 1, '직무 소개에서 도구 이름 하나 읽기'),
   (65, 65, 1, '지도에서 장소 한 곳에 표시 남기기'),
-  (66, 66, 1, '배운 점을 한 단어로 적기')
+  (66, 66, 1, '배운 점을 한 단어로 적기'),
+  (67, 67, 1, '어깨 힘을 잠깐 빼 보기'),
+  (68, 68, 1, '떠오르는 날씨 하나 생각해 보기'),
+  (69, 69, 1, '오늘 떠오른 단어 하나 적기'),
+  (70, 70, 1, '속으로 수고했다고 말해 보기')
 ON CONFLICT (id) DO UPDATE SET position = EXCLUDED.position, title = EXCLUDED.title;
 
 -- 4. quests.json에 없는 별자리 지우기 (별이 하나도 없는 것만)
-DELETE FROM user_constellations WHERE constellation_id NOT IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+DELETE FROM user_constellations WHERE constellation_id NOT IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
 DELETE FROM constellations c
-WHERE c.id NOT IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10) AND NOT EXISTS (SELECT 1 FROM stars s WHERE s.constellation_id = c.id);
+WHERE c.id NOT IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11) AND NOT EXISTS (SELECT 1 FROM stars s WHERE s.constellation_id = c.id);
 
 -- 5. 번호 이어 붙이기 (새로 만든 DB와 같은 값)
-SELECT setval('constellations_id_seq', 10);
-SELECT setval('stars_id_seq', 66);
-SELECT setval('sub_quests_id_seq', 66);
+SELECT setval('constellations_id_seq', 11);
+SELECT setval('stars_id_seq', 70);
+SELECT setval('sub_quests_id_seq', 70);
 
 COMMIT;

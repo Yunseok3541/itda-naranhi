@@ -63,6 +63,11 @@ const artwork: CharacterArt[] = [
     color: '#dda3c7', constellationId: 10,
     story: '물감은 색을 세 방울쯤 올린 팔레트에 작은 붓을 들고 다녀요. 오늘을 한 가지 색으로 그린다면 무슨 색일까요?',
   },
+  {
+    id: 'posil', nickname: '포실',
+    color: '#e5bf9c', constellationId: 11,
+    story: '포실은 처음 내딛는 걸음을 옆에서 기다려요. 목에 단 네 개의 별은 오늘 해 본 작은 일들을 기억해요.',
+  },
 ];
 
 export const characters: readonly Character[] = artwork.map(character => ({

@@ -56,6 +56,11 @@ const SHAPES: Record<number, SkyShape> = {
     points: [[102.0477, -61.9414], [87.4569, -56.1667], [86.8212, -51.0665], [92.5746, -54.9686], [91.7641, -62.1546]],
     edges: [[0, 1], [1, 2]],
   },
+  // 양자리
+  11: {
+    points: [[42.496, 27.2605], [31.7934, 23.4624], [28.66, 20.808], [28.3826, 19.2939]],
+    edges: [[0, 1], [1, 2], [2, 3]],
+  },
 };
 
 export type SkyConstellation = { points: Vec3[]; edges: [number, number][] };
@@ -72,6 +77,7 @@ const PLACEMENTS: Record<number, [number, number]> = {
   8: [126, 56],
   9: [89, 34],
   10: [53, 59],
+  11: [354, 35],
 };
 
 function placeInSky(points: Vec3[], [lon, lat]: [number, number]): Vec3[] {
