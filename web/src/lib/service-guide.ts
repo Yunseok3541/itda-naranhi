@@ -39,6 +39,13 @@ export function finishGuide() {
   listeners.forEach(listener => listener());
 }
 
+/** 메뉴 안내만 다시 띄움 (/sky?tour=1, 확인·시연용) */
+export function restartMenuTour() {
+  memory.tour = 'pending';
+  write(TOUR_KEY, 'pending');
+  listeners.forEach(listener => listener());
+}
+
 /** 메뉴 안내를 닫음 (다시 나오지 않음) */
 export function finishMenuTour() {
   memory.tour = 'done';

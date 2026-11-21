@@ -23,7 +23,7 @@ import { useCloseDialogOnHide } from './use-close-dialog-on-hide';
 import { useCollapseOnHide } from './use-collapse-on-hide';
 import ServiceGuide from './service-guide';
 import MenuTour from './menu-tour';
-import { finishGuide, guideSeen, useMenuTourPending } from '@/lib/service-guide';
+import { finishGuide, guideSeen, restartMenuTour, useMenuTourPending } from '@/lib/service-guide';
 import './night-sky.css';
 // 하단 버튼 3개(메인에서만): 프로필 · 오늘의 별 · 도감
 // 정책추천·청년센터는 메인 오른쪽 위, 도움받을 곳은 메인 왼쪽 위, 홈(내 밤하늘)은 다른 화면 머리글의 "나란히"
@@ -42,10 +42,12 @@ const HELP = {
   ],
 };
 
-export default function MobileFlow({screen='sky',starId,centerId,completionAttemptId,memoryStarId,guide=false}:{
+export default function MobileFlow({screen='sky',starId,centerId,completionAttemptId,memoryStarId,guide=false,tour=false}:{
   screen?:string;starId?:number;centerId?:number;completionAttemptId?:number;memoryStarId?:number;
   /** 설정의 "사용 안내 다시 보기"(/sky?guide=1)로 들어왔으면 시작 안내부터 */
   guide?:boolean;
+  /** /sky?tour=1: 메뉴 안내만 다시 띄움 (확인·시연용) */
+  tour?:boolean;
 }){
  const router = useRouter();
  const resources = useRef<HTMLDialogElement>(null);
@@ -66,6 +68,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  // 처음 시작 안내(service-guide.tsx): 시작 질문을 처음 마쳤을 때, 또는 설정에서 다시 볼 때
  const [guiding,setGuiding]=useState(guide);
  const tourPending=useMenuTourPending();
+ useEffect(() => { if (tour) { restartMenuTour(); router.replace('/sky'); } }, [tour, router]);
  // 다른 화면으로 갔다 돌아오면 도움받을 곳 패널·펼친 접기 칸은 닫혀 있게 (cacheComponents로 숨겨진 화면도 상태가 남음)
  const shell = useRef<HTMLElement>(null);
  useCollapseOnHide(shell);
