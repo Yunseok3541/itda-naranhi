@@ -717,9 +717,9 @@ const { cheer, help } = await processReflection({
 
 | 화면 단계 | 질문 | 요청 키 | 값 | 저장 |
 | --------- | ---- | ------- | -- | ---- |
-| 1/3 | 내가 편안하게 활동할 수 있는 범위는? | `startAnswers.range` | `home` · `near` · `out` · `people` 하나 | `start_answers.range` + **`current_stage`** (home 1 · near 2 · out 3 · people 4) |
+| 1/3 | 내가 편안하게 활동할 수 있는 범위는 어디까지인가요? | `startAnswers.range` | `home` · `near` · `out` · `people` 하나 | `start_answers.range` + **`current_stage`** (home 1 · near 2 · out 3 · people 4) |
 | 2/3 | 부담되는 상황은? (여러 개) | `startAnswers.burden` | `people` · `unfamiliar` · `phone` · `morning` 배열 | `start_answers.burden` (목록 순서로 정리·중복 제거) |
-| 3/3 | 다른 사람과 함께 할 수 있는 활동도 알아보고 싶은가? | `startAnswers.with` | `alone` · `together` 하나 | `start_answers.with` |
+| 3/3 | 활동은 어떻게 해 보고 싶어요? | `startAnswers.with` | `alone` · `together` 하나 | `start_answers.with` |
 
 - 마지막 질문을 마치고 **데모 시작**을 누를 때 세 답을 한 번에 보낸다: `{ "startAnswers": { "range": "out", "burden": ["people"], "with": "alone" } }`. 응답(`currentStage` 포함)은 GET과 같아서 결과 화면에 바로 쓸 수 있다.
 - 건너뛴 질문은 `null`(또는 키를 빼기). 다 건너뛰면 지금처럼 요청을 보내지 않아도 되고, `{ "startAnswers": {} }`를 보내면 "시작 질문을 거쳤지만 답은 없음"으로 저장된다 (단계 1 그대로).

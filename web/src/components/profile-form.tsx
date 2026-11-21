@@ -112,9 +112,9 @@ export function StartQuestions({ value, onChange, disabled, step, policy = false
   const rangeHint = policy ? '평소 활동 범위를 정책 추천에 참고해요.'
     : '평소 활동 범위예요. 오늘 할 수 있는 범위는 오늘의 별에서 따로 골라요.';
   const questions = [
-    <Choices key="range" legend="평소 어디까지 활동이 괜찮아요?" hint={rangeHint} options={RANGE} subs={RANGE_SUB} value={value.range} onChange={set('range')} disabled={disabled} />,
+    <Choices key="range" legend="내가 편안하게 활동할 수 있는 범위는 어디까지인가요?" hint={rangeHint} options={RANGE} subs={RANGE_SUB} value={value.range} onChange={set('range')} disabled={disabled} />,
     <Choices key="burden" legend="어떤 게 부담돼요?" hint="여러 개 골라도 돼요" options={BURDEN} multiple value={value.burden} onChange={set('burden')} disabled={disabled} />,
-    <Choices key="with" legend="요즘은 어떤 쪽이 편해요?" options={WITH} value={value.with} onChange={set('with')} disabled={disabled} />,
+    <Choices key="with" legend="활동은 어떻게 해 보고 싶어요?" options={WITH} value={value.with} onChange={set('with')} disabled={disabled} />,
     <Choices key="support" legend="힘들 때 연락할 수 있는 사람이 있나요?" options={SUPPORT} value={value.support} onChange={set('support')} disabled={disabled} />,
     <Choices key="living" legend="지금 누구와 지내요?" options={LIVING} value={value.living} onChange={set('living')} disabled={disabled} />,
     <Choices key="needs" legend="요즘 가장 도움이 필요한 건?" hint="여러 개 골라도 돼요" options={NEEDS} multiple value={value.needs} onChange={set('needs')} disabled={disabled} />,
