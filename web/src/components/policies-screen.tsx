@@ -15,6 +15,7 @@ import { client, policyCriteriaVersion, request, type Help, type Mode } from '@/
 import type { StartAnswers } from '@/lib/profile';
 import type { HelperPolicy } from '@/lib/apply-helper';
 import ApplyHelper from './apply-helper';
+import GlassSelect from './glass-select';
 import { Hero, HeroIcon, MoreLinks, ScreenBar, Summary } from './screen-kit';
 
 type Policy = {
@@ -65,7 +66,7 @@ const example: Result = {
 // 예시 정책은 모두 같은 가상의 온라인 신청 절차를 사용한다.
 const exampleCatalog: { need: NonNullable<StartAnswers['needs']>[number]; policy: Policy }[] = [
   { need: 'money_job', policy: example.items[0] },
-  { need: 'health', policy: { ...example.items[0], policyId: 2, title: '예시 마음건강 상담 지원', reason: '몸·마음 건강을 돌보는 데 도움이 되는 상담을 살펴봐요.', tags: ['몸·마음 건강'] } },
+  { need: 'health', policy: { ...example.items[0], policyId: 2, title: '예시 마음건강 상담 지원', reason: '몸·마음 건강을 돌보는 데 도움이 되는 상담을 살펴봐요.', scope: '예시 전국', tags: ['몸·마음 건강'] } },
   { need: 'family', policy: { ...example.items[0], policyId: 3, title: '예시 가족 상담 지원', reason: '가족과의 관계에 관해 이야기할 수 있는 곳을 살펴봐요.', tags: ['가족과의 관계'] } },
   { need: 'people', policy: { ...example.items[0], policyId: 4, title: '예시 청년 소모임 지원', reason: '다른 사람과 함께할 수 있는 작은 모임을 살펴봐요.', tags: ['사람 만나기'] } },
 ];
@@ -239,12 +240,10 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
     {all && result && items.length > 0 && <section className="card policy-filters" aria-label="정책 필터">
       <label>정책 검색<input type="search" placeholder="예: 월세, 일자리" value={filters.query} onChange={event => updateFilters({ ...filters, query: event.target.value })} /></label>
       <div className="choices">
-        <label>지원 지역<select value={filters.scope} onChange={event => updateFilters({ ...filters, scope: event.target.value })}>
-          <option value="">전체 지역</option>{scopes.map(scope => <option key={scope}>{scope}</option>)}
-        </select></label>
-        <label>신청 방식<select value={filters.method} onChange={event => updateFilters({ ...filters, method: event.target.value })}>
-          <option value="">전체 방식</option>{methods.map(method => <option key={method}>{method}</option>)}
-        </select></label>
+        <GlassSelect label="지원 지역" value={filters.scope} onChange={scope => updateFilters({ ...filters, scope })}
+          options={[{ value: '', label: '전체 지역' }, ...scopes.map(scope => ({ value: scope, label: scope }))]} />
+        <GlassSelect label="신청 방식" value={filters.method} onChange={method => updateFilters({ ...filters, method })}
+          options={[{ value: '', label: '전체 방식' }, ...methods.map(method => ({ value: method, label: method }))]} />
       </div>
       <div className="policy-filter-status">
         <span role="status">{filtered.length}개 정책</span>

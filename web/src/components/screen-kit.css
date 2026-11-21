@@ -106,7 +106,7 @@ button.policy-save[aria-pressed="true"] { color: #ffe1a0; }
 @media (hover: hover) { button.policy-save:hover .policy-save-heart { filter: brightness(1.2); } }
 button.policy-save:focus-visible { outline: 2px solid #ffe1a0; outline-offset: 2px; }
 .policy-filters .choices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.policy-filters .choices label { min-width: 0; margin-block: 0; }
+.policy-filters .glass-select { min-width: 0; margin-block: 0; }
 .policy-reason { padding: 8px 12px; border-radius: 12px; background: rgba(246, 207, 125, .08); color: #ffe9bf !important; font-size: .9rem; }
 .policy-reason span { color: var(--star-gold); }
 
