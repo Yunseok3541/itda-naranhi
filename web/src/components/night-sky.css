@@ -47,7 +47,7 @@ html.sky-night-page body {
 .sky-mode .help { background: rgba(246, 207, 125, .14); border: 1px solid var(--star-gold-soft); color: var(--starlight); }
 .sky-mode .error { background: rgba(255, 120, 150, .16); color: #ffd3dd; }
 .sky-mode footer { color: rgba(238, 233, 255, .45); }
-.sky-mode button:not(.nstar):not(.sky-pill):not(.char-hotspot):not(.recent-pill):not(.text-button):not(.ghost):not(.sky-minimap):not(.sky-map-target):not(.night-row):not(.night-list-trigger):not(.dock-main):not(.quest-dialog button):not(.glass-select-trigger),
+.sky-mode button:not(.nstar):not(.sky-pill):not(.char-hotspot):not(.recent-pill):not(.text-button):not(.ghost):not(.sky-minimap):not(.sky-map-target):not(.night-row):not(.night-list-trigger):not(.dock-main):not(.quest-dialog button):not(.glass-select-trigger):not(.bgm-toggle),
 .sky-mode .primary { background: linear-gradient(180deg, #ffe3a3, var(--star-gold)); color: #24183f; box-shadow: 0 0 24px rgba(246, 207, 125, .35); }
 .sky-mode .ghost { background: transparent; color: var(--starlight-dim); border: 1px solid var(--glass-line); }
 .night-loading { margin-top: 40vh; text-align: center; color: var(--starlight-dim); }
@@ -906,3 +906,13 @@ html.sky-locked-page { --sky-dock-height: 96px; --person-height: 15dvh; }
 }
 /* 별똥별은 안내 카드(z-index 2)보다 위로 지나가게 (작은 화면에서 카드 높이와 겹침) */
 .sky-mode button.sky-pill.sky-meteor { z-index: 3; }
+
+/* 배경음악 켜기/끄기 (bgm.tsx). 메인·첫 화면 위쪽 두 버튼 사이 가운데 */
+.sky-top .bgm-toggle {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  display: grid; place-items: center; width: 40px; height: 40px; min-height: 0; padding: 0;
+  border-radius: 50%; color: #f0e6ff;
+  border: 1px solid #b9a6e07a; background: #2a1f3dcc; box-shadow: 0 3px 13px #08041546;
+}
+.sky-top .bgm-toggle[aria-pressed="false"] { color: #b9aecf; opacity: .75; }
+.sky-top .bgm-toggle:is(:hover, :focus-visible) { border-color: #f0d3ff; }
