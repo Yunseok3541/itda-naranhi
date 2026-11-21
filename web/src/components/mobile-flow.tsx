@@ -7,7 +7,7 @@ import NightSky from './night-sky';
 import PoliciesScreen from './policies-screen';
 import CentersScreen from './centers-screen';
 import SkyPanorama from '@/app/sky-preview/sky-panorama';
-import { ProfileScreen, StartQuestions, StartResult } from './profile-form';
+import { ProfileScreen, StartQuestions, StartResult, StepStars, startStepAnswered } from './profile-form';
 import GlassSelect from './glass-select';
 import StarlightShop from './starlight-shop';
 import ProfileHome from './profile-home';
@@ -276,12 +276,12 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
        options={[{ value: 'example', label: '예시 모드 · 브라우저 저장' }, { value: 'api', label: '실제 API · 서버 세션' }]} />
    </section></details>
  </> : <section className="card onboarding-step" aria-label={`시작 질문 ${startStep + 1}/3`}>
-   <h2 aria-live="polite">시작 질문 <span>{startStep + 1}/3</span></h2>
-   <p className="small">모든 질문은 건너뛸 수 있어요.</p>
+   <h2 className="step-head">시작 질문 <StepStars current={startStep} total={3} /></h2>
+   <p className="small">모든 질문은 고르지 않고 넘어가도 돼요.</p>
    <StartQuestions value={startAnswers} onChange={setStartAnswers} step={startStep} disabled={busy} />
    <div className="choices">
      <button type="button" className="ghost" disabled={busy} onClick={() => { E(''); setStartStep(startStep === 0 ? null : startStep - 1); }}>이전</button>
-     <button type="button" disabled={busy} onClick={() => startStep < 2 ? setStartStep(startStep + 1) : run(finishOnboarding)}>{busy ? '저장 중…' : startStep < 2 ? '다음' : '저장하고 결과 보기'}</button>
+     <button type="button" disabled={busy} onClick={() => startStep < 2 ? setStartStep(startStep + 1) : run(finishOnboarding)}>{busy ? '저장 중…' : startStep < 2 ? (startStepAnswered(startAnswers, startStep) ? '다음' : '건너뛰기') : '저장하고 결과 보기'}</button>
    </div>
  </section> : <>
  {/* 하단 이동 버튼은 메인에서만. 다른 화면은 하나의 일에 집중하고 왼쪽 위 "← 내 밤하늘"로 돌아감 (도감 화면과 같은 구조) */}

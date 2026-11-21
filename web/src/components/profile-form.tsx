@@ -1,6 +1,6 @@
 "use client";
 // 시작 질문 · 정책 신청 정보 입력 (기획: docs/기획/프로필.md). 모든 답은 선택, 기본값은 "답하지 않음"
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import {
   BURDEN, EMPTY_POLICY_INFO, EMPTY_START, INCOME, JOB, LIVING, MARRIED, NEEDS, RANGE, SCHOOL, SPECIAL, SUPPORT, WITH,
   type PolicyInfo, type StartAnswers,
@@ -24,19 +24,68 @@ function Pick<K extends string>({ label, options, value, onChange, disabled, gla
   </select></label>;
 }
 
-/** 여러 개 고르기. 아무것도 안 고르면 null(답하지 않음). none을 주면 "해당 없어요" 칸이 생기고 빈 배열로 저장 */
+/** 여러 개 고르기 (정책 신청 정보의 특별한 상황 등). 별 카드 모양은 Choices와 같음 */
 function Many<K extends string>({ legend, options, value, onChange, none, disabled }: {
   legend: string; options: readonly (readonly [K, string])[]; value: K[] | null; onChange: (v: K[] | null) => void; none?: string; disabled?: boolean;
 }) {
-  const toggle = (k: K) => {
-    const cur = value ?? [];
+  return <Choices legend={legend} hint="여러 개 골라도 돼요" options={options} multiple value={value} onChange={onChange} none={none} disabled={disabled} />;
+}
+
+/** 고르기 공통 (docs/기능발견성-조사.md: 선택지를 숨기지 않고 모두 보이게, 같은 기능은 같은 모양).
+ *  하나 고르기(라디오)와 여러 개 고르기(체크박스)를 같은 별 카드로. 실제 입력은 화면에서만 숨겨 키보드·화면 읽기 프로그램은 그대로.
+ *  아무것도 안 고르면 null(답하지 않음). 하나 고르기는 고른 카드를 다시 누르면 선택이 풀림 */
+type ChoiceProps<K extends string> = {
+  legend: string; hint?: string; options: readonly (readonly [K, string])[]; subs?: Partial<Record<K, string>>; disabled?: boolean;
+} & (
+  { multiple: true; value: K[] | null; onChange: (v: K[] | null) => void; none?: string }
+  | { multiple?: false; value: K | null; onChange: (v: K | null) => void; none?: undefined }
+);
+function Choices<K extends string>(props: ChoiceProps<K>) {
+  const { legend, hint, options, subs, disabled } = props;
+  const name = useId();
+  const picked = (k: K) => props.multiple ? !!props.value?.includes(k) : props.value === k;
+  const pick = (k: K) => {
+    if (!props.multiple) { props.onChange(props.value === k ? null : k); return; }
+    const cur = props.value ?? [];
     const next = cur.includes(k) ? cur.filter(x => x !== k) : [...cur, k];
-    onChange(next.length ? next : null);
+    props.onChange(next.length ? next : null);
   };
-  return <fieldset disabled={disabled}><legend>{legend}</legend>
-    {options.map(([k, l]) => <label className="check" key={k}><input type="checkbox" checked={!!value?.includes(k)} onChange={() => toggle(k)} />{l}</label>)}
-    {none && <label className="check"><input type="checkbox" checked={value !== null && value.length === 0} onChange={e => onChange(e.target.checked ? [] : null)} />{none}</label>}
+  const card = (key: string, label: string, checked: boolean, onToggle: () => void, sub?: string) =>
+    <label key={key} className={`choice-card${sub ? ' with-sub' : ''}`}>
+      <input type={props.multiple ? 'checkbox' : 'radio'} name={name} checked={checked} disabled={disabled}
+        onChange={onToggle}
+        // 라디오는 고른 것을 다시 눌러도 change가 안 생김 → 클릭으로 풀기
+        onClick={!props.multiple && checked ? onToggle : undefined} />
+      <span className="choice-text"><b>{label}</b>{sub && <small>{sub}</small>}</span>
+      <svg className="choice-star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.6 6 6.4.6-4.9 4.2 1.5 6.3L12 16.6l-5.6 3.3 1.5-6.3L3 9.4l6.4-.6z" /></svg>
+    </label>;
+  return <fieldset className="choice-cards" disabled={disabled}>
+    <legend>{legend}</legend>
+    {hint && <p className="choice-hint">{hint}</p>}
+    {options.map(([k, l]) => card(k, l, picked(k), () => pick(k), subs?.[k]))}
+    {props.multiple && props.none && card('none', props.none, props.value !== null && props.value.length === 0,
+      () => props.onChange(props.value !== null && props.value.length === 0 ? null : []))}
   </fieldset>;
+}
+
+/** 활동 범위는 시작 단계를 정하므로 차이가 분명하게 한 줄씩 (docs/기획/프로필.md ①) */
+const RANGE_SUB = {
+  home: '방이나 집 안에서', near: '현관 앞, 1층 편의점 정도', out: '혼자 동네 산책이나 가게', people: '센터·모임처럼 사람이 있는 곳',
+} as const;
+
+/** 시작 질문 순서 (StartQuestions의 step 번호와 같음) */
+const STEP_KEYS = ['range', 'burden', 'with', 'support', 'living', 'needs'] as const;
+/** 그 질문에 답을 골랐는지 (안 골랐으면 다음 버튼을 "건너뛰기"로) */
+export function startStepAnswered(value: StartAnswers, step: number) {
+  const answer = value[STEP_KEYS[step]];
+  return Array.isArray(answer) ? answer.length > 0 : answer !== null;
+}
+
+/** 질문 진행: 별이 하나씩 켜짐 (처음 시작 안내의 진행 점과 같은 자리·색) */
+export function StepStars({ current, total }: { current: number; total: number }) {
+  return <span className="step-stars" role="img" aria-label={`${total}개 중 ${current + 1}번째 질문`}>
+    {Array.from({ length: total }, (_, i) => <i key={i} data-on={i <= current || undefined} />)}
+  </span>;
 }
 
 const answerFields = [
@@ -55,17 +104,16 @@ export function StartResult({ answers, demo = false }: { answers: StartAnswers; 
   </section>;
 }
 
-export function StartQuestions({ value, onChange, disabled, step, glass: glassAll }: { value: StartAnswers; onChange: (v: StartAnswers) => void; disabled?: boolean; step?: number; glass?: boolean }) {
+export function StartQuestions({ value, onChange, disabled, step }: { value: StartAnswers; onChange: (v: StartAnswers) => void; disabled?: boolean; step?: number; /** 예전 드롭다운 옵션. 이제 모두 별 카드라 쓰지 않음 */ glass?: boolean }) {
   const set = <F extends keyof StartAnswers>(f: F) => (v: StartAnswers[F]) => onChange({ ...value, [f]: v });
   const shows = (index: number) => step === undefined || step === index;
-  const glass = glassAll || step !== undefined; // 질문별 화면·추천 기준 화면은 밤하늘 반투명 드롭다운
   return <>
-    {shows(0) && <Pick label="요즘 할 수 있는 활동 범위는?" options={RANGE} value={value.range} onChange={set('range')} disabled={disabled} glass={glass} />}
-    {shows(1) && <Many legend="부담되는 상황은? (여러 개 선택 가능)" options={BURDEN} value={value.burden} onChange={set('burden')} disabled={disabled} />}
-    {shows(2) && <Pick label="혼자 하고 싶은가, 다른 사람과의 활동도 알아보고 싶은가?" options={WITH} value={value.with} onChange={set('with')} disabled={disabled} glass={glass} />}
-    {shows(3) && <Pick label="힘들 때 연락할 수 있는 사람이 있나요?" options={SUPPORT} value={value.support} onChange={set('support')} disabled={disabled} glass={glass} />}
-    {shows(4) && <Pick label="지금 누구와 지내요?" options={LIVING} value={value.living} onChange={set('living')} disabled={disabled} glass={glass} />}
-    {shows(5) && <Many legend="요즘 가장 도움이 필요한 건? (여러 개 선택 가능)" options={NEEDS} value={value.needs} onChange={set('needs')} disabled={disabled} />}
+    {shows(0) && <Choices legend="요즘 어디까지 괜찮아요?" hint="고른 범위 안에서 오늘의 별을 찾아 드려요" options={RANGE} subs={RANGE_SUB} value={value.range} onChange={set('range')} disabled={disabled} />}
+    {shows(1) && <Choices legend="어떤 게 부담돼요?" hint="여러 개 골라도 돼요. 부담되는 일은 천천히 권해요" options={BURDEN} multiple value={value.burden} onChange={set('burden')} disabled={disabled} />}
+    {shows(2) && <Choices legend="요즘은 어떤 쪽이 편해요?" options={WITH} value={value.with} onChange={set('with')} disabled={disabled} />}
+    {shows(3) && <Choices legend="힘들 때 연락할 수 있는 사람이 있나요?" options={SUPPORT} value={value.support} onChange={set('support')} disabled={disabled} />}
+    {shows(4) && <Choices legend="지금 누구와 지내요?" options={LIVING} value={value.living} onChange={set('living')} disabled={disabled} />}
+    {shows(5) && <Choices legend="요즘 가장 도움이 필요한 건?" hint="여러 개 골라도 돼요" options={NEEDS} multiple value={value.needs} onChange={set('needs')} disabled={disabled} />}
   </>;
 }
 
@@ -143,12 +191,12 @@ export function ProfileScreen({ mode, onSaved }: { mode: Mode; onSaved?: () => v
       <StartResult answers={start} />
       <button onClick={() => setStep(0)}>답 다시 보기</button>
     </> : <section className="card onboarding-step">
-      <h2 aria-live="polite">시작 질문 <span>{step + 1}/{answerFields.length}</span></h2>
+      <h2 className="step-head">시작 질문 <StepStars current={step} total={answerFields.length} /></h2>
       <StartQuestions value={start} onChange={setStart} step={step} disabled={busy} />
       <div className="choices">
         <button className="secondary" disabled={busy || step === 0} onClick={() => setStep(step - 1)}>이전</button>
         <button disabled={busy} onClick={() => step < answerFields.length - 1 ? setStep(step + 1) : save({ startAnswers: start }, '시작 질문 답을 저장했어요.')}>
-          {state === 'saving' ? '저장 중…' : step < answerFields.length - 1 ? '다음' : '저장하고 결과 보기'}
+          {state === 'saving' ? '저장 중…' : step < answerFields.length - 1 ? (startStepAnswered(start, step) ? '다음' : '건너뛰기') : '저장하고 결과 보기'}
         </button>
       </div>
     </section>}
