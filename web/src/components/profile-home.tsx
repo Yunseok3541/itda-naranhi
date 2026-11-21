@@ -6,13 +6,14 @@
 // - 프로필 사진은 기본 캐릭터 또는 획득한 도감 캐릭터 중에서 고름
 // - 시작 질문·정책 신청 정보 입력은 설정(⚙) 안으로 (주소 끝 #settings로 바로 열 수 있음)
 import Link from 'next/link';
-import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import CatalogStardust from '@/app/catalog/catalog-stardust';
 import { characters } from '@/app/catalog/characters';
 import { client, type Mode, type ProfileAvatar, type Star } from '@/lib/mobile-data';
 import { evaluate, NO_FACTS, type MilestoneFacts } from '@/lib/milestones';
 import { groupStars, latestGroupIndex } from './night-sky';
 import { ProfileScreen } from './profile-form';
+import { useCloseDialogOnHide } from './use-close-dialog-on-hide';
 import { useShop } from './use-shop';
 import { Avatar, Hero, MoreLinks, ScreenBar, Section, Summary } from './screen-kit';
 import './profile-home.css';
@@ -44,8 +45,8 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
   const catalogCharacters = [...acquiredCharacters, ...lockedCharacters];
   const { state: wardrobe } = useShop(mode);
   const [picking, setPicking] = useState(false);
-  // 다른 화면으로 갔다 돌아오면 닫혀 있게 (cacheComponents로 숨겨진 화면도 상태가 남음, use-collapse-on-hide.ts 참고)
-  useLayoutEffect(() => () => setPicking(false), []);
+  const picker = useRef<HTMLDialogElement>(null);
+  useCloseDialogOnHide(picker);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -63,7 +64,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
     try {
       const next = await (id === undefined ? client(mode).avatar() : client(mode).saveAvatar(id));
       setAvatarChoices(previous => ({ ...next, constellations: next.constellations ?? previous?.constellations ?? null }));
-      if (id !== undefined) setPicking(false);
+      if (id !== undefined) picker.current?.close();
     } catch (error) {
       setAvatarError(error instanceof Error ? error.message : '프로필 그림을 저장하지 못했어요.');
     } finally { setAvatarBusy(false); }
@@ -101,7 +102,10 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
     <ScreenBar title="나의 프로필" right={<button type="button" className="screen-icon" aria-label="설정 (시작 질문·정책 신청 정보)" onClick={() => setSettings(true)}><span aria-hidden="true">⚙</span><small aria-hidden="true">설정</small></button>} />
 
     <Hero
-      visual={<button type="button" className="avatar-button" aria-label="프로필 그림 바꾸기" onClick={() => setPicking(p => !p)}>
+      visual={<button type="button" className="avatar-button" aria-label="프로필 그림 바꾸기" aria-haspopup="dialog" onClick={() => {
+        picker.current?.showModal();
+        setPicking(true);
+      }}>
         <Avatar id={avatar} item={wardrobe?.equipped} />
         <span className="avatar-edit" aria-hidden="true">✎</span>
       </button>}
@@ -115,8 +119,13 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
       <span>별빛 상점</span>
       <span className="shop-entry-arrow" aria-hidden="true">→</span>
     </Link>
-    {picking && <section className="card avatar-picker" aria-labelledby="profile-avatar-picker">
-      <h3 id="profile-avatar-picker">프로필 고르기</h3>
+    <dialog ref={picker} className="avatar-picker" aria-labelledby="profile-avatar-picker" onClose={() => setPicking(false)}
+      onCancel={event => { if (avatarBusy) event.preventDefault(); }}>
+      <header className="avatar-picker-header">
+        <h2 id="profile-avatar-picker">프로필 고르기</h2>
+        <button type="button" className="secondary" aria-label="캐릭터 선택 닫기" disabled={avatarBusy} onClick={() => picker.current?.close()}>닫기</button>
+      </header>
+      {picking && <>
       {avatarError && <p role="alert">{avatarError}</p>}
       {!avatarChoices && (avatarError
         ? <button type="button" disabled={avatarBusy} onClick={() => void updateAvatar()}>다시 불러오기</button>
@@ -142,7 +151,8 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
       </div>
       <p className="small">별자리를 완성하면 그 캐릭터를 고를 수 있어요.</p>
       </>}
-    </section>}
+      </>}
+    </dialog>
 
     {error && <p className="error" role="alert">{error}</p>}
 
