@@ -19,6 +19,7 @@ import './profile-home.css';
 
 // 'person' = 메인 캐릭터 그림 (screen-kit Avatar → SkyPerson sculpted, 상점 장식도 이 id 기준)
 const DEFAULT_AVATAR = 'person';
+const PROFILE_CATALOG_PREVIEW_SIZE = 4;
 
 const shortDate = (value: string) => {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
@@ -35,10 +36,12 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
   const [avatarChoices, setAvatarChoices] = useState<ProfileAvatar | null>(null);
   const [avatarError, setAvatarError] = useState('');
   const [avatarBusy, setAvatarBusy] = useState(false);
+  const [catalogExpanded, setCatalogExpanded] = useState(false);
   const avatar = characters.find(character => character.constellationId === avatarChoices?.avatarConstellationId)?.id ?? DEFAULT_AVATAR;
-  const acquiredCharacters = characters.filter(character => avatarChoices?.constellations?.some(
-    item => item.constellationId === character.constellationId && item.acquired,
-  ));
+  const acquiredIds = new Set(avatarChoices?.constellations?.filter(item => item.acquired).map(item => item.constellationId));
+  const acquiredCharacters = characters.filter(character => acquiredIds.has(character.constellationId));
+  const lockedCharacters = characters.filter(character => !acquiredIds.has(character.constellationId));
+  const catalogCharacters = [...acquiredCharacters, ...lockedCharacters];
   const { state: wardrobe } = useShop(mode);
   const [picking, setPicking] = useState(false);
   // 다른 화면으로 갔다 돌아오면 닫혀 있게 (cacheComponents로 숨겨진 화면도 상태가 남음, use-collapse-on-hide.ts 참고)
@@ -127,7 +130,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
           <Avatar id={choice.id} size={56} />
           <small>{choice.nickname}</small>
         </button>)}
-        {characters.filter(character => !acquiredCharacters.includes(character)).map(character =>
+        {lockedCharacters.map(character =>
           <button key={character.id} type="button" className="avatar-option avatar-locked" disabled
             aria-label={`${character.nickname}, 미완성`}>
             <span className="avatar avatar-silhouette">
@@ -152,22 +155,31 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
     <section aria-labelledby="profile-catalog">
       <div className="profile-catalog-header">
         <h2 id="profile-catalog" className="screen-section">나의 별자리 도감</h2>
-        <Link href="/catalog" aria-label="별자리 도감 더 보기">더 보기</Link>
+        {avatarChoices?.constellations && <span className="profile-catalog-count">완성 {acquiredCharacters.length}/{characters.length}</span>}
       </div>
-      {acquiredCharacters.length > 0
-        ? <div className="profile-strip">
-          {acquiredCharacters.map(character => <Link key={character.id} href="/catalog" className="strip-item done"
-            aria-label={`${character.constellation.name} ${character.nickname}, 완성`}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={`/catalog/${character.id}.webp`} alt="" />
-            <small>완성</small>
-          </Link>)}
+      {avatarChoices?.constellations ? <>
+        <div id="profile-catalog-items" className="profile-strip">
+          {(catalogExpanded ? catalogCharacters : catalogCharacters.slice(0, PROFILE_CATALOG_PREVIEW_SIZE)).map(character => {
+            const acquired = acquiredIds.has(character.constellationId);
+            return <Link key={character.id} href="/catalog" className={`strip-item ${acquired ? 'done' : 'yet'}`}
+              aria-label={`${character.constellation.name} ${character.nickname}, ${acquired ? '완성' : '미완성'}`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`/catalog/${character.id}.webp`} alt="" />
+              <small>{character.nickname}</small>
+            </Link>;
+          })}
         </div>
-        : avatarChoices
-          ? <p className="small">아직 획득한 별자리가 없어요.</p>
-          : avatarError
-            ? <p className="small" role="alert">획득한 별자리를 불러오지 못했어요.</p>
-            : <p className="small" role="status">별자리를 불러오고 있어요.</p>}
+        <div className="profile-catalog-actions">
+          {catalogCharacters.length > PROFILE_CATALOG_PREVIEW_SIZE && <button type="button" className="secondary"
+            aria-controls="profile-catalog-items" aria-expanded={catalogExpanded}
+            onClick={() => setCatalogExpanded(expanded => !expanded)}>
+            {catalogExpanded ? '도감 접기' : '도감 펼치기'}
+          </button>}
+          <Link href="/catalog">전체 도감 열기</Link>
+        </div>
+      </> : avatarError || avatarChoices
+        ? <p className="small" role="alert">획득한 별자리를 불러오지 못했어요.</p>
+        : <p className="small" role="status">별자리를 불러오고 있어요.</p>}
     </section>
 
     <Section id="profile-badges" title="나의 배지">
