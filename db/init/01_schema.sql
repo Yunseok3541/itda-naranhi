@@ -2,7 +2,7 @@
 -- 설계 이유는 docs/기술스택.md "DB 설계" 참고
 
 ------------------------------------------------------------
--- 1. 사용자와 마음 점검
+-- 1. 사용자와 마음 짚기
 ------------------------------------------------------------
 
 -- 사용자 (프로토타입은 로그인 없이 닉네임만)
@@ -37,16 +37,20 @@ CREATE TABLE demo_sessions (
   last_seen_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 선택형 마음 점검 (단축형 UCLA 3문항 + Mini-SPIN 3문항)
+-- 선택형 마음 짚기 (UCLA 3문항 + LSNS-6 + WHO-5, 고민기록 #56·#57)
 -- 레벨·위험 판정에는 쓰지 않고, 원하는 사용자만 4주마다 응답해 변화 추이를 보는 용도 (효과 측정 지표)
+-- 묶음(척도)을 건너뛰면 그 점수는 NULL. spin_score는 예전 Mini-SPIN 칸 (더 쓰지 않음, 변경 SQL과 칸을 같게 둠)
 CREATE TABLE survey_results (
   id          SERIAL PRIMARY KEY,
   user_id     INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  answers     JSONB NOT NULL,           -- {"ucla":[1,2,3], "spin":[0,2,4]}
-  ucla_score  SMALLINT NOT NULL,
-  spin_score  SMALLINT NOT NULL,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+  answers     JSONB NOT NULL,           -- {"ucla":[1,2,3], "lsns":[2,1,1,3,1,0], "who5":[3,2,2,1,3]} (답하지 않은 문항 null)
+  ucla_score  SMALLINT,                 -- 3~9, 높을수록 외로움이 큼
+  spin_score  SMALLINT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  lsns_score  SMALLINT,                 -- 0~30, 높을수록 관계망이 넓음
+  who5_score  SMALLINT                  -- 원점수 0~25, 13 미만이면 상담받을 곳 안내
 );
+CREATE INDEX survey_results_user_created_idx ON survey_results (user_id, created_at DESC);
 
 ------------------------------------------------------------
 -- 2. 별자리와 별 (미리 정의된 콘텐츠)

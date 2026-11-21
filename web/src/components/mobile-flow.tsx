@@ -7,14 +7,15 @@ import NightSky from './night-sky';
 import PoliciesScreen from './policies-screen';
 import CentersScreen from './centers-screen';
 import SkyPanorama from '@/app/sky-preview/sky-panorama';
-import { ProfileScreen, StartQuestions, StartResult, StepStars, startStepAnswered } from './profile-form';
+import { ProfileScreen, StartQuestions, startStepAnswered } from './profile-form';
 import GlassSelect from './glass-select';
 import StarlightShop from './starlight-shop';
 import ProfileHome from './profile-home';
 import { PendingNextLink } from './next-step-card';
 import QuestScreen from './quest-screen';
+import MindCheckScreen from './mind-check-screen';
 import StarScreen from './star-screen';
-import { HelpContext, ScreenBar } from './screen-kit';
+import { HelpContext, ScreenBar, StarProgress } from './screen-kit';
 import { HELP, HelpPanelContent } from './help-lines';
 import { EMPTY_START, type StartAnswers } from '@/lib/profile';
 import { DAILY_STAR_LIMIT_MESSAGE, hasReachedDailyStarLimit, isTutorialStar } from '@/lib/star-limit';
@@ -35,6 +36,8 @@ const navigation = [
   { href: '/catalog', label: '도감', icon: 'book' },
 ] as const;
 
+/** 시작 질문 3개 (별 순서 표시의 화면 읽기용 이름, profile-form.tsx answerFields와 같은 말) */
+const START_STEPS = ['활동 범위', '부담되는 상황', '활동 방식'];
 export default function MobileFlow({screen='sky',starId,centerId,completionAttemptId,memoryStarId,guide=false,tour=false,checkin=false}:{
   screen?:string;starId?:number;centerId?:number;completionAttemptId?:number;memoryStarId?:number;
   /** 설정의 "사용 안내 다시 보기"(/sky?guide=1)로 들어왔으면 시작 안내부터 */
@@ -59,7 +62,8 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  const [needsSession,setNeedsSession]=useState(false);
  const [startAnswers,setStartAnswers]=useState<StartAnswers>(EMPTY_START);
  const [startStep,setStartStep]=useState<number | null>(null);
- const [showStartResult,setShowStartResult]=useState(false);
+ // 시작 질문을 넘긴 방향 (다음 = 오른쪽에서, 이전 = 왼쪽에서 밀려 들어옴. 마음 짚기 질문과 같은 .step-slide)
+ const [startDir,setStartDir]=useState<'fwd' | 'back'>('fwd');
  // 처음 시작 안내(service-guide.tsx): 시작 질문을 처음 마쳤을 때, 또는 설정에서 다시 볼 때
  const [guiding,setGuiding]=useState(guide);
  const tourPending=useMenuTourPending();
@@ -163,7 +167,9 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
      ? { support: current.support, living: current.living, needs: current.needs } : {};
    await api.saveProfile({ startAnswers: { ...extra, range, burden, with: approach } });
    localStorage.setItem('naranhi-mode', mode);
-   setShowStartResult(true);
+   // "내가 고른 답" 화면 없이 바로: 시작 안내를 아직 안 봤으면 안내로, 봤으면 밤하늘로 (다시 시작해도 한 번 본 안내는 다시 나오지 않음)
+   if (guideSeen()) await enterAfterOnboarding();
+   else setGuiding(true);
  }
  /** 시작 안내를 끝내거나 건너뜀 → 메인에 처음 들어갈 때 메뉴 한 장 안내(menu-tour.tsx) */
  function finishServiceGuide() {
@@ -223,7 +229,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
    root.classList.add('sky-locked-page');
    return () => root.classList.remove('sky-locked-page');
  }, [locked]);
- const footer = <footer>시연용 서비스 · 실제 개인정보를 입력하지 마세요.{ready&&!guiding&&<button className="text-button" disabled={busy} onClick={()=>{localStorage.removeItem('naranhi-mode');R(false);H(null);SS(null);E('');setNeedsSession(false);setStartStep(null);setStartAnswers(EMPTY_START);setShowStartResult(false);}}>체험 방식 다시 선택</button>}</footer>;
+ const footer = <footer>시연용 서비스 · 실제 개인정보를 입력하지 마세요.{ready&&!guiding&&<button className="text-button" disabled={busy} onClick={()=>{localStorage.removeItem('naranhi-mode');R(false);H(null);SS(null);E('');setNeedsSession(false);setStartStep(null);setStartAnswers(EMPTY_START);}}>체험 방식 다시 선택</button>}</footer>;
  const feedback = <>
    {help && <aside className="help help-panel support-surface" aria-labelledby={helpTitle}
      role={help.title === HELP.title ? undefined : 'alert'}>
@@ -273,13 +279,9 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
      </header>}
  {!questOpen && feedback}
  {guiding ? <ServiceGuide mode={mode} replay={ready} onDone={finishServiceGuide} onHelp={H} />
- : !ready ? showStartResult ? <>
-   <StartResult answers={startAnswers} demo />
-   {/* 시작 안내를 아직 안 봤으면 먼저 안내로 (다시 시작해도 한 번 본 안내는 다시 나오지 않음) */}
-   <button type="button" disabled={busy} onClick={() => guideSeen() ? run(enterAfterOnboarding) : setGuiding(true)}>{busy ? '준비 중…' : !guideSeen() ? '다음' : screen === 'sky' ? '내 밤하늘 열기' : '계속하기'}</button>
- </> : startStep === null ? <>
+ : !ready ? startStep === null ? <>
    <div className="intro"><span className="welcome-icon" aria-hidden="true">✦<sup>✧</sup></span><h1>오늘의 작은 시도가<br/>별이 되는 곳</h1><p>다 해내지 않아도 괜찮아요.<br/>손을 뻗은 순간도 하늘에 남아요.</p>
-     <button type="button" onClick={() => setStartStep(0)}>데모 시작</button>
+     <button type="button" onClick={() => { setStartDir('fwd'); setStartStep(0); }}>데모 시작</button>
      <p className="small">{mode === 'example' ? '예시 모드 · 이 브라우저에 기록해요' : '실제 API 모드 · 서버 세션에 기록해요'}</p>
    </div>
    <details className="onboarding"><summary>체험 방식</summary><section className="card">
@@ -288,12 +290,22 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
        options={[{ value: 'example', label: '예시 모드 · 브라우저 저장' }, { value: 'api', label: '실제 API · 서버 세션' }]} />
    </section></details>
  </> : <section className="card onboarding-step start-survey" aria-label={`시작 질문 ${startStep + 1}/3`}>
-   <h2 className="step-head">시작 질문 <StepStars current={startStep} total={3} /></h2>
-   <p className="small">모든 질문은 고르지 않고 넘어가도 돼요.</p>
-   <StartQuestions value={startAnswers} onChange={setStartAnswers} step={startStep} disabled={busy} />
+   {/* 순서는 숫자(1/3) 대신 별이 하나씩 켜짐 (처음 시작 안내의 점과 같은 모양, 마음 짚기 질문과 같이 가운데) */}
+   <div className="onboarding-step-top">
+     <StarProgress steps={START_STEPS} current={startStep} label="시작 질문 순서" />
+     <h2 aria-live="polite">시작 질문<span className="sr-only"> {startStep + 1}/3</span></h2>
+     <p className="small">모든 질문은 고르지 않고 넘어가도 돼요.</p>
+   </div>
+   {/* 세 질문을 같은 자리에 겹쳐 두고 지금 질문만 보임 → 카드 크기가 가장 긴 질문(②)에 맞춰 늘 같고 이전·다음 버튼도 제자리
+       (숨긴 질문은 inert: 누르거나 읽히지 않음). 지금 질문이 되는 순간 data-dir이 붙어 밀려 들어옴 */}
+   <div className="onboarding-stack">
+     {START_STEPS.map((name, i) => <div key={name} className="step-slide" data-dir={i === startStep ? startDir : undefined} inert={i !== startStep}>
+       <StartQuestions value={startAnswers} onChange={setStartAnswers} step={i} disabled={busy} />
+     </div>)}
+   </div>
    <div className="choices">
-     <button type="button" className="ghost" disabled={busy} onClick={() => { E(''); setStartStep(startStep === 0 ? null : startStep - 1); }}>이전</button>
-     <button type="button" disabled={busy} onClick={() => startStep < 2 ? setStartStep(startStep + 1) : run(finishOnboarding)}>{busy ? '저장 중…' : startStep < 2 ? (startStepAnswered(startAnswers, startStep) ? '다음' : '건너뛰기') : '저장하고 결과 보기'}</button>
+     <button type="button" className="ghost" disabled={busy} onClick={() => { E(''); setStartDir('back'); setStartStep(startStep === 0 ? null : startStep - 1); }}>이전</button>
+     <button type="button" disabled={busy} onClick={() => { if (startStep < 2) { setStartDir('fwd'); setStartStep(startStep + 1); } else run(finishOnboarding); }}>{busy ? '저장 중…' : startStep < 2 ? (startStepAnswered(startAnswers, startStep) ? '다음' : '건너뛰기') : '저장하고 시작하기'}</button>
    </div>
  </section> : <>
  {/* 하단 이동 버튼은 메인에서만. 다른 화면은 하나의 일에 집중하고 왼쪽 위 "← 내 밤하늘"로 돌아감 (도감 화면과 같은 구조) */}
@@ -320,6 +332,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  {screen==='star'&&<StarScreen key={starId} mode={mode} star={star} dailyLimitReached={!isTutorialStar(starId) && hasReachedDailyStarLimit(stars)} busy={busy} run={run} onHelp={H} onSaved={reloadSky}/>}
  {screen==='shop'&&<StarlightShop mode={mode}/>}
  {screen==='profile'&&<ProfileHome mode={mode}/>}
+ {screen==='mind-check'&&<MindCheckScreen mode={mode}/>}
  {screen==='policy-criteria' && <>
    <ScreenBar title="추천 기준" back="/policies" backLabel="정책 추천으로 돌아가기" />
    <ProfileScreen mode={mode} onSaved={() => router.replace('/policies')} />

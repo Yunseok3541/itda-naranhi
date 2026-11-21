@@ -820,6 +820,37 @@ const { cheer, help } = await processReflection({
 
 - 화면 문구는 기존 포인트 원칙을 따른다: 순위·다른 사람과 비교·연속 기록(며칠 연속 체크인 등) 표현을 쓰지 않는다. 그래서 체크인 일수·연속 일수는 응답에 넣지 않았다.
 
+### 10. 마음 짚기 — `GET /api/mind-check`, `POST /api/mind-check` (고민기록 #56·#57, 기획: v4 3장 "마음 짚기")
+
+UCLA 3문항 + LSNS-6 + WHO-5. 선택, 4주마다 권함. **점수는 변화를 보는 데만 쓰고 시작 단계·위험 판정에 쓰지 않는다.** 문항·점수·비교 문장은 `web/src/lib/mind-check.ts` (화면·서버 공용)
+
+```jsonc
+// GET → 200 (아직 짚은 적 없으면 latest: null)
+{ "latest": {
+    "checkedAt": "2026-11-21T06:10:00.000Z",
+    "scores": { "ucla": 4, "lsns": 14, "who5": null },      // 다 답하지 않은 묶음은 null
+    "changes": [                                              // 지난번이 없으면 null. 두 번 모두 답한 묶음만
+      { "scale": "ucla", "trend": "better", "text": "지난번보다 외롭다고 느끼는 때가 줄었어요." },
+      { "scale": "lsns", "trend": "better", "text": "지난번보다 연락하고 기댈 수 있는 사람이 늘었어요." } ],
+    "lowWellbeing": false,                                    // WHO-5 원점수 13 미만 → 화면에 상담받을 곳 안내
+    "nextAt": "2026-12-19" } }                                // 다음에 권하는 날 (한국 날짜, 28일 뒤)
+
+// POST body — 묶음별 문항 순서대로, 답하지 않은 문항은 null (묶음 키를 빼도 됨)
+{ "answers": { "ucla": [1, 2, 1], "lsns": [3, 2, 2, 3, 2, 2], "who5": [3, null, 2, 2, 3] } }
+// → 201 { "latest": { ...GET과 같은 형식 } }
+// 400 INVALID "한 묶음 이상 모두 답해 주세요." field: "answers" / "답을 다시 확인해 주세요." field: "answers.ucla" 등
+// 401 NO_SESSION / 500 LOAD_FAILED·SAVE_FAILED / 503 LOAD_FAILED (세션 확인 실패)
+```
+
+| 묶음 | 문항 | 값 | 점수 |
+| ---- | ---- | -- | ---- |
+| `ucla` | 3 | 1 거의 없어요 · 2 가끔 · 3 자주 | 3~9, 낮을수록 좋음. 1점 차이부터 변화 |
+| `lsns` | 6 (가족·친척 3 + 친구 3) | 0 없음 · 1 · 2 · 3 (3~4명) · 4 (5~8명) · 5 (9명 이상) | 0~30, 높을수록 좋음. 2점 차이부터 변화 |
+| `who5` | 5 | 5 늘 ~ 0 전혀 | 0~25, 높을수록 좋음. 3점(≈10%p) 차이부터 변화 |
+
+- 예시 모드는 점수만 이 브라우저(`localStorage` `naranhi-example-mind`)에 저장, 계산은 같은 모듈
+- 검증: `scripts/verify-mind-check.mts` (계산 + 저장·조회, 트랜잭션 롤백)
+
 ## 만들 것 (기획: `docs/기획/아이디어_v4.md`)
 
 | API | 기능 | 비고 |
@@ -1139,6 +1170,19 @@ node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/verify-ai-live.
 
 - ⚠ 적용 전에 이 브랜치를 배포하면 `/api/profile/avatar`만 500이고 다른 API는 그대로다.
 - 확인: `SELECT to_regclass('public.v_user_acquired_constellations');` → 이름이 나오면 적용 완료
+
+## DB 변경 — 마음 짚기 (`db/migrations/20261124_mind_check.sql`, 기록 유지)
+
+다른 변경 SQL과 순서 상관없다. **기록을 지우지 않는다.** 여러 번 실행해도 결과가 같다.
+
+| 변경 | 내용 |
+| ---- | ---- |
+| 칸 추가 | `survey_results.lsns_score`, `who5_score` (SMALLINT, NULL = 그 묶음을 다 답하지 않음) |
+| 제약 완화 | `ucla_score`, `spin_score`의 NOT NULL 풂 (`spin_score`는 예전 Mini-SPIN 칸, 더 쓰지 않지만 지우지 않음) |
+| 인덱스 | `(user_id, created_at DESC)` — 최근 두 번만 읽음 |
+
+- ⚠ **팀 공용 Neon에는 아직 적용하지 않음.** 적용 전에 배포하면 `/api/mind-check`만 500이고 다른 API는 그대로다 (실제 API 모드에서 마음 짚기 화면에 "불러오지 못했어요")
+- 확인: 파일 머리말의 SELECT → 4줄, 모두 YES
 
 ## 실행 환경
 
