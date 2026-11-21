@@ -196,34 +196,29 @@ html.sky-night-page body {
 .sky-points { position: fixed; z-index: 1; top: calc(clamp(18px, 3.3dvh, 32px) + 49px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); font-size: .8rem; color: #e4d8f2; pointer-events: none; }
 .sky-points span, .checkin-reward { color: #ffe4a0; }
 .sky-mode button.sky-pill.sky-meteor {
-  position: fixed; z-index: 1; top: 36dvh; left: calc(50% + min(31vw, 152px)); display: grid;
+  /* 자리(left·top)·꼬리 방향·밝기는 meteor-rewards.tsx가 하늘 시점에 맞춰 매 프레임 정함 (유성은 하늘에 붙어서 움직임) */
+  position: fixed; z-index: 1; top: 0; left: 0; display: grid; opacity: var(--meteor-fade, 1);
   place-items: center; width: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 50%;
   background: transparent; color: #fff0bb; text-shadow: 0 0 12px #ffe4a1; pointer-events: auto;
-  /* 하늘을 확대할수록 커짐 (meteor-rewards.tsx의 meteorScale). 지나가는 움직임(transform)과 따로 적용되는 scale 속성 */
-  scale: var(--meteor-scale, 1); transition: scale .18s ease-out;
+  /* 하늘을 확대할수록 커짐 (meteor-rewards.tsx의 meteorScale). 매 프레임 맞추므로 전환 효과 없음 → 나올 때 1에서 커지는 모습 없이 바로 그 크기 */
+  scale: var(--meteor-scale, 1);
 }
 .sky-meteor::before {
-  content: ''; position: absolute; inset: 21px auto auto 26px; width: 45px; height: 2px;
-  background: linear-gradient(90deg, #fff3ce, transparent); transform: rotate(-26deg); transform-origin: left;
+  content: ''; position: absolute; inset: 21px auto auto 22px; width: 45px; height: 2px;
+  background: linear-gradient(90deg, #fff3ce, transparent); transform: rotate(var(--meteor-tail, -26deg)) translateX(4px); transform-origin: left;
 }
-.sky-mode button.sky-pill.sky-meteor:disabled { pointer-events: none; opacity: .55; }
+.sky-mode button.sky-pill.sky-meteor:disabled { pointer-events: none; opacity: calc(var(--meteor-fade, 1) * .55); }
 .sky-meteor-reward {
   position: fixed; z-index: 2; transform: translate(-50%, -130%); white-space: nowrap;
   color: #ffe29a; font-weight: 700; text-shadow: 0 2px 10px #110b25; pointer-events: none;
 }
 @media (prefers-reduced-motion: no-preference) {
-  .sky-meteor { animation: sky-meteor-pass 5.2s linear both; }
   .sky-meteor-reward { animation: sky-meteor-reward-rise 1.6s ease-out both; }
   @keyframes sky-meteor-reward-rise {
     from { opacity: 0; transform: translate(-50%, -60%) scale(.85); }
     15% { opacity: 1; transform: translate(-50%, -130%) scale(1); }
     70% { opacity: 1; }
     to { opacity: 0; transform: translate(-50%, -230%); }
-  }
-  @keyframes sky-meteor-pass {
-    from { transform: translate(30px, -30px); opacity: 0; }
-    12%, 85% { opacity: 1; }
-    to { transform: translate(calc(-1 * min(54vw, 260px)), 17dvh); opacity: 0; }
   }
 }
 .night-toolbar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 44px; }
@@ -251,6 +246,8 @@ html.sky-night-page body {
 .nstar.dim .glow { width: 30px; height: 30px; border: 0; background: radial-gradient(circle, rgba(246, 207, 125, .22), transparent 70%); }
 .nstar.bright .glow { width: 52px; height: 52px; border: 0; background: radial-gradient(circle, rgba(246, 207, 125, .35), transparent 68%); }
 .nstar.active .glow { outline: 1px solid rgba(238, 233, 255, .6); outline-offset: 4px; }
+/* 상세 창을 연 별: 금색 고리 (창의 "금색 고리로 표시한 별"과 맞춤) */
+.nstar.active::after { content: ''; position: absolute; inset: 6px; border-radius: 50%; border: 2px solid var(--star-gold); box-shadow: 0 0 14px rgba(246, 207, 125, .55); pointer-events: none; }
 .nstar:focus-visible { outline-color: var(--star-gold); }
 
 /* 두드렸을 때 반짝임 */
@@ -261,16 +258,24 @@ html.sky-night-page body {
 .night-list-trigger svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .night-hint { text-align: center; color: rgba(238, 233, 255, .45); font-size: .8125rem; margin: 6px 0 0; }
 
-/* 기억 시트 (아래에서 올라옴) */
+/* 별 상세 창: 고른 별(화면 가운데, 높이 36% 근처로 크게 옮겨 둠) 바로 아래에 띄움.
+   --sheet-top은 night-sky.tsx가 별 위치로 계산 (별이 화면 밖이면 화면 가운데쯤). 아래쪽 메뉴는 가리지 않음 */
 .sheet {
-  position: fixed; inset: 0; margin: auto;
-  width: min(calc(100% - 32px), 420px); max-height: min(76dvh, calc(100dvh - 32px)); overflow-y: auto; overscroll-behavior: contain;
+  position: fixed; inset: var(--sheet-top, 40dvh) 0 auto; margin: 0 auto;
+  width: min(calc(100% - 32px), 420px);
+  max-height: max(200px, calc(100dvh - var(--sheet-top, 40dvh) - var(--sky-dock-height) - 16px - env(safe-area-inset-bottom)));
+  overflow-y: auto; overscroll-behavior: contain;
   padding: 0;
   border-radius: 20px; border: 1px solid var(--glass-line);
   background: #100f30; color: var(--starlight);
   box-shadow: 0 12px 40px rgba(0, 0, 0, .45);
 }
-.sheet::backdrop { background: #08061965; }
+.sheet::backdrop {
+  /* 고른 별 자리(--spot-x/y, 창 style에서 상속)만 밝게 두고 나머지를 어둡게. 별이 화면 밖이면 전체를 고르게 */
+  background: radial-gradient(circle at var(--spot-x, 50%) var(--spot-y, -400px), transparent 0 46px, #08061999 120px);
+}
+.sheet-where { display: flex; align-items: center; gap: 6px; margin: 0 0 4px; font-size: .8125rem; color: var(--star-gold); }
+.sheet-where svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .star-sheet-content { padding: 14px 16px calc(16px + env(safe-area-inset-bottom)); }
 .sky-mode .star-sheet-close { float: right; display: grid; place-items: center; width: 44px; min-height: 44px; padding: 0; margin-left: 8px; }
 .sheet-grip { width: 40px; height: 4px; margin: 0 auto 12px; border-radius: 4px; background: var(--glass-line); }
@@ -392,10 +397,12 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
   .nstar:active .core { transform: scale(1.35); transition: transform .12s; }
   .burst i { animation: burst .7s ease-out forwards; }
   @keyframes burst { 0% { opacity: 1; transform: rotate(var(--a)) translateY(0) scale(1); } 100% { opacity: 0; transform: rotate(var(--a)) translateY(-34px) scale(.3); } }
-  /* 별 상세는 화면 가운데 창이라 아래에서 올라오는 대신 제자리에서 살짝 커지며 나타남 */
-  .sheet[open] { animation: sheet-in .26s cubic-bezier(.2, .8, .2, 1); }
+  /* 별 상세는 화면 아래 창이라 아래에서 살짝 올라오며 나타남. 고른 별의 금색 고리는 천천히 숨 쉼 */
+  .sheet[open] { animation: sheet-in .3s cubic-bezier(.2, .8, .2, 1); }
+  .nstar.active::after { animation: chosen-ring 1.8s ease-in-out infinite; }
+  @keyframes chosen-ring { 50% { transform: scale(1.18); opacity: .55; } }
   .sheet[open]::backdrop { animation: backdrop-in .26s ease-out; }
-  @keyframes sheet-in { from { scale: .94; opacity: 0; } }
+  @keyframes sheet-in { from { translate: 0 24px; opacity: 0; } }
   @keyframes backdrop-in { from { opacity: 0; } }
   /* 화면 전환: 메인(밤하늘)에 들어오면 위·아래 메뉴가 하늘 위로 천천히 떠오름 (FE_QA "화면 전환을 더 유기적으로") */
   .sky-locked :is(.sky-top, .night-actions, .sky-actions) { animation: screen-rise .45s cubic-bezier(.2, .8, .2, 1) both; }
@@ -427,15 +434,18 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .sky-control-icon { flex: none; }
 .sky-icon-action { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
 .sky-icon-action .sky-control-icon { width: 16px; height: 16px; }
-/* 메인에서는 도움 안내를 모서리 버튼 아래 뜨는 불투명한 창으로 (뒤 별자리와 겹쳐 읽기 어렵지 않게, 배치를 밀지 않게) */
-.sky-locked > .help.help-panel {
-  position: fixed; z-index: 6; top: calc(68px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+/* 메인·첫 화면(시작 질문·시작 안내 포함)에서는 도움 안내를 모서리 버튼 아래 뜨는 불투명한 창으로
+   (뒤 별자리와 겹쳐 읽기 어렵지 않게, 배치를 밀지 않게. 첫 화면에서 흐름 안에 넣으면 "데모 시작"이 화면 밖으로 밀려남)
+   위치: 버튼 줄 위쪽 여백(아래 .sky-mode.sky-locked/.sky-intro의 padding-top과 같은 식) + 버튼 높이 44px + 간격 6px.
+   고정 68px이면 화면 높이에 따라 버튼 아래를 최대 8px 덮거나 떠 보였음 */
+.sky-mode > .help.help-panel {
+  position: fixed; z-index: 6; top: calc(clamp(16px, 3.3dvh, 32px) + env(safe-area-inset-top) + 44px + 6px); left: 50%; transform: translateX(-50%);
   width: min(calc(100% - 32px), 488px); max-height: 62dvh; overflow-y: auto; margin: 0; padding: 14px 16px;
   background: #171236; border: 1px solid var(--star-gold-soft); border-radius: 16px; box-shadow: 0 12px 36px rgba(0, 0, 0, .5);
 }
-.sky-locked > .help h2 { margin-top: 0; }
-.sky-locked > .help p { margin: 6px 0; }
-.sky-locked > .help .text-button { margin-top: 8px; }
+.sky-mode > .help h2 { margin-top: 0; }
+.sky-mode > .help p { margin: 6px 0; }
+.sky-mode > .help .text-button { margin-top: 8px; }
 
 /* ───────── 캐릭터 말풍선 (메인) ─────────
    배경 인물은 화면 아래 약 21%(손끝)부터 하단 버튼 위까지. 그 자리에 투명 단추를 겹침 */
@@ -714,13 +724,17 @@ html.sky-locked-page { --sky-dock-height: 96px; --person-height: 15dvh; }
 .sky-locked .night-title h1.complete { color: var(--star-gold); }
 .sky-locked .night-title p { font-size: clamp(13px, 3.5vw, 17px); }
 :is(.sky-locked, .sky-intro) .sky-top .sky-pill.sky-utility {
-  height: 44px; width: 100%; justify-content: center; padding: 0 8px; gap: 8px;
+  /* 폭은 내용에 맞춤: 아이콘은 위아래 여백과 비슷하게 왼쪽 7px, 글자는 아이콘 바로 옆 8px
+     (칸 폭 100%에 가운데 정렬이면 아이콘 왼쪽·아이콘-글자 사이가 20px 넘게 비어 어색함) */
+  height: 44px; width: auto; justify-self: start; justify-content: flex-start; padding: 0 10px 0 7px; gap: 8px;
   border-radius: 14px; font-size: 13px;
   color: #fffaff;
   border: 1px solid var(--sky-utility-border);
   background: var(--sky-utility-surface);
   box-shadow: 0 3px 13px #08041546;
 }
+/* 오른쪽 버튼은 줄 오른쪽 끝에 붙여 아래 도움받을 곳 창의 오른쪽 끝과 맞춤 */
+:is(.sky-locked, .sky-intro) .sky-top .sky-pill.sky-utility:nth-child(2) { justify-self: end; }
 :is(.sky-locked, .sky-intro) .sky-top .sky-utility:is(:hover, :focus-visible, [aria-expanded="true"]) { border-color: var(--sky-utility-ink); }
 .sky-help-button {
   --sky-utility-border: #a986d57a;
@@ -916,6 +930,14 @@ html.sky-locked-page { --sky-dock-height: 96px; --person-height: 15dvh; }
 }
 .sky-top .bgm-toggle[aria-pressed="false"] { color: #b9aecf; opacity: .75; }
 .sky-top .bgm-toggle:is(:hover, :focus-visible) { border-color: #f0d3ff; }
+
+/* 유성 테스트 모드 (?meteorTest, meteor-rewards.tsx). QA 전용 */
+.meteor-test {
+  position: fixed; z-index: 8; left: 8px; top: calc(120px + env(safe-area-inset-top)); display: grid; gap: 4px;
+  padding: 8px; border-radius: 10px; background: #0d0920d9; color: #f3ecff; font-size: .72rem;
+}
+.meteor-test button { min-height: 30px; padding: 0 10px; border: 1px solid #ffffff40; border-radius: 6px; background: transparent; color: inherit; font-size: .72rem; }
+.meteor-test button[aria-pressed='true'] { background: #ffe4a0; color: #2a1b3d; border-color: #ffe4a0; }
 
 /* 시작 질문 별 카드 (profile-form.tsx Choices). 하나 고르기·여러 개 고르기 같은 모양, 고르면 금빛 테두리 + 별이 켜짐
    (docs/기능발견성-조사.md: 선택지를 숨기지 않기, 같은 기능 같은 모양, 고르면 바로 반응) */
