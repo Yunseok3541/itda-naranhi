@@ -9,13 +9,14 @@ import { characters } from '@/app/catalog/characters';
 import CatalogStardust from '@/app/catalog/catalog-stardust';
 import { getActivityConstellation } from '@/lib/constellations';
 import type { Star } from '@/lib/mobile-data';
+import { RANGE } from '@/lib/profile';
 import SkyControlIcon from './sky-control-icon';
 
 type Group = { id: number; name: string; theme: string; stars: Star[] };
 type Status = Star['status'];
 
 /** 별자리 난이도(quests.json stage) → 시작 질문 ① 활동 범위와 같은 말 */
-const STAGE_RANGE: Record<number, string> = { 1: '집 안', 2: '집 앞', 3: '혼자 외출', 4: '사람 있는 곳' };
+const STAGE_RANGE = Object.fromEntries(RANGE.map(([, label], index) => [index + 1, label]));
 const STATUS_TEXT: Record<Status, string> = { bright: '해냈어요', dim: '시도해 봤어요', untried: '아직' };
 const STAR_PATH = 'M12 2.8l2.6 6 6.4.6-4.9 4.2 1.5 6.3L12 16.6l-5.6 3.3 1.5-6.3L3 9.4l6.4-.6z';
 const shortDate = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric' });

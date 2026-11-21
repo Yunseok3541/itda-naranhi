@@ -2,12 +2,11 @@
 
 import Image from 'next/image';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { getCompletedConstellationIds } from '@/lib/constellations';
 import { client } from '@/lib/mobile-data';
 import { characters, type Character } from './characters';
 import CatalogStardust from './catalog-stardust';
 import { useCloseDialogOnHide } from '@/components/use-close-dialog-on-hide';
-import '@/components/first-star-bow.css';
+import FirstStarBow from '@/components/first-star-bow';
 
 function CharacterArt({ character, acquired, play, large = false }: {
   character: Character;
@@ -25,11 +24,13 @@ function CharacterArt({ character, acquired, play, large = false }: {
       style={{ '--companion-light': character.color } as CSSProperties}
       data-character={character.id}
       data-acquired={acquired}
-      data-greeting={acquired && play && imageReady && (bow || waveReady) ? (bow ? 'bow' : 'wave') : undefined}
+      data-greeting={acquired && !bow && play && imageReady && waveReady ? 'wave' : undefined}
     >
-      {acquired ? <span className="catalog-portrait">
+      {!acquired ? <CatalogStardust id={character.id} />
+      : bow ? <FirstStarBow characterId={character.id} alt="" play={play} eager={large} />
+      : <span className="catalog-portrait">
         <Image
-          className={bow ? 'catalog-rest-frame first-star-bow' : 'catalog-rest-frame'}
+          className="catalog-rest-frame"
           src={`/catalog/${character.id}.webp`}
           alt=""
           fill
@@ -37,7 +38,7 @@ function CharacterArt({ character, acquired, play, large = false }: {
           loading={large ? 'eager' : 'lazy'}
           onLoad={() => setImageReady(true)}
         />
-        {play && !bow && (
+        {play && (
           <Image
             className="catalog-wave-frame"
             src={`/catalog/${character.id}-wave.webp`}
@@ -48,7 +49,7 @@ function CharacterArt({ character, acquired, play, large = false }: {
             onLoad={() => setWaveReady(true)}
           />
         )}
-      </span> : <CatalogStardust id={character.id} />}
+      </span>}
     </span>
   );
 }
@@ -67,8 +68,8 @@ export default function CatalogGallery() {
     async function load() {
       try {
         const mode = localStorage.getItem('naranhi-mode') === 'api' ? 'api' : 'example';
-        const { stars } = await client(mode).sky();
-        if (active) setAcquired(getCompletedConstellationIds(stars));
+        const { constellations } = await client(mode).avatar();
+        if (active && constellations) setAcquired(new Set(constellations.filter(item => item.acquired).map(item => item.constellationId)));
       } catch {
         if (active) setLoadFailed(true);
       }
@@ -128,7 +129,7 @@ export default function CatalogGallery() {
                 <span className="catalog-constellation">{character.constellation.name}</span>
                 <strong>{character.nickname}</strong>
                 <span className="catalog-acquisition" data-acquired={isAcquired(character)}>{statusLabel(character)}</span>
-                <span className="catalog-chevron" aria-hidden="true">↗</span>
+                <span className="catalog-chevron" aria-hidden="true">›</span>
               </span>
             </button>
           </li>

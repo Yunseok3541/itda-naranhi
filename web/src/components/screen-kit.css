@@ -13,8 +13,50 @@
   background: transparent; border: 0; box-shadow: none; color: var(--starlight); font-size: 1.35rem; text-decoration: none;
 }
 .night-ui .screen-icon:hover { background: rgba(255, 255, 255, .07); }
-.night-ui .help-icon { color: var(--starlight-dim); font-size: 1.15rem; }
-.night-ui .help-icon[aria-expanded="true"] { color: var(--star-gold); }
+.night-ui .help-icon { color: #ded2f6; }
+.night-ui .help-icon[aria-expanded="true"] { background: #d9c9ff16; color: #eee5ff; }
+.support-surface {
+  box-sizing: border-box;
+  border: 1px solid #635578; border-radius: 18px; padding: 13px 14px 16px;
+  background: linear-gradient(150deg, #252037, #1c182e); color: #f7f0ff;
+  box-shadow: 0 14px 38px #090714a0;
+}
+.help-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+.support-surface .help-panel-heading h2 {
+  display: flex; align-items: center; gap: 9px; margin: 0; font-size: 1.12rem; line-height: 1.35;
+}
+.help-panel-heading h2 .sky-control-icon { color: #d9c7fc; }
+button.help-panel-close.text-button {
+  display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; min-height: 44px;
+  margin: 0; padding: 0; border: 1px solid #8976a558; border-radius: 12px;
+  background: #d5c7f510; color: #eee5ff; box-shadow: none;
+}
+button.help-panel-close:is(:hover, :focus-visible) { border-color: #cdb8ed; background: #d5c7f524; }
+.help-lines { display: grid; gap: 6px; }
+.help-lines > :is(.help-copy, .help-phone-row) { margin: 0; }
+.help-lines .help-copy { color: #d5cbe5; font-size: .8125rem; line-height: 1.55; word-break: keep-all; }
+.help-lines .help-copy:has(+ .help-phone-row) { margin-bottom: 5px; }
+.help-phone-row + .help-copy { margin-top: 5px; }
+.help-phone {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 7px;
+  min-height: 52px; padding: 6px 9px; border: 1px solid #75668d76; border-radius: 11px;
+  background: #302742; color: #f5edfb; font-weight: 650; font-size: .8125rem; line-height: 1.35;
+  text-decoration: none; word-break: keep-all;
+}
+.help-phone small { display: block; margin-top: 2px; color: #c8badb; font-size: .7rem; font-weight: 500; }
+.help-phone strong {
+  display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+  font-size: .98rem; font-variant-numeric: tabular-nums; color: #ffe8b8;
+}
+.help-phone strong .sky-control-icon { width: 14px; height: 14px; }
+.help-phone:is(:hover, :focus-visible) { border-color: #edcf99; background: #3a304e; }
+.help-phone:focus-visible { outline: 2px solid #ffe8b8; outline-offset: 2px; }
+.screen-help-dialog {
+  position: fixed; inset: 0; width: min(400px, calc(100% - 28px)); max-height: calc(100dvh - 28px);
+  margin: auto; overflow: auto;
+}
+.screen-help-dialog::backdrop { background: #0b071db0; }
+.hero-icon .status-star { width: 48%; height: 48%; }
 
 /* 대표 영역 */
 .screen-hero { display: grid; justify-items: center; text-align: center; gap: 2px; margin: 8px 0 16px; }
@@ -68,11 +110,8 @@
 /* 메인 밖 화면에서도 도움받을 곳 안내는 위에 뜨는 불투명한 창 */
 .night-ui > .help.help-panel {
   position: fixed; z-index: 6; top: calc(64px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
-  width: min(calc(100% - 32px), 488px); max-height: 62dvh; overflow-y: auto; margin: 0; padding: 14px 16px;
-  background: #171236; border: 1px solid var(--star-gold-soft); border-radius: 16px; box-shadow: 0 12px 36px rgba(0, 0, 0, .5);
+  width: min(calc(100% - 32px), 400px); max-height: 62dvh; overflow-y: auto; margin: 0;
 }
-.night-ui > .help h2 { margin-top: 0; }
-.night-ui > .help p { margin: 6px 0; }
 
 /* 기억 목록 (별 기록 화면) */
 .memory-list { list-style: none; margin: 0; padding: 4px 16px; border-radius: 16px; background: rgba(37, 32, 57, .82); border: 1px solid rgba(255, 255, 255, .12); }
@@ -83,11 +122,21 @@
 
 /* 정책 화면 상단 보기 전환 [맞춤 추천] / [모든 정책] (고민기록 #41)
    선택 표시는 밤하늘 테마의 .secondary[aria-pressed="true"] (금빛 테두리) + ✓ + 굵은 글자 */
-.policy-view-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0 14px; }
-.policy-view-switch button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; margin: 0; padding: 0 10px; font-weight: 600; }
+.policy-view-switch { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 4px 0 8px; }
+.policy-view-switch button { display: inline-flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 3px; min-height: 48px; margin: 0; padding: 4px; font-size: .8125rem; font-weight: 600; }
 .policy-view-switch button[aria-pressed="true"] { font-weight: 800; }
-.policy-view-count { min-width: 1.6em; padding: 1px 7px; border-radius: 999px; font-size: .75rem; font-weight: 700; background: rgba(255, 255, 255, .1); }
+.policy-view-count { min-width: 1.6em; padding: 1px 4px; border-radius: 999px; font-size: .7rem; font-weight: 700; background: rgba(255, 255, 255, .1); }
 .policy-view-switch button[aria-pressed="true"] .policy-view-count { background: rgba(246, 207, 125, .22); }
+.policy-quick-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 16px; }
+.night-ui .policy-quick-links a { min-height: 44px; margin: 0; padding: 4px; text-align: center; font-size: .8125rem; }
+.criteria-questions summary { display: flex; justify-content: space-between; align-items: center; min-height: 44px; padding: 8px; gap: 8px; }
+.criteria-questions summary::before { content: '›'; }
+.criteria-questions details[open] > summary::before { transform: rotate(90deg); }
+.criteria-questions summary small { margin-inline-start: auto; }
+.criteria-questions details + details { border-top: 1px solid var(--glass-line); }
+.criteria-questions .choice-cards { margin: 0 0 8px; }
+.criteria-questions .choice-cards legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.night-ui .center-saved-draft { margin-bottom: 12px; }
 
 /* 정책 카드의 추천 이유 */
 .policy-screen-header {
@@ -226,7 +275,7 @@ button.policy-save:focus-visible { outline: 2px solid #ffe1a0; outline-offset: 2
 /* 아이콘 단추 아래 짧은 글자 (♡ 도움, ⚙ 설정) */
 .night-ui .screen-icon:has(> small) { display: inline-grid; grid-auto-flow: row; align-content: center; gap: 0; line-height: 1; }
 .night-ui .screen-icon > small { font-size: .625rem; font-weight: 600; letter-spacing: -.01em; color: var(--starlight-dim); }
-.night-ui .help-icon[aria-expanded="true"] > small { color: var(--star-gold); }
+.night-ui .help-icon[aria-expanded="true"] > small { color: #eee5ff; }
 /* 요약 숫자의 뜻 한 줄 */
 .screen-summary-note { margin: -6px 0 16px; text-align: center; font-size: .78rem; color: var(--starlight-dim); word-break: keep-all; }
 /* 순서 표시 */

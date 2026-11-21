@@ -44,10 +44,10 @@ html.sky-night-page body {
 .sky-mode header .brand { color: var(--starlight); letter-spacing: .02em; }
 .sky-mode .text-button { color: var(--starlight-dim); text-decoration: none; border: 1px solid var(--glass-line); border-radius: 999px; padding: 6px 14px; min-height: 36px; background: var(--glass); font-size: .875rem; }
 .sky-mode .small, .sky-mode small { color: var(--starlight-dim); }
-.sky-mode .help { background: rgba(246, 207, 125, .14); border: 1px solid var(--star-gold-soft); color: var(--starlight); }
+.sky-mode .help:not(.support-surface) { background: rgba(246, 207, 125, .14); border: 1px solid var(--star-gold-soft); color: var(--starlight); }
 .sky-mode .error { background: rgba(255, 120, 150, .16); color: #ffd3dd; }
 .sky-mode footer { color: rgba(238, 233, 255, .45); }
-.sky-mode button:not(.nstar):not(.sky-pill):not(.char-hotspot):not(.recent-pill):not(.text-button):not(.ghost):not(.sky-minimap):not(.sky-map-target):not(.night-row):not(.night-list-trigger):not(.dock-main):not(.quest-dialog button):not(.glass-select-trigger):not(.bgm-toggle),
+.sky-mode button:not(.nstar):not(.sky-pill):not(.sky-quest-character):not(.recent-pill):not(.text-button):not(.ghost):not(.sky-minimap):not(.sky-map-target):not(.night-row):not(.night-list-trigger):not(.quest-dialog button):not(.glass-select-trigger):not(.bgm-toggle),
 .sky-mode .primary { background: linear-gradient(180deg, #ffe3a3, var(--star-gold)); color: #24183f; box-shadow: 0 0 24px rgba(246, 207, 125, .35); }
 .sky-mode .ghost { background: transparent; color: var(--starlight-dim); border: 1px solid var(--glass-line); }
 .night-loading { margin-top: 40vh; text-align: center; color: var(--starlight-dim); }
@@ -68,6 +68,11 @@ html.sky-night-page body {
 .sky-mode .onboarding-step h2 { margin-top: 0; }
 .sky-mode .onboarding-step .choices { display: flex; gap: 10px; margin-top: 18px; }
 .sky-mode .onboarding-step .choices button { flex: 1; border-radius: 16px; }
+@media (max-height: 640px) {
+  .sky-mode .onboarding-step.start-survey { margin-top: 18px; padding-block: 12px; }
+  .sky-mode .start-survey .choice-card.with-sub { min-height: 49px; padding-block: 6px; }
+  .sky-mode .start-survey .choices { margin-top: 10px; }
+}
 
 /* 시작 질문 ② 여러 개 고르기: 둥근 반투명 줄, 고르면 금빛 */
 .sky-mode .onboarding-step fieldset { margin-block: 12px 0; }
@@ -141,12 +146,12 @@ html.sky-night-page body {
   width: min(calc(100% - 32px), 488px);
   margin-inline: auto;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: end;
   justify-items: center;
   pointer-events: none;
 }
-.sky-mode .sky-actions :is(a, button) {
+.sky-mode .sky-actions a {
   pointer-events: auto;
   display: grid;
   justify-items: center;
@@ -177,19 +182,9 @@ html.sky-night-page body {
   box-shadow: inset 0 0 0 3px #2e243e, 0 3px 8px #10091e80;
 }
 .sky-actions .dock-icon svg { width: 22px; height: 22px; }
-.sky-mode .sky-actions .dock-main { color: #ffedbd; }
-.sky-actions .dock-main .dock-icon {
-  width: 60px;
-  height: 60px;
-  color: #51354e;
-  border-color: #ffe4a5;
-  background: radial-gradient(circle at 38% 26%, #fff4cc, #edc27e 72%);
-  box-shadow: inset 0 0 0 3px #715567, inset 0 0 0 4px #ffe4a5, 0 0 14px #f3c17838;
-}
-.sky-actions .dock-main svg { width: 30px; height: 30px; }
-.sky-mode .sky-actions :is(a, button):hover { filter: brightness(1.1); }
-.sky-mode .sky-actions :is(a, button):active { transform: translateY(1px); }
-.sky-mode .sky-actions :is(a, button):focus-visible { outline: 2px solid #ffe8b4; outline-offset: 3px; }
+.sky-mode .sky-actions a:hover { filter: brightness(1.1); }
+.sky-mode .sky-actions a:active { transform: translateY(1px); }
+.sky-mode .sky-actions a:focus-visible { outline: 2px solid #ffe8b4; outline-offset: 3px; }
 
 /* 무대 */
 .night { position: relative; min-height: calc(100dvh - 96px); }
@@ -452,48 +447,25 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
    고정 68px이면 화면 높이에 따라 버튼 아래를 최대 8px 덮거나 떠 보였음 */
 .sky-mode > .help.help-panel {
   position: fixed; z-index: 6; top: calc(clamp(16px, 3.3dvh, 32px) + env(safe-area-inset-top) + 44px + 6px); left: 50%; transform: translateX(-50%);
-  width: min(calc(100% - 32px), 488px); max-height: 62dvh; overflow-y: auto; margin: 0; padding: 14px 16px;
-  background: #171236; border: 1px solid var(--star-gold-soft); border-radius: 16px; box-shadow: 0 12px 36px rgba(0, 0, 0, .5);
+  width: min(calc(100% - 32px), 400px); max-height: 62dvh; overflow-y: auto; margin: 0;
 }
-.sky-mode > .help h2 { margin-top: 0; }
-.sky-mode > .help p { margin: 6px 0; }
-.sky-mode > .help .text-button { margin-top: 8px; }
 
-/* ───────── 캐릭터 말풍선 (메인) ─────────
-   배경 인물은 화면 아래 약 21%(손끝)부터 하단 버튼 위까지. 그 자리에 투명 단추를 겹침 */
-.char-hotspot {
-  position: fixed; z-index: 1; left: 50%; transform: translateX(-50%);
-  bottom: var(--person-bottom); height: var(--person-height); width: 92px; min-height: 0;
-  padding: 0; border-radius: 40px; background: transparent; pointer-events: auto; cursor: pointer;
+/* 캐릭터를 누르면 오늘의 별을 여는 버튼 */
+.sky-mode .sky-quest-character {
+  position: fixed; z-index: 2; left: 50%; bottom: calc(44px + env(safe-area-inset-bottom));
+  transform: translateX(-50%); width: max(100px, calc(var(--person-height) * .85));
+  display: grid; justify-items: center; pointer-events: auto; cursor: pointer;
+  margin: 0; padding: calc(var(--person-height) * .25) 0 0; min-height: 44px;
+  border: 0; border-radius: 24px; background: transparent; color: #fff0ce; box-shadow: none;
 }
-.char-hotspot:focus-visible { outline: 2px dashed var(--star-gold-soft); outline-offset: 2px; }
-.sky-character-prompt {
-  position: absolute; display: grid; place-items: center; width: 29px; height: 27px; top: 3px; right: -7px;
-  border: 1px solid #af92df79; border-radius: 10px 10px 10px 3px; color: #e2caff;
-  background: #2c1e48df; box-shadow: 0 3px 12px #0b071dad;
+.sky-quest-character-art { position: relative; display: block; height: var(--person-height); pointer-events: none; }
+.sky-quest-character-art::before {
+  content: ""; position: absolute; left: 50%; bottom: 2%; width: 86%; height: 11%;
+  transform: translateX(-50%); border-radius: 50%;
+  background: radial-gradient(ellipse, #080511c9, #10091d00 71%);
 }
-.sky-character-prompt .sky-control-icon { width: 18px; height: 18px; }
-.char-bubble {
-  position: fixed; z-index: 3; left: 50%; transform: translateX(-50%); bottom: calc(var(--person-bottom) + var(--person-height) + 6px);
-  width: max-content; max-width: min(18rem, calc(100% - 32px)); padding: 12px 14px;
-  display: grid; gap: 6px; word-break: keep-all;
-  border-radius: 16px; border: 1px solid rgba(190, 160, 255, .55); background: rgba(20, 14, 46, .82);
-  color: var(--starlight); box-shadow: 0 8px 24px rgba(0, 0, 0, .35); pointer-events: auto;
-}
-.char-bubble::after {
-  content: ""; position: absolute; left: calc(50% - 6px); bottom: -7px; width: 12px; height: 12px; transform: rotate(45deg);
-  background: rgba(20, 14, 46, .95); border-right: 1px solid rgba(190, 160, 255, .55); border-bottom: 1px solid rgba(190, 160, 255, .55);
-}
-.char-question { margin: 0; font-weight: 750; font-size: .95rem; }
-.char-sub { margin: 0; font-size: .8125rem; color: var(--starlight-dim); }
-.sky-mode .char-bubble .char-link {
-  width: 100%; min-height: 44px; margin-top: 2px; border-radius: 12px;
-  border-color: var(--star-gold-soft); background: #3b3044; color: #ffe7b0; font-weight: 700;
-}
-@media (prefers-reduced-motion: no-preference) {
-  .char-bubble { animation: bubble-in .22s ease-out; }
-  @keyframes bubble-in { from { opacity: 0; transform: translate(-50%, 6px); } }
-}
+.sky-quest-character-art .sky-person { position: relative; animation: none; filter: drop-shadow(0 2px 5px #b68ee541); }
+.sky-quest-character:focus-visible { outline: 2px solid var(--star-gold); outline-offset: 2px; }
 
 /* 세로가 짧은 화면: 안내 한 줄을 숨겨 별자리 자리를 넓힘 (하늘 끌기 안내는 캐릭터·목록으로도 알 수 있음) */
 @media (max-height: 700px) {
@@ -541,7 +513,7 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 
 /* 버튼 */
 /* 아이콘·그림 단추(제목 줄 아이콘·프로필 그림)는 금빛 큰 버튼에서 뺌 */
-.night-ui button:not(.secondary):not(.text-button):not(.sky-pill):not(.screen-icon):not(.avatar-button):not(.avatar-option):not(.glass-select-trigger):not(.policy-save):not(.quest-action), .night-ui .primary {
+.night-ui button:not(.secondary):not(.text-button):not(.sky-pill):not(.screen-icon):not(.avatar-button):not(.avatar-option):not(.glass-select-trigger):not(.policy-save):not(.quest-action):not(.catalog-card):not(.catalog-close), .night-ui .primary {
   background: linear-gradient(180deg, #ffe3a3, var(--star-gold)); color: #24183f; border: 0;
   box-shadow: 0 0 22px rgba(246, 207, 125, .28);
 }
@@ -551,7 +523,7 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .night-ui button:disabled { opacity: .5; }
 
 /* 안내·오류 */
-.night-ui .help { background: rgba(246, 207, 125, .12); border: 1px solid var(--star-gold-soft); color: var(--starlight); }
+.night-ui .help:not(.support-surface) { background: rgba(246, 207, 125, .12); border: 1px solid var(--star-gold-soft); color: var(--starlight); }
 .night-ui .error { background: rgba(255, 120, 150, .16); color: #ffd3dd; }
 .star-limit-error { text-align: center; white-space: pre-line; }
 .night-ui > p[role="status"] { color: var(--starlight); }
@@ -559,12 +531,15 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .quest-dialog {
   position: fixed; inset: auto 0 var(--quest-keyboard-inset, 0px);
   width: min(100%, 520px); max-width: 100%;
-  height: min(74dvh, calc(var(--quest-viewport-height, 100dvh) - 16px), 460px);
+  height: min(74dvh, calc(var(--quest-viewport-height, 100dvh) - 16px), 488px);
   padding: 0; margin: 0 auto; overflow: hidden;
   border: 1px solid #ac92db6b; border-bottom: 0; border-radius: 24px 24px 0 0;
   background: #1a142d; box-shadow: 0 -12px 45px #0a061a9c;
 }
 .quest-dialog[open] { display: grid; grid-template-rows: auto minmax(0, 1fr); }
+@media (max-height: 600px) {
+  .quest-dialog { height: min(86dvh, calc(var(--quest-viewport-height, 100dvh) - 16px), 488px); }
+}
 .quest-dialog::backdrop { background: #09061775; }
 .quest-dialog-header {
   display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; column-gap: 8px;
@@ -590,6 +565,7 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .quest-dialog-body :is(.quest-entry, .quest-weather-card) {
   margin: 0; padding: 0; border: 0; box-shadow: none; background: none;
 }
+.quest-greeting { margin: 0 0 9px; color: #ffe8bd; font-size: 1.05rem; line-height: 1.35; }
 .quest-dialog-body .quest-entry :is(label, fieldset) { margin: 0 0 10px; }
 .quest-dialog-body .choices.quest-range-options { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .quest-dialog-body .quest-range-options .secondary {
@@ -752,7 +728,7 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .sky-anchors .nstar .glow { border-color: transparent; }
 
 /* Match the visual proportions of the main-screen reference. */
-html.sky-locked-page { --sky-dock-height: 96px; --person-height: 15dvh; }
+html.sky-locked-page { --sky-dock-height: 96px; --person-height: clamp(77px, 16dvh, 148px); }
 .sky-mode.sky-locked { padding-top: calc(clamp(16px, 3.3dvh, 32px) + env(safe-area-inset-top)); }
 /* 첫 화면·시작 질문: 모서리 버튼이 메인과 같은 자리에 오게 같은 여백 */
 .sky-mode.sky-intro { padding-top: calc(clamp(16px, 3.3dvh, 32px) + env(safe-area-inset-top)); padding-inline: 16px; }
@@ -774,10 +750,12 @@ html.sky-locked-page { --sky-dock-height: 96px; --person-height: 15dvh; }
 :is(.sky-locked, .sky-intro) .sky-top .sky-pill.sky-utility:nth-child(2) { justify-self: end; }
 :is(.sky-locked, .sky-intro) .sky-top .sky-utility:is(:hover, :focus-visible, [aria-expanded="true"]) { border-color: var(--sky-utility-ink); }
 .sky-help-button {
-  --sky-utility-border: #a986d57a;
-  --sky-utility-surface: linear-gradient(118deg, #3c2756dc, #231932ed);
-  --sky-utility-ink: #f0d3ff;
+  --sky-utility-border: #bfaed760;
+  --sky-utility-surface: linear-gradient(148deg, #322842ed, #251d36ed);
+  --sky-utility-ink: #e2d2fa;
 }
+:is(.sky-locked, .sky-intro) .sky-top .sky-help-button { gap: 7px; padding-inline: 10px 11px; }
+.sky-help-button[aria-expanded="true"] { --sky-utility-surface: #392d4d; }
 .sky-resource-button {
   --sky-utility-border: #84b6ae75;
   --sky-utility-surface: linear-gradient(118deg, #253e48ed, #20293deb);
@@ -794,7 +772,7 @@ html.sky-locked-page { --sky-dock-height: 96px; --person-height: 15dvh; }
 .sky-utility-symbol {
   display: grid; place-items: center; flex: none; width: 32px; height: 32px; color: var(--sky-utility-ink);
 }
-.sky-help-button .sky-utility-symbol { border-radius: 50%; background: #70509678; }
+.sky-top .sky-help-button .sky-utility-symbol { width: 20px; height: 24px; }
 .sky-resource-button .sky-utility-symbol { border-radius: 9px; background: #42726772; }
 .sky-utility-symbol .sky-control-icon { width: 19px; height: 19px; }
 @media (max-width: 360px) {
@@ -895,8 +873,8 @@ html.sky-locked-page { --sky-dock-height: 96px; --person-height: 15dvh; }
   object-fit: contain;
   filter: drop-shadow(0 0 14px #d6a8ff85);
 }
-.constellation-award span:first-child { transform: translateY(12px); }
-.constellation-award span:last-child { transform: translateY(-13px); }
+.constellation-award > span:first-child { transform: translateY(12px); }
+.constellation-award > span:last-child { transform: translateY(-13px); }
 
 @media (prefers-reduced-motion: no-preference) {
   .sky-anchors .edge.lit.completion-edge {
@@ -932,9 +910,6 @@ html.sky-locked-page { --sky-dock-height: 96px; --person-height: 15dvh; }
   margin: 0; padding: 6px 10px; border: 1px solid var(--glass-line); border-radius: 10px;
   background: #1c1433ee; color: var(--starlight); font-size: .75rem; white-space: nowrap;
 }
-/* 캐릭터 옆 말 걸기: 아이콘만으로는 뜻을 몰라 글자를 붙임 */
-.sky-character-prompt:has(> span) { width: auto; gap: 3px; padding: 0 7px 0 5px; grid-auto-flow: column; right: -74px; top: -23px;}
-.sky-character-prompt > span { font-size: .6875rem; font-weight: 700; white-space: nowrap; }
 /* 처음 한 번 안내 카드 (끌기 → 별 누르기) */
 .sky-hint {
   position: relative; z-index: 2; align-self: center; display: flex; align-items: center; gap: 10px;
@@ -961,20 +936,17 @@ html.sky-locked-page { --sky-dock-height: 96px; --person-height: 15dvh; }
     50% { box-shadow: 0 0 0 4px #f6cf7d33; border-color: var(--star-gold); }
   }
 }
-/* 좁은 폰(≈340px 이하)에서는 오른쪽 하늘 지도와 겹쳐서 머리 위로 */
-@media (max-width: 340px) {
-  .sky-character-prompt:has(> span) { top: -30px; right: auto; left: 50%; transform: translateX(-50%); border-radius: 10px; }
-}
 /* 별똥별은 안내 카드(z-index 2)보다 위로 지나가게 (작은 화면에서 카드 높이와 겹침) */
 .sky-mode button.sky-pill.sky-meteor { z-index: 3; }
 
 /* 배경음악 켜기/끄기 (bgm.tsx). 메인·첫 화면 위쪽 두 버튼 사이 가운데 */
 .sky-top .bgm-toggle {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  display: grid; place-items: center; width: 40px; height: 40px; min-height: 0; padding: 0;
+  display: grid; place-items: center; align-content: center; gap: 1px; width: 40px; height: 44px; min-height: 0; padding: 1px 0;
   border-radius: 50%; color: #f0e6ff;
   border: 1px solid #b9a6e07a; background: #2a1f3dcc; box-shadow: 0 3px 13px #08041546;
 }
+.bgm-toggle span { font-size: .625rem; font-weight: 700; line-height: 1; }
 .sky-top .bgm-toggle[aria-pressed="false"] { color: #b9aecf; opacity: .75; }
 .sky-top .bgm-toggle:is(:hover, :focus-visible) { border-color: #f0d3ff; }
 

@@ -7,9 +7,7 @@
 // - 조작: 한 손가락·마우스로 끌기, 두 손가락·휠로 확대, 방향키·+/- 키
 // - 위치·시간·카메라 권한을 쓰지 않음 (실제 내 위치의 하늘이 아니라 별자리 지도)
 import { useEffect, useRef } from 'react';
-import { foregroundVisibility, projector, scaleFor, skyView, unit, type Vec3 } from '@/lib/sky-view';
-import DressedSkyPerson from '@/components/dressed-sky-person';
-import type { Mode } from '@/lib/mobile-data';
+import { projector, scaleFor, skyView, unit, type Vec3 } from '@/lib/sky-view';
 import SkyPerson from '@/components/sky-person';
 import { drawGround, drawSkyLight } from './sky-landscape';
 import './sky-preview.css';
@@ -50,7 +48,7 @@ function turn(host: HTMLElement, dx: number, dy: number, dome: boolean) {
   skyView.pan(dx * perPixel / horizontalScale, dy * perPixel, dome);
 }
 
-export default function SkyPanorama({ background = false, dome = false, mode }: { background?: boolean; dome?: boolean; mode?: Mode }) {
+export default function SkyPanorama({ background = false, dome = false }: { background?: boolean; dome?: boolean }) {
   const surface = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
 
@@ -87,10 +85,7 @@ export default function SkyPanorama({ background = false, dome = false, mode }: 
       const { width, height } = stage;
       const view = skyView.get();
       context.clearRect(0, 0, width, height);
-      if (dome) {
-        drawSkyLight(context, view, width, height);
-        host.style.setProperty('--sky-foreground', String(foregroundVisibility(view, width, height)));
-      }
+      if (dome) drawSkyLight(context, view, width, height);
       const project = projector(view, width, height);
       const horizonFade = height * 0.72; // 아래쪽(지평선 빛)으로 갈수록 별이 옅어짐
       const fade = (y: number, altitude: number) => dome ? Math.min(1, 0.25 + Math.max(0, altitude) * 5)
@@ -315,7 +310,7 @@ export default function SkyPanorama({ background = false, dome = false, mode }: 
         }}>
         <canvas ref={canvas} className="panorama-canvas" aria-hidden="true" />
         {!dome && <><div className="panorama-hills" aria-hidden="true" /><div className="panorama-grass" aria-hidden="true" /></>}
-        <div className="panorama-person" aria-hidden="true">{mode ? <DressedSkyPerson mode={mode} /> : <SkyPerson sculpted={background} />}</div>
+        {!dome && <div className="panorama-person" aria-hidden="true"><SkyPerson sculpted={background} /></div>}
       </div>
     </div>
   );

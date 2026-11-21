@@ -12,6 +12,7 @@ import { DAILY_STAR_LIMIT_MESSAGE } from '@/lib/star-limit';
 import { starDisplayDescription, starDisplayTitle } from '@/lib/star-display';
 import { Hero, HeroIcon, ScreenBar, Section } from './screen-kit';
 import { NextStepCard } from './next-step-card';
+import { StatusStar } from './star-list';
 import type { NextPlan } from '@/lib/next-step';
 
 const STATUS = { untried: '아직 만나기 전', dim: '손을 뻗은 별', bright: '딴 별' } as const;
@@ -55,7 +56,7 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
 
   if (!star) return <>
     <ScreenBar title="별 기록" />
-    <Hero visual={<HeroIcon tone="dim">✧</HeroIcon>} title="별을 찾고 있어요" message="별을 불러오지 못했거나 없는 주소예요." />
+    <Hero visual={<HeroIcon tone="dim"><StatusStar status="untried" /></HeroIcon>} title="별을 찾고 있어요" message="별을 불러오지 못했거나 없는 주소예요." />
     <section className="card"><Link className="secondary" href="/sky">밤하늘로 돌아가기</Link><button disabled={busy} onClick={() => run(async () => { await onSaved(); })}>다시 불러오기</button></section>
   </>;
 
@@ -65,7 +66,7 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
   return <>
     <ScreenBar title="별 기록" />
     <Hero
-      visual={<HeroIcon tone={star.status === 'untried' ? 'dim' : 'gold'}>{star.status === 'bright' ? '✦' : star.status === 'dim' ? '✧' : '☆'}</HeroIcon>}
+      visual={<HeroIcon tone={star.status === 'untried' ? 'dim' : 'gold'}><StatusStar status={star.status} /></HeroIcon>}
       title={starDisplayTitle(activePlan?.title ?? star.title)}
       message={activePlan?.subQuestId ? `원래 별 · ${star.title}` : star.description && starDisplayDescription(star.description)}
       chip={[constellationName(star), STATUS[star.status]].filter(Boolean).join(' · ')}
@@ -111,6 +112,7 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
             }}>위치 사용 확인</button>
             {place && <p role="status" className="small">{place}</p>}
           </details>}
+          {!planLoaded && <p className="small" role="status">지난 기록을 확인하고 있어요. 확인이 끝나면 저장할 수 있어요.</p>}
           <button disabled={busy || !planLoaded} onClick={() => run(async () => {
             const r = await client(mode).attempt({ starId: star.starId, status, reflection, verifyMethod: 'self',
               ...(activePlan ? { parentAttemptId: activePlan.attemptId, subQuestId: activePlan.subQuestId } : {}),

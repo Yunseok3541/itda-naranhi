@@ -3,7 +3,7 @@ import WornAccessory from './worn-accessory';
 import { useId } from "react";
 
 // 메인 배경 캐릭터 (사람, 성별이 드러나지 않게): 2등신 · 둥근 짧은 머리 · 후드티와 바지 · 웃는 눈
-// 사용자를 바라보며 한 손을 하늘로 흔듦 (말풍선으로 말을 거는 역할, night-sky.tsx의 char-hotspot)
+// 사용자를 바라보며 한 손을 하늘로 흔듦. 메인에서는 오늘의 별을 여는 단추의 그림으로 쓴다.
 // 긴 머리·치마·속눈썹·화장처럼 성별을 떠올리게 하는 요소는 넣지 않는다
 // 예전 그림(public/sky-preview/foreground.webp)은 되돌리기용으로 남겨 둠
 export default function SkyPerson({ portrait = false, sculpted = false, character = 'person', item = null, animate = false }: {

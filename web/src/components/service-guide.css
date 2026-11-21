@@ -55,15 +55,24 @@
 .guide-memory p { margin: 4px 0 0; }
 .guide-memory time { color: var(--star-gold); }
 
+@media (max-height: 640px) {
+  .sky-mode .service-guide[data-step="practice"] { margin-top: 12px; padding: 12px 14px; }
+  .service-guide[data-step="practice"] .guide-top { margin-bottom: 4px; }
+  .service-guide[data-step="practice"] h2 { margin: 4px 0; }
+  .service-guide[data-step="practice"] h2 + p { margin: 0; }
+  .service-guide[data-step="practice"] .guide-constellation { height: min(24dvh, 122px); margin-block: 5px 0; }
+  .service-guide[data-step="practice"] .guide-task { padding: 9px 10px; }
+  .sky-mode .service-guide[data-step="practice"] .guide-pick { margin-top: 8px; }
+  .service-guide[data-step="practice"] .guide-weather,
+  .service-guide[data-step="practice"] .guide-line { margin-top: 8px; }
+}
+
 /* 별자리 친구 (아직 못 만난 친구는 실루엣처럼) */
 .guide-friends { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 14px 0 10px; padding: 0; list-style: none; }
 .guide-friends li { display: grid; justify-items: center; gap: 4px; text-align: center; }
 /* 둥근 틀·배경은 screen-kit.css .avatar, 크기는 프로필 그림 고르기의 잠긴 칸과 같게 */
 .guide-friend-art { width: 56px; height: 56px; flex: none; }
 .guide-friends small { font-size: .6875rem; line-height: 1.3; }
-.guide-friends small.met { color: var(--star-gold); font-weight: 700; }
-.guide-friend-met { display: grid; place-items: center; }
-.guide-friend-met .avatar { border-color: var(--star-gold); box-shadow: 0 0 22px rgba(246, 207, 125, .45); }
 .guide-constellation-name { margin: 0 0 8px; text-align: center; font-size: .8125rem; font-weight: 700; color: #fff3d0; }
 .guide-constellation-name small { display: inline; margin-left: 4px; font-weight: 500; }
 

@@ -1,20 +1,22 @@
 "use client";
 // 메인 밖 화면의 공통 틀 (팀 공통 규칙, 2026-11-20)
-// - 상단: 뒤로가기 + 화면 제목 (오른쪽에 화면별 아이콘 + 도움받을 곳 ♡는 항상)
+// - 상단: 뒤로가기 + 화면 제목 (오른쪽에 화면별 아이콘 + 도움받을 곳)
 // - 대표 영역: 캐릭터 또는 핵심 메시지
 // - 요약 영역: 중요한 정보 최대 3개 (억지로 넣지 않음)
 // - 콘텐츠: 카드
 // - 부가 기능: 설정이나 "더보기"로 (MoreLinks, <details>)
-// - 아이콘 단추에는 짧은 글자를 함께 (♡ 도움, ⚙ 설정). 근거: docs/기능발견성-조사.md
+// - 아이콘 단추에는 짧은 글자를 함께 붙인다. 근거: docs/기능발견성-조사.md
 // - 하단: 메인 이동 탭 없음 (mobile-flow.tsx)
 import Link from 'next/link';
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useId, useRef, type ReactNode } from 'react';
 import type { AccessoryId } from '@/lib/shop';
 import SkyPerson from './sky-person';
+import SkyControlIcon from './sky-control-icon';
+import { HELP, HelpPanelContent } from './help-lines';
 import './screen-kit.css';
 
 /** 도움받을 곳 열고 닫기 (mobile-flow.tsx가 제공) */
-export const HelpContext = createContext<{ open: boolean; toggle: () => void }>({ open: false, toggle: () => {} });
+export const HelpContext = createContext<{ open: boolean; toggle: () => void } | null>(null);
 
 export function ScreenBar({ title, back = '/sky', backLabel = '내 밤하늘로', onBack, right }: {
   title: string;
@@ -26,6 +28,8 @@ export function ScreenBar({ title, back = '/sky', backLabel = '내 밤하늘로'
   right?: ReactNode;
 }) {
   const help = useContext(HelpContext);
+  const localHelp = useRef<HTMLDialogElement>(null);
+  const helpTitle = useId();
   return <div className="screen-bar">
     {onBack
       ? <button type="button" className="screen-icon" aria-label={backLabel} onClick={onBack}>‹</button>
@@ -33,8 +37,13 @@ export function ScreenBar({ title, back = '/sky', backLabel = '내 밤하늘로'
     <h1>{title}</h1>
     <span className="screen-bar-right">
       {right}
-      <button type="button" className="screen-icon help-icon" aria-label="도움받을 곳" aria-expanded={help.open} onClick={help.toggle}><span aria-hidden="true">♡</span><small aria-hidden="true">도움</small></button>
+      <button type="button" className="screen-icon help-icon" aria-label="도움받을 곳"
+        aria-expanded={help?.open} aria-haspopup={help ? undefined : 'dialog'}
+        onClick={help ? help.toggle : () => localHelp.current?.showModal()}><SkyControlIcon name="help" /><small aria-hidden="true">도움</small></button>
     </span>
+    {!help && <dialog className="screen-help-dialog support-surface" ref={localHelp} aria-labelledby={helpTitle}>
+      <HelpPanelContent titleId={helpTitle} title={HELP.title} lines={HELP.lines} onClose={() => localHelp.current?.close()} />
+    </dialog>}
   </div>;
 }
 

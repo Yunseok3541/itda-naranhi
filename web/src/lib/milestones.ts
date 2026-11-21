@@ -44,7 +44,7 @@ export const MILESTONES: Milestone[] = [
   { id: 'firstAttempt', group: '시작', name: '첫 별빛', icon: '✦', done: '처음으로 별을 기록했어요', hint: '언젠가 작은 별 하나를 기록하면 켜져요' },
   { id: 'checkin', group: '시작', name: '마음 날씨', icon: '☁', done: '처음으로 오늘의 마음을 적었어요', hint: '한 줄 체크인을 남기면 켜져요' },
   { id: 'reflection', group: '시작', name: '한 줄의 기억', icon: '✎', done: '그날의 기억을 한 줄 남겼어요', hint: '별을 기록할 때 한 줄을 남기면 켜져요' },
-  { id: 'dim', group: '시도', name: '손을 뻗은 날', icon: '☆', done: '끝까지 못 해도 손을 뻗었어요', hint: '손 뻗어 보기도 소중한 기록이에요' },
+  { id: 'dim', group: '시도', name: '손을 뻗은 날', icon: '✧', done: '끝까지 못 해도 손을 뻗었어요', hint: '손 뻗어 보기도 소중한 기록이에요' },
   { id: 'retried', group: '시도', name: '다시 한 번', icon: '↻', done: '손을 뻗었던 별을 다시 만나 땄어요', hint: '언젠가 다시 만나도 괜찮아요' },
   { id: 'rested', group: '시도', name: '쉬어 가는 용기', icon: '☾', done: '쉬어 가는 날을 스스로 골랐어요', hint: '쉬어 가기를 골라도 괜찮아요' },
   { id: 'nearTried', group: '바깥으로', name: '문 앞까지', icon: '⌂', done: '집 앞으로 한 걸음 나가 봤어요', hint: '집 앞 별을 만나면 켜져요' },

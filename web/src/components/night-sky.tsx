@@ -7,11 +7,11 @@
 // - 시인성: 배경 별은 어둡게, 퀘스트 별은 크게, 지금 별자리는 별 이름·실선, 다른 별자리는 흐리게
 import Link from 'next/link';
 import Image from 'next/image';
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { characters } from '@/app/catalog/characters';
 import { getActivityConstellation, getCompletedConstellationIds, getStarConstellationId } from '@/lib/constellations';
 import type { Mode, Star } from '@/lib/mobile-data';
-import { angleBetween, fitView, foregroundVisibility, FOV_MAX, FOV_MIN, projector, RAD, scaleFor, skyImageAxes, skyView, toLonLat, unit, type SkyView, type Vec3 } from '@/lib/sky-view';
+import { angleBetween, fitView, FOV_MAX, FOV_MIN, projector, RAD, scaleFor, skyImageAxes, skyView, toLonLat, unit, type SkyView, type Vec3 } from '@/lib/sky-view';
 import { skyConstellation } from '@/lib/sky-constellations';
 import SkyMinimap from './sky-minimap';
 import ConstellationCelebration from './constellation-celebration';
@@ -19,6 +19,7 @@ import { useSkyTour } from './use-sky-tour';
 import MeteorRewards from './meteor-rewards';
 import SkyControlIcon from './sky-control-icon';
 import StarList from './star-list';
+import DressedSkyPerson from './dressed-sky-person';
 import { useCloseDialogOnHide } from './use-close-dialog-on-hide';
 import { finishHint, useSkyHints } from '@/lib/sky-hints';
 import { clearSkyFocus, peekSkyFocus } from '@/lib/service-guide';
@@ -26,8 +27,6 @@ import { DAILY_STAR_LIMIT_MESSAGE, hasReachedDailyStarLimit, isTutorialStar } fr
 import { starDisplayDescription, starDisplayTitle } from '@/lib/star-display';
 
 const labels = { untried: '아직 만나기 전', dim: '손을 뻗은 별', bright: '딴 별' } as const;
-/** 캐릭터 말풍선 질문 (날마다 하나씩 돌아가며). 오늘의 별 체크인으로 이어짐 */
-const QUESTIONS = ['오늘 하루는 어땠어요?', '지금 마음은 어떤 날씨예요?', '오늘은 어떤 하루인가요?', '요즘 어떻게 지내요?'];
 /** 지금 별자리가 화면에서 이만큼(px, 대각선) 이상일 때만 퀘스트 이름표·큰 별 표시 */
 const DETAIL_SPAN = 90;
 const CHARACTER_ART_SIZE = 128;
@@ -164,8 +163,9 @@ function starView(points: Vec3[], index: number, width: number, height: number):
 const FLIGHT_MS = 1600;
 // 목록에서 별을 고르고 도착한 뒤, 이름표가 눈에 들어올 만큼만 두고 바로 할 일 창
 const SHEET_DELAY_MS = 350;
+const HINT_DURATION_MS = { drag: 5500, star: 8000 };
 
-export default function NightSky({ stars, selected, onSelect, busy, onReload, footer, nextLink, completedId, mode, totalPoints, onOpenQuest, hintsPaused = false }: {
+export default function NightSky({ stars, selected, onSelect, busy, onReload, footer, nextLink, completedId, mode, totalPoints, onOpenQuest, questTrigger, questOpen, hintsPaused = false }: {
   stars: Star[];
   selected: Star | null;
   onSelect: (star: Star | null) => void;
@@ -178,6 +178,8 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   mode: Mode;
   totalPoints?: number;
   onOpenQuest: () => void;
+  questTrigger: RefObject<HTMLButtonElement | null>;
+  questOpen: boolean;
   /** 메뉴 한 장 안내(menu-tour.tsx)가 떠 있는 동안은 첫 안내 카드·별똥별 안내를 미룸 */
   hintsPaused?: boolean;
 }) {
@@ -233,11 +235,8 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   useSkyTour();
   const recent = useMemo(() => latestGroupIndex(groups), [groups]);
   const [burst, setBurst] = useState<{ key: number; x: number; y: number } | null>(null);
-  // 캐릭터 말풍선: 누르면 열리고 다시 누르면 닫힘 (null = 닫힘, 문자열 = 오늘의 질문)
-  const [talk, setTalk] = useState<string | null>(null);
   // 다른 화면으로 갔다 돌아오면 닫혀 있게 (cacheComponents로 숨겨진 화면도 상태가 남음, use-collapse-on-hide.ts 참고)
-  useLayoutEffect(() => () => { setTalk(null); setNamedStar(null); }, []);
-  const toggleTalk = () => setTalk(t => (t ? null : QUESTIONS[Math.floor(Date.now() / 86_400_000) % QUESTIONS.length]));
+  useLayoutEffect(() => () => setNamedStar(null), []);
   const sheet = useRef<HTMLDialogElement>(null);
   const list = useRef<HTMLDialogElement>(null);
   useCloseDialogOnHide(sheet);
@@ -248,6 +247,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
 
   // 처음 한 번 안내 (끌기 → 별 누르기). 직접 해 보면 끝남
   const hints = useSkyHints();
+  const hintCard = useRef<HTMLDivElement>(null);
 
   // 배경 시점이 바뀌면 다시 그림 (끌기·확대·이동 애니메이션)
   useSyncExternalStore(skyView.subscribe, skyView.version, () => 0);
@@ -262,7 +262,6 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   const safeIndex = Math.min(index, Math.max(groups.length - 1, 0));
   const current = groups[safeIndex];
   const complete = !!current && completed.has(current.id);
-  const foreground = frame ? foregroundVisibility(view, frame.width, frame.height) : 0;
 
   /** i번째 별자리로 하늘을 옮기고 알맞게 확대 */
   function flyToGroup(i: number, starId: number | null = null) {
@@ -342,6 +341,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   /** 목록에서 고름: 목록을 닫고 이동부터. 별을 골랐으면 도착해서 이름표를 보여 준 뒤 상세를 연다 */
   function revealFromList(i: number, star: Star | null) {
     closeList();
+    if (star) finishHint('star');
     setReveal({ index: i, star, arrived: false }); // jump보다 먼저: 모션 줄이기에선 jump 안에서 바로 도착함
     const si = star ? groups[i].stars.findIndex(s => s.starId === star.starId) : -1;
     if (si < 0) { jump(i); return; }
@@ -474,7 +474,28 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     ? { '--spot-x': `${frame.left + selectedPoint.x}px`, '--spot-y': `${frame.top + selectedPoint.y}px`, '--sheet-top': `${sheetTop}px` } as CSSProperties
     : undefined;
 
-  const hint = selected || talk || hintsPaused ? null : hints.current;
+  const hint = !current || selected || questOpen || hintsPaused ? null : hints.current;
+  useEffect(() => {
+    if (!hint) return;
+    let timer = 0;
+    const expire = () => {
+      if (hintCard.current?.contains(document.activeElement)) {
+        timer = window.setTimeout(expire, 1000);
+        return;
+      }
+      finishHint(hint);
+    };
+    const updateTimer = () => {
+      window.clearTimeout(timer);
+      if (!document.hidden) timer = window.setTimeout(expire, HINT_DURATION_MS[hint]);
+    };
+    updateTimer();
+    document.addEventListener('visibilitychange', updateTimer);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', updateTimer);
+    };
+  }, [hint]);
   const questBlocked = selected && selected.status !== 'bright' && !isTutorialStar(selected.starId) && hasReachedDailyStarLimit(stars);
   return <section className={`night${hint === 'star' ? ' hint-star' : ''}`} aria-label="내 밤하늘">
     <MeteorRewards key={mode} mode={mode} skyTotal={totalPoints} hintPaused={hintsPaused} />
@@ -583,7 +604,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
           event.currentTarget.focus({ preventScroll: true });
           setListKey(k => k + 1);
           list.current?.showModal();
-        }}><SkyControlIcon name="constellation" /> 모든 별 보기</button>
+        }}><SkyControlIcon name="starList" /> 모든 별 보기</button>
         <dialog className="night-list" ref={list} aria-label="모든 별 목록"
           onClick={event => { if (event.target === event.currentTarget) closeList(); }}>
           <div className="night-list-body">
@@ -596,13 +617,13 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
           </div>
         </dialog>
       </div>
-    {hint && <div className="sky-hint" role="status">
+    {hint && <div ref={hintCard} className="sky-hint" role="status">
       <p>{hint === 'drag'
         ? <><b>하늘을 끌어서 둘러보세요</b>두 손가락으로 벌리면 크게 볼 수 있어요</>
         : <><b>반짝이는 별을 눌러 보세요</b>별 하나가 오늘 해 볼 작은 일이에요</>}</p>
       {/* 멀리서 보면 별이 위쪽 버튼 뒤에 숨을 수 있어서 별자리로 데려다주는 단추 */}
       {hint === 'star' && !detailed
-        ? <button type="button" className="text-button" onClick={() => jump(safeIndex)}>가까이 보기</button>
+        ? <button type="button" className="text-button" onClick={() => { jump(safeIndex); finishHint('star'); }}>가까이 보기</button>
         : <button type="button" className="text-button" onClick={() => finishHint(hint)}>알겠어요</button>}
     </div>}
     <div className="night-space">
@@ -610,16 +631,10 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
         active={safeIndex} revealed={skyView.isPanVisible()} onJump={jump} onHorizon={lookAtHorizon} />)}
     </div>
 
-    {/* 캐릭터(배경 인물) 위에 겹친 투명 단추 → 말풍선. 화면을 막지 않게 작게, 다시 누르면 닫힘 */}
-    {foreground > 0.65 && <button type="button" className="char-hotspot"
-      aria-label={talk ? '말풍선 닫기' : '캐릭터에게 말 걸기'} aria-expanded={!!talk} onClick={toggleTalk}>
-      <span className="sky-character-prompt"><SkyControlIcon name={talk ? 'close' : 'talk'} />{!talk && <span>말 걸기</span>}</span>
-    </button>}
-    {foreground > 0.65 && talk && <div className="char-bubble" role="status">
-      <p className="char-question">{talk}</p>
-      <p className="char-sub">한 줄로 들려주면 오늘의 별을 찾아 줄게요</p>
-      <button type="button" className="text-button char-link sky-icon-action" aria-haspopup="dialog" onClick={() => { setTalk(null); onOpenQuest(); }}><SkyControlIcon name="star" /> 오늘의 별</button>
-    </div>}
+    <button ref={questTrigger} type="button" className="sky-quest-character"
+      aria-label="오늘의 별" aria-haspopup="dialog" aria-expanded={questOpen} onClick={onOpenQuest}>
+      <span className="sky-quest-character-art"><DressedSkyPerson mode={mode} /></span>
+    </button>
 
     {completedGroup && <ConstellationCelebration constellationId={completedGroup.id} name={completedGroup.name} />}
 

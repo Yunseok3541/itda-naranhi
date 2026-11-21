@@ -19,6 +19,9 @@
 }
 .shop-entry-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: #654c48; color: #ffdc91; }
 .shop-entry-arrow { color: #ffdc91; font-size: 1.15rem; }
+.night-ui .profile-home .shop-entry { grid-template-columns: 32px minmax(0, 1fr) auto auto; }
+.shop-entry-balance { color: #ffdc91; font-size: .85rem; font-variant-numeric: tabular-nums; }
+.night-ui .settings-guide-link { margin-block: 8px 12px; }
 .night-ui .profile-home .shop-entry:hover { border-color: #ffdc91; }
 .night-ui .profile-home .shop-entry:focus-visible { outline-color: #ffdc91; }
 

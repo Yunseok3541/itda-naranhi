@@ -1,4 +1,7 @@
 .catalog-page {
+  --starlight: #f9effb;
+  --starlight-dim: #d9c9ea;
+  --star-gold: #f6cf7d;
   flex: 1;
   min-height: 100dvh;
   color: #f9effb;
@@ -15,21 +18,7 @@
   padding: env(safe-area-inset-top) clamp(6px, 1.7vw, 13px) calc(20px + env(safe-area-inset-bottom));
 }
 
-.catalog-top-bar { display: flex; }
-
-.catalog-back {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  gap: 6px;
-  padding: 0 4px;
-  border-radius: 12px;
-  color: #e6d9f1;
-  font-size: clamp(.75rem, 2.55vw, 1.22rem);
-}
-
-.catalog-back span { font-size: 1.2rem; }
-.catalog-back:hover { background: #ffffff12; }
+.catalog-page .screen-bar { margin-top: 4px; }
 
 .catalog-intro {
   display: flex;
@@ -38,14 +27,6 @@
   align-items: center;
   gap: 12px;
   margin: clamp(8px, 5.8vw - 15px, 30px) 0 clamp(15px, 4vw, 34px);
-}
-
-.catalog-intro h1 {
-  margin: 0;
-  font-size: clamp(2rem, 8.8vw, 4.15rem);
-  font-weight: 800;
-  letter-spacing: -.063em;
-  line-height: 1.15;
 }
 
 .catalog-intro p {
@@ -82,14 +63,14 @@
   padding: 0;
   overflow: hidden;
   text-align: left;
-  color: inherit;
+  color: #f5effb;
   background: linear-gradient(145deg, #232034, #211e32);
   border: 1px solid #d4cce02d;
   border-radius: clamp(11px, 3.4vw, 26px);
   box-shadow: 0 7px 18px #110f2480;
 }
 
-.catalog-card:focus-visible, .catalog-back:focus-visible, .catalog-close:focus-visible { outline-color: #f0c780; }
+.catalog-card:focus-visible, .catalog-close:focus-visible { outline-color: #f0c780; }
 .catalog-card:hover { border-color: #e6d8f698; }
 
 .catalog-art {
@@ -135,8 +116,8 @@
   transform: translateX(-50%);
 }
 
-.catalog-acquisition { color: #b9b5c6; font-size: clamp(.64rem, 2.6vw, 1.15rem); font-weight: 600; }
-.catalog-acquisition[data-acquired="true"] { color: #ffdea7; }
+.catalog-acquisition { color: #c1b7d1; font-size: clamp(.64rem, 2.6vw, 1.15rem); font-weight: 600; }
+.catalog-acquisition[data-acquired="true"] { color: #e8cf9f; }
 
 .catalog-portrait {
   position: absolute;
@@ -155,6 +136,7 @@
   padding: 6px clamp(7px, 2.05vw, 16px);
   word-break: keep-all;
   overflow-wrap: anywhere;
+  background: #252137;
   border-top: 1px solid #ffffff12;
 }
 
