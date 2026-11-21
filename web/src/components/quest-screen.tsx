@@ -4,19 +4,22 @@
 // - 요약 칸은 넣지 않음 (이 화면은 입력이 중심)
 // - 부가 기능: 날씨 직접 바꾸기는 접어 둠
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { client, weatherNames, type Checkin, type Help, type Mode, type Recommendation } from '@/lib/mobile-data';
+import GlassSelect from './glass-select';
 import { Avatar, Hero, ScreenBar, Section, Steps } from './screen-kit';
+import SkyControlIcon from './sky-control-icon';
 
 const CHOICES = [['rest', '쉬어 가기'], ['home', '집 안'], ['near', '집 근처'], ['out', '바깥']] as const;
+const WEATHER_OPTIONS = Object.entries(weatherNames).map(([value, label]) => ({ value, label }));
 
-export default function QuestScreen({ mode, busy, run, onHelp, onError, onClose, onTotalPoints }: {
+export default function QuestScreen({ mode, busy, run, onHelp, onError, dialog, onTotalPoints }: {
   mode: Mode;
   busy: boolean;
   run: (fn: () => Promise<void>) => void;
   onHelp: (help: Help) => void;
   onError: (message: string) => void;
-  onClose?: () => void;
+  dialog?: { titleId: string; onClose: () => void; feedback: ReactNode };
   onTotalPoints?: (points: number) => void;
 }) {
   const [text, setText] = useState('');
@@ -24,85 +27,124 @@ export default function QuestScreen({ mode, busy, run, onHelp, onError, onClose,
   const [check, setCheck] = useState<Checkin | null>(null);
   const [items, setItems] = useState<Recommendation[] | null>(null);
   const [fallback, setFallback] = useState(false);
+  const [step, setStep] = useState(0);
+  const savedInput = useRef<{ text: string; choice: string } | null>(null);
+  const entry = useRef<HTMLElement>(null);
   const weatherHeading = useRef<HTMLHeadingElement>(null);
   const results = useRef<HTMLDivElement>(null);
-  const inSheet = onClose !== undefined;
-  const reset = () => { setCheck(null); setItems(null); };
+  const inSheet = dialog !== undefined;
   const weather = check ? weatherNames[check.weather] || check.weather : null;
   const checkinId = check?.checkinId;
+  const showEntry = step === 0;
   const hasHelp = !!check?.help;
   useEffect(() => {
-    if (inSheet && checkinId != null && !hasHelp) {
-      weatherHeading.current?.focus({ preventScroll: true });
-      weatherHeading.current?.scrollIntoView({ block: 'start' });
-    }
-  }, [checkinId, hasHelp, inSheet]);
-  useEffect(() => {
-    if (inSheet && items) {
-      results.current?.focus({ preventScroll: true });
-      results.current?.scrollIntoView({ block: 'start' });
-    }
-  }, [items, inSheet]);
+    const target = step === 0 && savedInput.current ? entry.current
+      : step === 1 && !hasHelp ? weatherHeading.current
+      : step === 2 ? results.current : null;
+    if (!target) return;
+    target.focus({ preventScroll: true });
+    const body = target.closest('.quest-dialog-body');
+    if (body) body.scrollTop = 0;
+    else target.scrollIntoView({ block: 'nearest' });
+  }, [step, hasHelp]);
 
-  return <>
-    {!inSheet && <><ScreenBar title="오늘의 별" />
-    <Hero
+  function saveEntry() {
+    const value = text.trim();
+    if (checkinId != null && savedInput.current?.text === value && savedInput.current.choice === choice) {
+      setStep(1);
+      return;
+    }
+    run(async () => {
+      const r = await client(mode).checkin(value, choice);
+      setCheck(r);
+      onHelp(r.help);
+      if (typeof r.totalPoints === 'number') onTotalPoints?.(r.totalPoints);
+      if (r.checkinId === null) {
+        onError('저장하지 못했어요. 입력은 그대로 있어요. 다시 저장해 주세요.');
+        return;
+      }
+      savedInput.current = { text: value, choice };
+      setStep(1);
+    });
+  }
+
+  function goBack() {
+    setStep(current => Math.max(0, current - 1));
+  }
+
+  const content = <>
+    {!inSheet && <ScreenBar title="오늘의 별" {...(step > 0 && { onBack: goBack, backLabel: '이전 단계' })} />}
+    {!inSheet && showEntry && <Hero
       visual={<Avatar size={84} />}
       title="오늘은 어떤 하루인가요?"
       message="한 줄이면 충분해요. 들려준 만큼 오늘의 별을 찾아 줄게요."
-      chip={weather ? `마음 날씨 · ${weather}` : undefined}
-    /></>}
-    <Steps label="오늘의 별 찾는 순서" steps={['한 줄 기록', '마음 날씨', '오늘의 별']} current={items ? 2 : checkinId != null ? 1 : 0} />
+    />}
+    <Steps label="오늘의 별 찾는 순서" steps={['한 줄 기록', '마음 날씨', '오늘의 별']} current={step} />
 
-    <section className="card quest-entry">
+    {showEntry && <section ref={entry} className="card quest-entry" tabIndex={-1}>
       {!inSheet && <h2>한 줄 기록</h2>}
-      <label>마음에 떠오른 한 줄<textarea disabled={busy} maxLength={300} value={text} onChange={e => { setText(e.target.value); reset(); }} placeholder="가상 내용으로 적어 주세요" /></label>
+      <label>마음에 떠오른 한 줄<textarea disabled={busy} maxLength={300} value={text} onChange={e => setText(e.target.value)} placeholder="가상 내용으로 적어 주세요" /></label>
       <fieldset><legend>오늘은 어떤 활동이 괜찮을까요?</legend>
         <p className="small">고른 범위 안에서 오늘의 별을 찾아요.</p>
-        <div className="choices quest-range-options">{CHOICES.map(([v, l]) => <button key={v} type="button" disabled={busy} className="secondary" aria-pressed={choice === v} onClick={() => { setChoice(v); reset(); }}>{l}</button>)}</div>
+        <div className="choices quest-range-options">{CHOICES.map(([v, l]) => <button key={v} type="button" disabled={busy} className="secondary" aria-pressed={choice === v} onClick={() => setChoice(v)}>{l}</button>)}</div>
       </fieldset>
-      <button disabled={busy || !text.trim()} onClick={() => run(async () => {
-        reset();
-        const r = await client(mode).checkin(text, choice);
-        setCheck(r);
-        onHelp(r.help);
-        if (typeof r.totalPoints === 'number') onTotalPoints?.(r.totalPoints);
-        if (r.checkinId === null) onError('저장하지 못했어요. 입력은 그대로 있어요. 다시 저장해 주세요.');
-      })}>{busy ? '처리 중…' : check?.checkinId === null ? '체크인 저장 재시도' : '한 줄 기록하기'}</button>
-    </section>
+      <button className="quest-action" disabled={busy || !text.trim()} onClick={saveEntry}>{busy ? '저장 중…' : check?.checkinId === null ? '다시 저장하기' : '다음'}</button>
+    </section>}
 
-    {check && <section className="card">
-      <div className="card-tags"><span>{mode === 'example' ? '예시 날씨' : check.usedFallback ? '기본 날씨' : 'AI가 고른 날씨'}</span></div>
-      {check.pointsEarned === 100 && <p className="checkin-reward" role="status">+100 포인트</p>}
-      <h2 ref={weatherHeading} tabIndex={inSheet ? -1 : undefined}>마음 날씨 · {weather}</h2>
-      <p className="small">오늘의 한 줄을 날씨로 빗대 본 거예요. 진단이 아닌 참고 기록이에요.</p>
+    {check && step !== 2 && (step === 1 || checkinId === null) && <section className="card quest-weather-card">
+      <div className="quest-weather-reading">
+        <div className="card-tags"><span>{mode === 'example' ? '예시 날씨' : check.usedFallback ? '기본 날씨' : 'AI가 고른 날씨'}</span></div>
+        {check.pointsEarned === 100 && <p className="checkin-reward" role="status">+100 포인트</p>}
+        <h2 ref={weatherHeading} tabIndex={-1}>마음 날씨 · {weather}</h2>
+        <p className="small">오늘의 한 줄을 날씨로 빗대 본 거예요. 진단이 아닌 참고 기록이에요.</p>
+      </div>
       {check.checkinId !== null && <>
-        <details>
-          <summary>날씨가 다르면 바꾸기</summary>
-          <label>내 마음에 가까운 날씨<select disabled={busy} value={check.weather} onChange={e => {
-            const next = e.target.value;
-            run(async () => { await client(mode).weather(check.checkinId!, next); setCheck({ ...check, weather: next }); });
-          }}>{Object.entries(weatherNames).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+        <details className="quest-weather-options">
+          <summary>날씨 바꾸기</summary>
+          <GlassSelect label="내 마음에 가까운 날씨" options={WEATHER_OPTIONS} disabled={busy} value={check.weather}
+            onChange={next => {
+              if (next === check.weather) return;
+              run(async () => {
+                await client(mode).weather(check.checkinId!, next);
+                setCheck({ ...check, weather: next });
+              });
+            }} />
         </details>
-        <button disabled={busy} onClick={() => run(async () => {
+        <button className="quest-action" disabled={busy} onClick={() => run(async () => {
           const result = await client(mode).recommendations(check.checkinId!);
           setItems(result.items);
           setFallback(result.usedFallback);
+          setStep(2);
         })}>오늘의 별 추천받기</button>
       </>}
     </section>}
 
-    {items && <div ref={results} tabIndex={inSheet ? -1 : undefined}><Section id="quest-stars" title="추천 별">
+    {step === 2 && items && <div ref={results} tabIndex={-1}>
+      <Section id="quest-stars" title="추천 별">
       <p className="small">{mode === 'example' ? '예시 추천이에요.' : fallback ? '기본 추천이에요.' : 'AI가 만든 추천은 틀릴 수 있어요.'}</p>
       {items.length
         ? items.map(i => <Link className="card recommendation" key={i.starId} href={`/stars/${i.starId}`} onClick={event => {
-            if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) onClose?.();
+            if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) dialog?.onClose();
           }}>
             <div className="card-tags"><span className="gold">✦ 오늘의 별</span></div>
             <h3>{i.title}</h3><p>{i.reason}</p><strong>이 별 만나기</strong>
           </Link>)
-        : <section className="card"><h3>오늘은 쉬어 가도 괜찮아요</h3><p>다른 활동 범위를 고르거나 밤하늘에서 쉬어 가세요.</p>
-          {onClose ? <button type="button" className="secondary" onClick={onClose}>내 밤하늘로</button> : <Link href="/sky">내 밤하늘로</Link>}</section>}
+        : <section className="card"><h3>오늘은 쉬어 가도 괜찮아요</h3>
+          {dialog ? <button type="button" className="secondary" onClick={dialog.onClose}>내 밤하늘로</button> : <Link href="/sky">내 밤하늘로</Link>}</section>}
     </Section></div>}
+  </>;
+
+  if (!dialog) return content;
+  return <>
+    <header className="quest-dialog-header">
+      {step > 0 && <button type="button" className="text-button quest-dialog-back" aria-label="이전 단계" disabled={busy} onClick={goBack}>
+        <SkyControlIcon name="back" />
+      </button>}
+      <h2 id={dialog.titleId}><SkyControlIcon name="star" /> 오늘의 별</h2>
+      <button type="button" className="text-button quest-dialog-close" aria-label="오늘의 별 닫기" onClick={dialog.onClose}>
+        <SkyControlIcon name="close" />
+      </button>
+    </header>
+    <div className="quest-dialog-body">{dialog.feedback}{content}</div>
   </>;
 }

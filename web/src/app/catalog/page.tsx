@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Suspense } from 'react';
 import CatalogGallery from './catalog-gallery';
 import './catalog.css';
 
@@ -8,14 +9,27 @@ export const metadata: Metadata = {
   description: '새빛, 윤슬, 도란과 함께 나란히의 열 별자리 친구를 만나요.',
 };
 
-export default function CatalogPage() {
+function CatalogBackLink({ fromProfile = false }: { fromProfile?: boolean }) {
+  return <Link href={fromProfile ? '/profile' : '/sky'} className="catalog-back">
+    <span aria-hidden="true">←</span> {fromProfile ? '프로필로 돌아가기' : '내 밤하늘'}
+  </Link>;
+}
+
+type CatalogSearchParams = Promise<{ from?: string | string[] }>;
+
+async function CatalogBack({ searchParams }: { searchParams: CatalogSearchParams }) {
+  const { from } = await searchParams;
+  return <CatalogBackLink fromProfile={from === 'profile'} />;
+}
+
+export default function CatalogPage({ searchParams }: { searchParams: CatalogSearchParams }) {
   return (
     <main className="catalog-page">
       <div className="catalog-content">
         <div className="catalog-top-bar">
-          <Link href="/sky" className="catalog-back">
-            <span aria-hidden="true">←</span> 내 밤하늘
-          </Link>
+          <Suspense fallback={null}>
+            <CatalogBack searchParams={searchParams} />
+          </Suspense>
         </div>
         <header className="catalog-intro">
           <div>
