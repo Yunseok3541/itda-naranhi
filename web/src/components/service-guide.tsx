@@ -90,6 +90,7 @@ export default function ServiceGuide({ replay = false, onDone }: {
       <div className="guide-points">
         <b><span aria-hidden="true">✦</span> 포인트는 이렇게 쌓여요</b>
         <p>하루 첫 체크인 +{CHECKIN_POINTS} · 별을 처음 따면 +10~40 · 별똥별 +{METEOR_POINTS}</p>
+        <small>모은 포인트로 프로필의 별빛 상점에서 캐릭터를 꾸밀 수 있어요.</small>
       </div>
       <p className="small guide-note">매일 오지 않아도 돼요. 연속 기록도, 감점도 없어요. 오고 싶은 날 오면 돼요.</p>
       <button type="button" className="guide-next" onClick={onDone}>{replay ? '밤하늘로 돌아가기' : '내 밤하늘 열기'}</button>

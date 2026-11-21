@@ -13,7 +13,7 @@ const TARGETS: readonly { selector: string; name: string; text: string; side?: '
   { selector: '.sky-top .sky-resource-button', name: '청년센터·정책', text: '가까운 센터와 맞춤 정책' },
   { selector: '.night-list-trigger', name: '모든 별 보기', text: '내 별을 목록으로 한눈에' },
   { selector: '.sky-minimap', name: '하늘 지도', text: '다른 별자리로 이동해요', side: 'left' },
-  { selector: '.sky-actions a[href="/profile"]', name: '프로필', text: '내 기록과 배지' },
+  { selector: '.sky-actions a[href="/profile"]', name: '프로필', text: '기록·배지·상점' },
   { selector: '.sky-actions .dock-main', name: '오늘의 별', text: '한 줄 쓰고 오늘의 별 찾기' },
   { selector: '.sky-actions a[href="/catalog"]', name: '도감', text: '만난 친구들', side: 'left' },
 ];

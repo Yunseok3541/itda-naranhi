@@ -67,6 +67,7 @@
 .guide-daily small { display: block; margin-top: 2px; line-height: 1.45; }
 .guide-points { padding: 12px 14px; border-radius: 14px; border: 1px solid var(--star-gold-soft); background: rgba(246, 207, 125, .08); }
 .guide-points p { margin: 4px 0 0; font-size: .875rem; color: #ffe9bf; }
+.guide-points small { display: block; margin-top: 4px; font-size: .75rem; line-height: 1.45; }
 
 @media (prefers-reduced-motion: no-preference) {
   .service-guide > * { animation: screen-rise .38s cubic-bezier(.2, .8, .2, 1) both; }
