@@ -427,15 +427,18 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .sky-control-icon { flex: none; }
 .sky-icon-action { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
 .sky-icon-action .sky-control-icon { width: 16px; height: 16px; }
-/* 메인에서는 도움 안내를 모서리 버튼 아래 뜨는 불투명한 창으로 (뒤 별자리와 겹쳐 읽기 어렵지 않게, 배치를 밀지 않게) */
-.sky-locked > .help.help-panel {
-  position: fixed; z-index: 6; top: calc(68px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+/* 메인·첫 화면(시작 질문·시작 안내 포함)에서는 도움 안내를 모서리 버튼 아래 뜨는 불투명한 창으로
+   (뒤 별자리와 겹쳐 읽기 어렵지 않게, 배치를 밀지 않게. 첫 화면에서 흐름 안에 넣으면 "데모 시작"이 화면 밖으로 밀려남)
+   위치: 버튼 줄 위쪽 여백(아래 .sky-mode.sky-locked/.sky-intro의 padding-top과 같은 식) + 버튼 높이 44px + 간격 6px.
+   고정 68px이면 화면 높이에 따라 버튼 아래를 최대 8px 덮거나 떠 보였음 */
+.sky-mode > .help.help-panel {
+  position: fixed; z-index: 6; top: calc(clamp(16px, 3.3dvh, 32px) + env(safe-area-inset-top) + 44px + 6px); left: 50%; transform: translateX(-50%);
   width: min(calc(100% - 32px), 488px); max-height: 62dvh; overflow-y: auto; margin: 0; padding: 14px 16px;
   background: #171236; border: 1px solid var(--star-gold-soft); border-radius: 16px; box-shadow: 0 12px 36px rgba(0, 0, 0, .5);
 }
-.sky-locked > .help h2 { margin-top: 0; }
-.sky-locked > .help p { margin: 6px 0; }
-.sky-locked > .help .text-button { margin-top: 8px; }
+.sky-mode > .help h2 { margin-top: 0; }
+.sky-mode > .help p { margin: 6px 0; }
+.sky-mode > .help .text-button { margin-top: 8px; }
 
 /* ───────── 캐릭터 말풍선 (메인) ─────────
    배경 인물은 화면 아래 약 21%(손끝)부터 하단 버튼 위까지. 그 자리에 투명 단추를 겹침 */
@@ -714,13 +717,17 @@ html.sky-locked-page { --sky-dock-height: 96px; --person-height: 15dvh; }
 .sky-locked .night-title h1.complete { color: var(--star-gold); }
 .sky-locked .night-title p { font-size: clamp(13px, 3.5vw, 17px); }
 :is(.sky-locked, .sky-intro) .sky-top .sky-pill.sky-utility {
-  height: 44px; width: 100%; justify-content: center; padding: 0 8px; gap: 8px;
+  /* 폭은 내용에 맞춤: 아이콘은 위아래 여백과 비슷하게 왼쪽 7px, 글자는 아이콘 바로 옆 8px
+     (칸 폭 100%에 가운데 정렬이면 아이콘 왼쪽·아이콘-글자 사이가 20px 넘게 비어 어색함) */
+  height: 44px; width: auto; justify-self: start; justify-content: flex-start; padding: 0 10px 0 7px; gap: 8px;
   border-radius: 14px; font-size: 13px;
   color: #fffaff;
   border: 1px solid var(--sky-utility-border);
   background: var(--sky-utility-surface);
   box-shadow: 0 3px 13px #08041546;
 }
+/* 오른쪽 버튼은 줄 오른쪽 끝에 붙여 아래 도움받을 곳 창의 오른쪽 끝과 맞춤 */
+:is(.sky-locked, .sky-intro) .sky-top .sky-pill.sky-utility:nth-child(2) { justify-self: end; }
 :is(.sky-locked, .sky-intro) .sky-top .sky-utility:is(:hover, :focus-visible, [aria-expanded="true"]) { border-color: var(--sky-utility-ink); }
 .sky-help-button {
   --sky-utility-border: #a986d57a;
