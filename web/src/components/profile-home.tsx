@@ -207,7 +207,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
         <div id="profile-catalog-items" className="profile-strip">
           {(catalogExpanded ? catalogCharacters : catalogCharacters.slice(0, PROFILE_CATALOG_PREVIEW_SIZE)).map(character => {
             const acquired = acquiredIds.has(character.constellationId);
-            return <Link key={character.id} href="/catalog" className={`strip-item ${acquired ? 'done' : 'yet'}`}
+            return <Link key={character.id} href="/catalog?from=profile" className={`strip-item ${acquired ? 'done' : 'yet'}`}
               aria-label={`${character.constellation.name} ${character.nickname}, ${acquired ? '완성' : '미완성'}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={`/catalog/${character.id}.webp`} alt="" />
@@ -221,7 +221,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
             onClick={() => setCatalogExpanded(expanded => !expanded)}>
             {catalogExpanded ? '도감 접기' : '도감 펼치기'}
           </button>}
-          <Link href="/catalog">전체 도감 열기</Link>
+          <Link href="/catalog?from=profile">전체 도감 열기</Link>
         </div>
       </> : avatarError || avatarChoices
         ? <p className="small" role="alert">획득한 별자리를 불러오지 못했어요.</p>
