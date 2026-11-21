@@ -7,6 +7,7 @@
 // - 시작 질문·정책 신청 정보 입력은 설정(⚙) 안으로 (주소 끝 #settings로 바로 열 수 있음)
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import CatalogStardust from '@/app/catalog/catalog-stardust';
 import { characters } from '@/app/catalog/characters';
 import { client, type Mode, type ProfileAvatar, type Star } from '@/lib/mobile-data';
 import { evaluate, NO_FACTS, type MilestoneFacts } from '@/lib/milestones';
@@ -114,6 +115,15 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
           <Avatar id={choice.id} size={56} />
           <small>{choice.nickname}</small>
         </button>)}
+        {characters.filter(character => !acquiredCharacters.includes(character)).map(character =>
+          <button key={character.id} type="button" className="avatar-option avatar-locked" disabled
+            aria-label={`${character.nickname}, 미완성`}>
+            <span className="avatar avatar-silhouette">
+              <CatalogStardust id={character.id} large={false} />
+            </span>
+            <small>{character.nickname}</small>
+          </button>
+        )}
       </div>
       <p className="small">별자리를 완성하면 그 캐릭터를 고를 수 있어요.</p>
       </>}

@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import { useRef } from 'react';
+import './catalog-stardust.css';
 
 const width = 384;
 const height = 400;
