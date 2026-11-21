@@ -223,7 +223,6 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
         <button type="button" className="secondary" onClick={() => setHelping(policy)}>신청 도와줘</button>
         {policy.needsInquiry && <Link className="secondary" href="/centers">청년센터에서 문의 준비하기</Link>}
       </div>
-      <p className="small policy-action-note">신청 도와줘: 신청 순서·서류·문의할 말을 물어볼 수 있어요</p>
       {sent[policy.policyId]
         ? <SentNote result={sent[policy.policyId]} />
         : <NotForMe policyId={policy.policyId} mode={mode} onSent={r => setSent(prev => ({ ...prev, [policy.policyId]: r }))} />}
@@ -272,7 +271,10 @@ function NotForMe({ policyId, mode, onSent }: { policyId: number; mode: Mode; on
     } finally { setBusy(false); }
   }
 
-  if (!open) return <button type="button" className="policy-not-for-me" onClick={() => setOpen(true)}>나랑 안 맞아요<small>이유를 알려 주면 다시 추천하지 않아요</small></button>;
+  if (!open) return <button type="button" className="policy-not-for-me" onClick={() => setOpen(true)}>
+    나랑 안 맞아요
+    {mode === 'api' && <small>이유를 알려 주면 다시 추천하지 않아요</small>}
+  </button>;
   return <fieldset className="policy-feedback">
     <legend>어떤 점이 안 맞나요?</legend>
     {reasons.map(r => <label key={r.value}>

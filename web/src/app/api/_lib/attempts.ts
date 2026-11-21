@@ -103,11 +103,11 @@ export async function createAttempt(
 
   try {
     // 포인트(고민기록 #31): 이 별을 처음 밝혔을 때만 v_star_points 점수를 준다. dim·다시 완료는 0점
-    // 같은 문장의 CTE는 INSERT 전 상태를 보므로 prev = 이번 시도 전 기록. 총점의 기준은 뷰 v_user_points
+    // 같은 문장의 CTE는 INSERT 전 상태를 보므로 prev = 이번 시도 전 기록. 잔액의 기준은 뷰 v_user_balance
     const { rows } = await db.query<{ id: number; date: string; had_bright: boolean; total_before: number; star_points: number }>(
       `WITH prev AS (
          SELECT EXISTS (SELECT 1 FROM star_attempts WHERE user_id = $1 AND star_id = $2 AND status = 'bright') AS had_bright,
-                COALESCE((SELECT total_points FROM v_user_points WHERE user_id = $1), 0) AS total_before,
+                COALESCE((SELECT total_points FROM v_user_balance WHERE user_id = $1), 0) AS total_before,
                 COALESCE((SELECT points FROM v_star_points WHERE star_id = $2), 0) AS star_points
        ), ins AS (
          INSERT INTO star_attempts (user_id, star_id, status, verify_method, place_id, place_name, reflection, stop_reason, cheer,

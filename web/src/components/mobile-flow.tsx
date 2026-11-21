@@ -9,6 +9,7 @@ import CentersScreen from './centers-screen';
 import SkyPanorama from '@/app/sky-preview/sky-panorama';
 import { ProfileScreen, StartQuestions, StartResult } from './profile-form';
 import GlassSelect from './glass-select';
+import StarlightShop from './starlight-shop';
 import ProfileHome from './profile-home';
 import { PendingNextLink } from './next-step-card';
 import QuestScreen from './quest-screen';
@@ -207,7 +208,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
    {needsSession && <section className="card"><p>데모 세션을 다시 시작해 주세요. 작성한 글은 이 화면에 그대로 있어요.</p><button disabled={busy} onClick={() => run(restartSession)}>데모 다시 시작</button></section>}
  </>;
  if(!loaded)return <main className="shell sky-mode"><p className="night-loading">밤하늘을 준비하고 있어요…</p></main>;
- return <HelpContext.Provider value={helpToggle}>{night&&<SkyPanorama background dome={locked}/>}<main ref={shell} className={night?`shell sky-mode panorama-content${locked?' sky-locked':''}${!ready?' sky-intro':''}`:'shell night-ui'} lang="ko">{locked
+ return <HelpContext.Provider value={helpToggle}>{night&&<SkyPanorama background dome={locked} mode={locked ? mode : undefined}/>}<main ref={shell} className={night?`shell sky-mode panorama-content${locked?' sky-locked':''}${!ready?' sky-intro':''}`:'shell night-ui'} lang="ko">{locked
    // 메인: 왼쪽 위 도움받을 곳, 오른쪽 위 정책추천·청년센터 (머리글 대신 모서리 버튼)
    ? <header className="sky-top">
        <button type="button" className="sky-pill sky-utility sky-help-button" aria-expanded={help?.title===HELP.title} onClick={()=>H(h=>h?.title===HELP.title?null:HELP)}>
@@ -292,6 +293,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  </dialog>}
  {screen==='checkin'&&<QuestScreen mode={mode} busy={busy} run={run} onHelp={H} onError={E}/>}
  {screen==='star'&&<StarScreen key={starId} mode={mode} star={star} busy={busy} run={run} onHelp={H} onSaved={reloadSky}/>}
+ {screen==='shop'&&<StarlightShop mode={mode}/>}
  {screen==='profile'&&<ProfileHome mode={mode}/>}
  {screen==='policy-criteria' && <>
    <ScreenBar title="추천 기준" back="/policies" backLabel="정책 추천으로 돌아가기" />

@@ -8,6 +8,8 @@
 // - 위치·시간·카메라 권한을 쓰지 않음 (실제 내 위치의 하늘이 아니라 별자리 지도)
 import { useEffect, useRef } from 'react';
 import { foregroundVisibility, projector, scaleFor, skyView, unit, type Vec3 } from '@/lib/sky-view';
+import DressedSkyPerson from '@/components/dressed-sky-person';
+import type { Mode } from '@/lib/mobile-data';
 import SkyPerson from '@/components/sky-person';
 import { drawGround, drawSkyLight } from './sky-landscape';
 import './sky-preview.css';
@@ -45,7 +47,7 @@ function turn(host: HTMLElement, dx: number, dy: number, dome: boolean) {
   skyView.pan(dx * perPixel / horizontalScale, dy * perPixel, dome);
 }
 
-export default function SkyPanorama({ background = false, dome = false }: { background?: boolean; dome?: boolean }) {
+export default function SkyPanorama({ background = false, dome = false, mode }: { background?: boolean; dome?: boolean; mode?: Mode }) {
   const surface = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
 
@@ -290,7 +292,7 @@ export default function SkyPanorama({ background = false, dome = false }: { back
         }}>
         <canvas ref={canvas} className="panorama-canvas" aria-hidden="true" />
         {!dome && <><div className="panorama-hills" aria-hidden="true" /><div className="panorama-grass" aria-hidden="true" /></>}
-        <div className="panorama-person" aria-hidden="true"><SkyPerson sculpted={background} /></div>
+        <div className="panorama-person" aria-hidden="true">{mode ? <DressedSkyPerson mode={mode} /> : <SkyPerson sculpted={background} />}</div>
       </div>
     </div>
   );
