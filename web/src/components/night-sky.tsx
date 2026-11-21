@@ -119,7 +119,7 @@ function freeBand() {
   return frame && top !== undefined ? { top: top + 12 - frame.top, bottom: frame.height * 0.76 } : undefined;
 }
 
-export default function NightSky({ stars, selected, onSelect, busy, onReload, footer, nextLink, completedId, mode, totalPoints, onOpenQuest }: {
+export default function NightSky({ stars, selected, onSelect, busy, onReload, footer, nextLink, completedId, mode, totalPoints, onOpenQuest, hintsPaused = false }: {
   stars: Star[];
   selected: Star | null;
   onSelect: (star: Star | null) => void;
@@ -132,6 +132,8 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   mode: Mode;
   totalPoints?: number;
   onOpenQuest: () => void;
+  /** 메뉴 한 장 안내(menu-tour.tsx)가 떠 있는 동안은 첫 안내 카드·별똥별 안내를 미룸 */
+  hintsPaused?: boolean;
 }) {
   const starLight = useId();
   const groups = useMemo(() => groupStars(stars), [stars]);
@@ -339,9 +341,9 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
       frame.width, frame.height, freeBand(), exclusion);
   }, [detailed, groups, namedStar, positions, frame, safeIndex]);
 
-  const hint = selected || talk ? null : hints.current;
+  const hint = selected || talk || hintsPaused ? null : hints.current;
   return <section className={`night${hint === 'star' ? ' hint-star' : ''}`} aria-label="내 밤하늘">
-    <MeteorRewards key={mode} mode={mode} skyTotal={totalPoints} fov={view.fov} />
+    <MeteorRewards key={mode} mode={mode} skyTotal={totalPoints} fov={view.fov} hintPaused={hintsPaused} />
 
     {frame && <div className="sky-anchors" style={{ left: frame.left, top: frame.top, width: frame.width, height: frame.height }}>
       <div className="sky-companion-layer">

@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import MobileFlow from '@/components/mobile-flow';
 
-type SkyParams = Promise<{ completed?: string; memory?: string }>;
+type SkyParams = Promise<{ completed?: string; memory?: string; guide?: string }>;
 
 function readId(value: string | undefined) {
   if (typeof value !== 'string' || !/^\d+$/.test(value)) return undefined;
@@ -10,9 +10,11 @@ function readId(value: string | undefined) {
 }
 
 async function Sky({ searchParams }: { searchParams: SkyParams }) {
-  const { completed, memory } = await searchParams;
+  const { completed, memory, guide } = await searchParams;
   const attemptId = readId(completed), starId = readId(memory);
-  return <MobileFlow key={`${attemptId ?? ''}:${starId ?? ''}`} completionAttemptId={attemptId} memoryStarId={starId} />;
+  // guide=1: 설정의 "사용 안내 다시 보기" → 시작 안내부터 (끝나면 /sky로 돌아옴)
+  const replay = guide === '1';
+  return <MobileFlow key={`${attemptId ?? ''}:${starId ?? ''}:${replay ? 'guide' : ''}`} completionAttemptId={attemptId} memoryStarId={starId} guide={replay} />;
 }
 
 export default function Page({ searchParams }: { searchParams: SkyParams }) {

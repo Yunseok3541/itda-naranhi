@@ -19,7 +19,7 @@ export function meteorScale(fov: number) {
   return 1 + (METEOR_MAX_SCALE - 1) * zoom;
 }
 
-export default function MeteorRewards({ mode, skyTotal, fov = FOV_MAX }: { mode: Mode; skyTotal?: number; /** 지금 하늘 시야각. 확대할수록 별똥별이 커짐 */ fov?: number }) {
+export default function MeteorRewards({ mode, skyTotal, fov = FOV_MAX, hintPaused = false }: { mode: Mode; skyTotal?: number; /** 지금 하늘 시야각. 확대할수록 별똥별이 커짐 */ fov?: number; /** 메뉴 한 장 안내가 떠 있으면 별똥별 안내를 미룸 */ hintPaused?: boolean }) {
   const [total, setTotal] = useState<number>();
   const [meteor, setMeteor] = useState<number | null>(null);
   const [limitReached, setLimitReached] = useState(false);
@@ -33,7 +33,7 @@ export default function MeteorRewards({ mode, skyTotal, fov = FOV_MAX }: { mode:
   useLayoutEffect(() => () => setPointsOpen(false), []);
   // 별똥별 처음 한 번 안내: 첫 별똥별 옆에 "눌러서 +1". 그 별똥별이 지나가거나 잡으면 끝
   const hints = useSkyHints();
-  const meteorHint = meteor !== null && !limitReached && hints.pending('meteor');
+  const meteorHint = meteor !== null && !limitReached && !hintPaused && hints.pending('meteor');
   const hintedMeteor = useRef<number | null>(null);
   useEffect(() => {
     if (meteorHint) hintedMeteor.current = meteor;
