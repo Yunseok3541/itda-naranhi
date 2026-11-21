@@ -35,7 +35,15 @@ type Rewards = { meteorPoints: number; checkinPoints: number; checkinDay?: strin
 type Store = { stars: Star[]; checkins: Record<number, { text: string; todayChoice: string; weather: string }>; nextPlan?: NextPlan | null; rewards?: Rewards; avatarConstellationId?: number | null };
 function read(): Store {
   const raw = localStorage.getItem(key);
-  if (raw) return JSON.parse(raw);
+  if (raw) {
+    // 별 문구는 처음 만들 때 복사해 둔 것이라, 원본(quests.json)을 고치면 예전 문구가 남음 → 읽을 때 원본에 맞춤 (기록은 그대로)
+    const store: Store = JSON.parse(raw);
+    store.stars = store.stars.map(star => {
+      const q = catalogQuest(star.starId);
+      return q ? { ...star, title: q.title, description: q.description, verifyType: q.verify_type ?? 'self' } : star;
+    });
+    return store;
+  }
   return { stars: catalogConstellations.flatMap(c => c.quests.map((id, position) => {
     const q = catalogQuest(id)!;
     return { starId: id, title: q.title, description: q.description, constellationId: c.id,
