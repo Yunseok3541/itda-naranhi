@@ -2,7 +2,7 @@
 // 밤하늘 테마의 반투명 드롭다운 (시작 질문·체험 방식). 기본 <select>는 펼친 목록을 브라우저가 그려서 꾸밀 수 없어 직접 만든다
 // 접근성: 버튼(aria-haspopup="listbox") + 목록(role="listbox", aria-activedescendant)
 //   열기: 클릭 · Enter · Space · ↑↓ / 고르기: 클릭 · Enter · Space / 이동: ↑↓ Home End / 닫기: Esc · Tab · 바깥 누르기
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 export type GlassOption<V> = { value: V; label: string };
 
@@ -11,6 +11,8 @@ export default function GlassSelect<V extends string | null>({ label, options, v
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
+  // 다른 화면으로 갔다 돌아오면 닫혀 있게 (cacheComponents로 숨겨진 화면도 상태가 남음, use-collapse-on-hide.ts 참고)
+  useLayoutEffect(() => () => setOpen(false), []);
   const [active, setActive] = useState(0);
   const wrap = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);

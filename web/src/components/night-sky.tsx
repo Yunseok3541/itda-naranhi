@@ -7,7 +7,7 @@
 // - 시인성: 배경 별은 어둡게, 퀘스트 별은 크게, 지금 별자리는 별 이름·실선, 다른 별자리는 흐리게
 import Link from 'next/link';
 import Image from 'next/image';
-import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
 import { characters } from '@/app/catalog/characters';
 import { getActivityConstellation, getCompletedConstellationIds, getStarConstellationId } from '@/lib/constellations';
 import type { Mode, Star } from '@/lib/mobile-data';
@@ -177,6 +177,8 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   const [burst, setBurst] = useState<{ key: number; x: number; y: number } | null>(null);
   // 캐릭터 말풍선: 누르면 열리고 다시 누르면 닫힘 (null = 닫힘, 문자열 = 오늘의 질문)
   const [talk, setTalk] = useState<string | null>(null);
+  // 다른 화면으로 갔다 돌아오면 닫혀 있게 (cacheComponents로 숨겨진 화면도 상태가 남음, use-collapse-on-hide.ts 참고)
+  useLayoutEffect(() => () => { setTalk(null); setNamedStar(null); }, []);
   const toggleTalk = () => setTalk(t => (t ? null : QUESTIONS[Math.floor(Date.now() / 86_400_000) % QUESTIONS.length]));
   const sheet = useRef<HTMLDialogElement>(null);
   const list = useRef<HTMLDialogElement>(null);

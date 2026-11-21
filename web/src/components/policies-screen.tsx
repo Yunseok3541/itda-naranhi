@@ -10,7 +10,7 @@
 // - [신청 도와줘]: 신청 도우미 창 (apply-helper.tsx, 고민기록 #39)
 // - [나랑 안 맞아요]: 이유를 고르면 그 정책은 다시 추천하지 않음. 지역·조건 이유는 피드백 루프로 (고민기록 #38)
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { request, takePoliciesStale, type Help, type Mode } from '@/lib/mobile-data';
 import type { HelperPolicy } from '@/lib/apply-helper';
 import ApplyHelper from './apply-helper';
@@ -255,6 +255,8 @@ function NotForMe({ policyId, mode, onSent }: { policyId: number; mode: Mode; on
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [help, setHelp] = useState<Help>(null);
+  // 다른 화면으로 갔다 돌아오면 이유 고르기는 접혀 있게 (고른 이유·한 줄은 남김) (cacheComponents로 숨겨진 화면도 상태가 남음, use-collapse-on-hide.ts 참고)
+  useLayoutEffect(() => () => { setOpen(false); setError(''); }, []);
 
   async function send() {
     if (!reason || busy) return;
