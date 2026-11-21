@@ -10,6 +10,7 @@ import { TODAY_RANGE } from '@/lib/profile';
 import GlassSelect from './glass-select';
 import { Section, Steps } from './screen-kit';
 import SkyControlIcon from './sky-control-icon';
+import MindCheckOffer from './mind-check-offer';
 
 const WEATHER_OPTIONS = Object.entries(weatherNames).map(([value, label]) => ({ value, label }));
 const GREETINGS = ['오늘 하루는 어땠어요?', '지금 마음은 어떤 날씨예요?', '오늘은 어떤 하루인가요?', '요즘 어떻게 지내요?'];
@@ -126,6 +127,8 @@ export default function QuestScreen({ mode, busy, run, onHelp, onError, dialog, 
           </Link>)
         : <section className="card"><h3>오늘은 쉬어 가도 괜찮아요</h3>
           <button type="button" className="secondary" onClick={dialog.onClose}>내 밤하늘로</button></section>}
+      {/* 마음 짚기 권유 (한 번도 안 한 사람에게 한 번, 고민기록 #58). 도움받을 곳 안내가 뜬 날에는 권하지 않음 */}
+      {!hasHelp && <MindCheckOffer mode={mode} onGo={dialog.onClose} />}
     </Section></div>}
   </>;
 

@@ -64,7 +64,8 @@ function Choices({ question, value, disabled, onPick, labelledBy }: {
   </div>;
 }
 
-export default function MindCheckScreen({ mode }: { mode: Mode }) {
+/** from: 어디서 들어왔는지. sky = "오늘의 별" 권유 카드 → 뒤로 가기는 내 밤하늘로, profile(기본) → 프로필로 */
+export default function MindCheckScreen({ mode, from = 'profile' }: { mode: Mode; from?: 'sky' | 'profile' }) {
   const help = useContext(HelpContext);
   const [latest, setLatest] = useState<MindResult | null | undefined>(undefined); // undefined = 불러오는 중
   const [loadError, setLoadError] = useState('');
@@ -135,7 +136,7 @@ export default function MindCheckScreen({ mode }: { mode: Mode }) {
     } finally { setBusy(false); }
   }
 
-  const bar = <ScreenBar title="마음 짚기" back="/profile" backLabel="프로필로 돌아가기"
+  const bar = <ScreenBar title="마음 짚기" back={from === 'sky' ? '/sky' : '/profile'} backLabel={from === 'sky' ? '내 밤하늘로' : '프로필로 돌아가기'}
     onBack={view === 'ask' ? () => setView('intro') : undefined} />;
 
   // ── 질문 하나씩 ──
