@@ -261,7 +261,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
        </Link>
      </header>}
  {!questOpen && feedback}
- {guiding ? <ServiceGuide replay={ready} onDone={finishServiceGuide} />
+ {guiding ? <ServiceGuide mode={mode} replay={ready} onDone={finishServiceGuide} onHelp={H} />
  : !ready ? showStartResult ? <>
    <StartResult answers={startAnswers} demo />
    {/* 시작 안내를 아직 안 봤으면 먼저 안내로 (다시 시작해도 한 번 본 안내는 다시 나오지 않음) */}
