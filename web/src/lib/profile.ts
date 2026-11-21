@@ -9,7 +9,7 @@ const keys = <K extends string>(o: Options<K>) => o.map(([k]) => k);
 
 // ---------- 시작 질문 (users.start_answers) ----------
 
-/** ① 요즘 할 수 있는 활동 범위 (은둔 축). 시작 단계를 정한다 */
+/** ① 내가 편안하게 활동할 수 있는 범위 (은둔 축). 시작 단계를 정한다 */
 export const RANGE = [["home", "집 안"], ["near", "집 앞"], ["out", "혼자 외출"], ["people", "사람 있는 곳"]] as const;
 /** ② 부담되는 상황 (여러 개) */
 export const BURDEN = [["people", "사람 만나기"], ["unfamiliar", "낯선 곳"], ["phone", "전화·대화"], ["morning", "아침에 일어나기"]] as const;

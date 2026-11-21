@@ -463,15 +463,21 @@ WITH first_bright AS (
   GROUP BY user_id, star_id
 ), totals AS (
   SELECT constellation_id, count(*) AS stars FROM stars GROUP BY constellation_id
+), earned AS (
+  SELECT f.user_id, s.constellation_id, max(f.at) AS acquired_at
+  FROM first_bright f
+  JOIN stars s ON s.id = f.star_id
+  JOIN totals t ON t.constellation_id = s.constellation_id
+  GROUP BY f.user_id, s.constellation_id, t.stars
+  HAVING count(*) = t.stars
 )
-SELECT f.user_id,
-       s.constellation_id,
-       max(f.at) AS acquired_at
-FROM first_bright f
-JOIN stars s  ON s.id = f.star_id
-JOIN totals t ON t.constellation_id = s.constellation_id
-GROUP BY f.user_id, s.constellation_id, t.stars
-HAVING count(*) = t.stars;
+SELECT user_id, constellation_id, min(acquired_at) AS acquired_at
+FROM (
+  SELECT user_id, constellation_id, acquired_at FROM earned
+  UNION ALL
+  SELECT user_id, constellation_id, completed_at FROM user_constellations WHERE completed_at IS NOT NULL
+) AS acquisitions
+GROUP BY user_id, constellation_id;
 
 -- 같은 하늘의 별: 오늘(한국 시간) 별마다 시도한 사람 수 (동의한 사용자만, 구 단위, 5명 미만은 숨김)
 CREATE VIEW v_sky_today AS

@@ -1,6 +1,6 @@
 "use client";
 // 메인 배경 "천구 뷰": 실제 별 위치(적경·적위)를 구 위에 놓고, 끌면 하늘이 돌아간다
-// - 데이터: public/sky/celestial.json (5.5등급까지 별 2,851개 + 은하수 밝기 격자, 약 27KB 압축)
+// - 데이터: public/sky/celestial.json (5.5등급까지 별 2,851개 + 은하수 밝기 격자 + 실제 별자리 선, 약 30KB 압축)
 //   만드는 법·출처: scripts/build-celestial-data.mjs, 라이선스: public/sky/LICENSE-d3-celestial.txt
 // - 시점은 lib/sky-view.ts에 함께 둔다 → 별자리 화면(night-sky)이 같은 시점으로 퀘스트 별을 올린다
 // - 그림: Canvas 2D + 평사도법. 3D 라이브러리 없음, 시점이 바뀔 때만 다시 그림 (가만히 있으면 연산 0)
@@ -14,10 +14,13 @@ import SkyPerson from '@/components/sky-person';
 import { drawGround, drawSkyLight } from './sky-landscape';
 import './sky-preview.css';
 
-type Celestial = { stars: [number, number, number, number][]; milkyway: [number, number, number][] };
+type Celestial = { stars: [number, number, number, number][]; milkyway: [number, number, number][]; lines?: number[][] };
 
 /** 배경 별 밝기 (퀘스트 별이 돋보이도록 전체를 조금 낮춤) */
 const BACKGROUND_DIM = 0.72;
+/** 배경 별자리 선: 어디를 봐도 별자리가 떠 있게 늘 그리되, 퀘스트 별자리(점선·금빛)보다 옅게 */
+const LINE_COLOR = '205, 196, 255';
+const LINE_ALPHA = 0.2;
 
 // 페이지를 옮겨 다녀도 한 번만 받음
 let dataPromise: Promise<Celestial> | null = null;
@@ -64,6 +67,7 @@ export default function SkyPanorama({ background = false, dome = false, mode }: 
     // 미리 계산한 단위 벡터 (그릴 때마다 삼각함수를 다시 부르지 않게)
     let stars: { v: Vec3; r: number; alpha: number; color: string; glow: boolean }[] = [];
     let dust: { v: Vec3; alpha: number }[] = [];
+    let lines: Vec3[][] = [];
 
     // 은하수 칸·밝은 별 둘레를 그릴 부드러운 빛 점
     const glow = document.createElement('canvas');
@@ -103,7 +107,25 @@ export default function SkyPanorama({ background = false, dome = false, mode }: 
         context.globalAlpha = d.alpha * fade(p.y, d.v[2]);
         context.drawImage(glow, p.x - size / 2, p.y - size / 2, size, size);
       }
-      // ② 별 (밝은 별부터 저장되어 있어 뒤에서부터 그려 밝은 별이 위에 오게)
+      // ② 실제 별자리 선 (별보다 먼저 그려 선 끝이 별 밑으로 들어가게)
+      context.strokeStyle = `rgb(${LINE_COLOR})`;
+      context.lineWidth = 0.9 * dpr;
+      context.lineCap = 'round';
+      for (const line of lines) {
+        for (let i = 1; i < line.length; i++) {
+          const a = line[i - 1], b = line[i];
+          if (dome && a[2] < 0 && b[2] < 0) continue;
+          const p = project(a), q = project(b);
+          if (!p || !q) continue;
+          if ((p.x < 0 && q.x < 0) || (p.x > width && q.x > width) || (p.y < 0 && q.y < 0) || (p.y > height && q.y > height)) continue;
+          context.globalAlpha = LINE_ALPHA * Math.min(fade(p.y, a[2]), fade(q.y, b[2]));
+          context.beginPath();
+          context.moveTo(p.x, p.y);
+          context.lineTo(q.x, q.y);
+          context.stroke();
+        }
+      }
+      // ③ 별 (밝은 별부터 저장되어 있어 뒤에서부터 그려 밝은 별이 위에 오게)
       for (let i = stars.length - 1; i >= 0; i--) {
         const s = stars[i];
         if (dome && s.v[2] < 0) continue;
@@ -137,6 +159,7 @@ export default function SkyPanorama({ background = false, dome = false, mode }: 
         glow: mag < 1.6,
       }));
       dust = raw.milkyway.map(([ra, dec, level]) => ({ v: unit(ra, dec), alpha: 0.03 + level * 0.025 }));
+      lines = (raw.lines ?? []).map(flat => Array.from({ length: flat.length / 2 }, (_, i) => unit(flat[2 * i], flat[2 * i + 1])));
     }
     function resize() {
       if (!host || !stage) return;

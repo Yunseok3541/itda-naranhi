@@ -13,8 +13,8 @@ const maxTurn = 60 * RAD;
 /** 지평선·캐릭터가 크게 출렁이지 않도록 고도 범위를 제한 */
 const latMin = 35 * RAD;
 const latMax = 65 * RAD;
-/** 자동 축소 속도: 1초에 시야가 이 배율만큼 넓어짐 (가장 확대한 6° → 100°까지 약 15초) */
-const zoomOutRate = 1.2;
+/** 자동 축소 속도: 1초에 시야가 이 배율만큼 넓어짐 (가장 확대한 6° → 100°까지 약 37초, 30° → 100°는 약 16초) */
+const zoomOutRate = 1.08;
 
 function subscribeMotion(listener: () => void) {
   const media = window.matchMedia(reducedMotion);

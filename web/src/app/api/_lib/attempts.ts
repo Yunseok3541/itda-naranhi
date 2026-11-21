@@ -8,6 +8,7 @@ import { generateJson } from "@/lib/gemini";
 import { inspectReflection, STOP_REASONS, type AttemptStatus, type StopReason } from "@/lib/reflection";
 import { ruleHelp } from "@/lib/safety";
 import { DAILY_STAR_LIMIT, DAILY_STAR_LIMIT_MESSAGE } from "@/lib/star-limit";
+import { TUTORIAL_STAR_IDS } from "@/lib/quest-catalog";
 import { type ApiResult, type Db, fail, KST_DATE, ok, toId } from "./http";
 
 const STATUSES = ["bright", "dim"] as const;
@@ -124,10 +125,10 @@ export async function createAttempt(
            parent_attempt_id, sub_quest_id, custom_title, risk, created_at)
          SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, statement_timestamp()
          FROM prev
-         WHERE prev.had_bright OR (
+         WHERE prev.had_bright OR $2 = ANY($15::int[]) OR (
            SELECT count(*) FROM (
              SELECT star_id FROM star_attempts
-             WHERE user_id = $1 AND status = 'bright'
+             WHERE user_id = $1 AND status = 'bright' AND star_id <> ALL($15::int[])
              GROUP BY star_id
              HAVING min(created_at) >= (
                date_trunc('day', statement_timestamp() AT TIME ZONE 'Asia/Seoul') AT TIME ZONE 'Asia/Seoul'
@@ -139,7 +140,7 @@ export async function createAttempt(
        SELECT ins.id, ${KST_DATE("ins.created_at")} AS date, prev.had_bright, prev.total_before, prev.star_points
        FROM prev LEFT JOIN ins ON true`,
       [userId, starId, status, verifyMethod, placeId, placeName, reflection, stopReason, r.cheer,
-        parentAttemptId, subQuestId, customTitle, r.risk, DAILY_STAR_LIMIT],
+        parentAttemptId, subQuestId, customTitle, r.risk, DAILY_STAR_LIMIT, TUTORIAL_STAR_IDS],
     );
     const row = rows[0];
     await connection?.query("COMMIT");
