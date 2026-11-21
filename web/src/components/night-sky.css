@@ -899,3 +899,9 @@ html.sky-locked-page { --sky-dock-height: 96px; --person-height: 15dvh; }
     50% { box-shadow: 0 0 0 4px #f6cf7d33; border-color: var(--star-gold); }
   }
 }
+/* 좁은 폰(≈340px 이하)에서는 오른쪽 하늘 지도와 겹쳐서 머리 위로 */
+@media (max-width: 340px) {
+  .sky-character-prompt:has(> span) { top: -30px; right: auto; left: 50%; transform: translateX(-50%); border-radius: 10px; }
+}
+/* 별똥별은 안내 카드(z-index 2)보다 위로 지나가게 (작은 화면에서 카드 높이와 겹침) */
+.sky-mode button.sky-pill.sky-meteor { z-index: 3; }
