@@ -856,3 +856,46 @@ html.sky-locked-page { --sky-dock-height: 96px; --person-height: 15dvh; }
   @keyframes constellation-star-in { from { opacity: 0; transform: scale(.64); } }
   @keyframes constellation-award-out { to { opacity: 0; } }
 }
+
+/* ───────── 기능을 바로 알아보게 (docs/기능발견성-조사.md) ───────── */
+/* 포인트: 누르면 쌓이는 방법 한 줄 */
+.sky-mode .sky-points { pointer-events: auto; display: grid; justify-items: center; gap: 4px; z-index: 2; }
+.sky-mode .sky-points > button {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 0 10px; margin: 0;
+  border: 0; border-radius: 999px; background: transparent; color: inherit; font: inherit; cursor: pointer;
+}
+.sky-mode .sky-points > button span { color: #ffe4a0; }
+.sky-mode .sky-points > button[aria-expanded="true"] { background: #2c1e48c7; }
+.sky-points > p {
+  margin: 0; padding: 6px 10px; border: 1px solid var(--glass-line); border-radius: 10px;
+  background: #1c1433ee; color: var(--starlight); font-size: .75rem; white-space: nowrap;
+}
+/* 캐릭터 옆 말 걸기: 아이콘만으로는 뜻을 몰라 글자를 붙임 */
+.sky-character-prompt:has(> span) { width: auto; gap: 3px; padding: 0 7px 0 5px; grid-auto-flow: column; right: -44px; }
+.sky-character-prompt > span { font-size: .6875rem; font-weight: 700; white-space: nowrap; }
+/* 처음 한 번 안내 카드 (끌기 → 별 누르기) */
+.sky-hint {
+  position: relative; z-index: 2; align-self: center; display: flex; align-items: center; gap: 10px;
+  width: min(20rem, calc(100% - 32px)); margin: 10px auto 0; padding: 10px 8px 10px 14px; box-sizing: border-box;
+  border: 1px solid var(--star-gold-soft); border-radius: 14px; background: #24193ce8;
+  box-shadow: 0 6px 24px #08061988; pointer-events: auto; word-break: keep-all;
+}
+.sky-hint p { flex: 1; margin: 0; font-size: .8125rem; line-height: 1.45; color: #d9cdee; }
+.sky-hint b { display: block; color: #fff3d0; font-size: .875rem; }
+.sky-mode .sky-hint .text-button { flex: none; width: auto; min-height: 44px; margin: 0; padding: 0 10px; color: var(--star-gold); font-weight: 700; }
+.sky-locked:has(> .help) .sky-hint { display: none; }
+/* 별똥별 옆 "눌러서 +1" (별똥별과 함께 움직임) */
+.sky-meteor-hint {
+  position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 2px;
+  padding: 2px 7px; border-radius: 999px; background: #2c1e48e6; color: #ffe7b0;
+  font-size: .6875rem; font-weight: 700; white-space: nowrap; text-shadow: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .sky-hint { animation: screen-rise .45s cubic-bezier(.2, .8, .2, 1) .6s both; }
+  /* 별 안내 중에는 지금 별자리의 아직 안 만난 별이 은은하게 숨 쉼 */
+  .night.hint-star .sky-anchors .nstar.current.untried .glow { animation: hint-pulse 1.8s ease-in-out infinite; }
+  @keyframes hint-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 #f6cf7d00; }
+    50% { box-shadow: 0 0 0 4px #f6cf7d33; border-color: var(--star-gold); }
+  }
+}
