@@ -252,7 +252,6 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
 
   const safeIndex = Math.min(index, Math.max(groups.length - 1, 0));
   const current = groups[safeIndex];
-  const tracked = groups.map((group, i) => i === safeIndex || group.stars.some(star => star.status !== 'untried'));
   const complete = !!current && completed.has(current.id);
   const foreground = frame ? foregroundVisibility(view, frame.width, frame.height) : 0;
 
@@ -494,7 +493,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
         </defs>
         {groups.map((g, gi) => skies[gi].edges.map(([a, b], edgeIndex) => {
           const p = projected[gi]?.[a], q = projected[gi]?.[b];
-          if (!p || !q || !tracked[gi] || (gi !== safeIndex && !detailed)) return null;
+          if (!p || !q) return null;
           const lit = g.stars[a]?.status === 'bright' && g.stars[b]?.status === 'bright';
           const near = gi === safeIndex && detailed;
           const celebrating = g.id === completedId && lit;
@@ -516,7 +515,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
       </svg>
       {groups.map((g, gi) => g.stars.map((s, i) => {
         const p = positions[gi]?.[i];
-        if (!p || !tracked[gi]) return null;
+        if (!p) return null;
         const isCurrent = gi === safeIndex;
         // 가까운 별 두 개의 터치 영역이 서로의 중심을 가리지 않게 한다.
         const spacing = isCurrent && detailed
