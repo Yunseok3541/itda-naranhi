@@ -232,6 +232,5 @@
 .policy-legend span { padding: 1px 7px; border-radius: 999px; font-size: .6875rem; font-weight: 600; }
 .policy-legend .yes { color: #c9f2dc; background: rgba(120, 220, 170, .14); }
 .policy-legend .unknown { color: var(--starlight-dim); border: 1px dashed rgba(255, 255, 255, .22); }
-.policy-action-note { margin: 6px 0 0; }
 .policy-not-for-me small { display: inline-block; width: 100%; font-size: .75rem; font-weight: 400; opacity: .75; text-decoration: none; }
 .quest-entry fieldset > .small { margin: -2px 0 8px; }
