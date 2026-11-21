@@ -60,9 +60,9 @@ export function StartQuestions({ value, onChange, disabled, step, glass: glassAl
   const shows = (index: number) => step === undefined || step === index;
   const glass = glassAll || step !== undefined; // 질문별 화면·추천 기준 화면은 밤하늘 반투명 드롭다운
   return <>
-    {shows(0) && <Pick label="요즘 할 수 있는 활동 범위는?" options={RANGE} value={value.range} onChange={set('range')} disabled={disabled} glass={glass} />}
+    {shows(0) && <Pick label="내가 편안하게 활동할 수 있는 범위는?" options={RANGE} value={value.range} onChange={set('range')} disabled={disabled} glass={glass} />}
     {shows(1) && <Many legend="부담되는 상황은? (여러 개 선택 가능)" options={BURDEN} value={value.burden} onChange={set('burden')} disabled={disabled} />}
-    {shows(2) && <Pick label="혼자 하고 싶은가, 다른 사람과의 활동도 알아보고 싶은가?" options={WITH} value={value.with} onChange={set('with')} disabled={disabled} glass={glass} />}
+    {shows(2) && <Pick label="다른 사람과 함께 할 수 있는 활동도 알아보고 싶은가?" options={WITH} value={value.with} onChange={set('with')} disabled={disabled} glass={glass} />}
     {shows(3) && <Pick label="힘들 때 연락할 수 있는 사람이 있나요?" options={SUPPORT} value={value.support} onChange={set('support')} disabled={disabled} glass={glass} />}
     {shows(4) && <Pick label="지금 누구와 지내요?" options={LIVING} value={value.living} onChange={set('living')} disabled={disabled} glass={glass} />}
     {shows(5) && <Many legend="요즘 가장 도움이 필요한 건? (여러 개 선택 가능)" options={NEEDS} value={value.needs} onChange={set('needs')} disabled={disabled} />}
