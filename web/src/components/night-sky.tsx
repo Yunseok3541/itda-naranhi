@@ -20,6 +20,8 @@ import MeteorRewards from './meteor-rewards';
 import SkyControlIcon from './sky-control-icon';
 import { useCloseDialogOnHide } from './use-close-dialog-on-hide';
 import { finishHint, useSkyHints } from '@/lib/sky-hints';
+import { DAILY_STAR_LIMIT_MESSAGE, hasReachedDailyStarLimit } from '@/lib/star-limit';
+import { starDisplayDescription, starDisplayTitle } from '@/lib/star-display';
 
 const labels = { untried: '아직 만나기 전', dim: '손을 뻗은 별', bright: '딴 별' } as const;
 /** 캐릭터 말풍선 질문 (날마다 하나씩 돌아가며). 오늘의 별 체크인으로 이어짐 */
@@ -342,6 +344,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   }, [detailed, groups, namedStar, positions, frame, safeIndex]);
 
   const hint = selected || talk || hintsPaused ? null : hints.current;
+  const questBlocked = selected && selected.status !== 'bright' && hasReachedDailyStarLimit(stars);
   return <section className={`night${hint === 'star' ? ' hint-star' : ''}`} aria-label="내 밤하늘">
     <MeteorRewards key={mode} mode={mode} skyTotal={totalPoints} fov={view.fov} hintPaused={hintsPaused} />
 
@@ -479,16 +482,17 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
       <div className="star-sheet-content">
         <button type="button" className="text-button star-sheet-close" aria-label="별 상세 닫기" onClick={() => sheet.current?.close()}><SkyControlIcon name="close" /></button>
         <p className={`sheet-status ${selected.status}`}>{labels[selected.status]}</p>
-        <h2>{selected.title}</h2>
-        {selected.description && <p className="sheet-desc">{selected.description}</p>}
+        <h2>{starDisplayTitle(selected.title)}</h2>
+        {selected.description && <p className="sheet-desc">{starDisplayDescription(selected.description)}</p>}
         {selected.memories.length
           ? <ul className="memories">{selected.memories.map(m => <li key={m.attemptId}><time dateTime={m.date}>{memoryDate(m.date)}</time><p>{m.reflection || '말없이 남긴 작은 시도'}</p></li>)}</ul>
           : null}
+        {questBlocked ? <p className="error star-limit-error">{DAILY_STAR_LIMIT_MESSAGE}</p> :
         <div className="sheet-actions">
           <Link className="primary sky-icon-action" href={`/stars/${selected.starId}`}>
             <SkyControlIcon name={selected.status === 'untried' ? 'star' : 'memory'} /> {selected.status === 'untried' ? '퀘스트 시작' : '이 별 다시 기록하기'}
           </Link>
-        </div>
+        </div>}
       </div>
     </dialog>}
   </section>;

@@ -5,6 +5,7 @@ import { characters } from '@/app/catalog/characters';
 import { CHECKIN_POINTS, METEOR_DAILY_LIMIT, METEOR_INTERVAL_SECONDS, METEOR_POINTS, isMeteorCatchable, meteorIdAt, meteorStartsAt } from './points';
 import { NO_FACTS, readFacts, type MilestoneFacts } from './milestones';
 import { catalogConstellations, catalogQuest, catalogQuests } from './quest-catalog';
+import { DAILY_STAR_LIMIT_MESSAGE, hasReachedDailyStarLimit } from './star-limit';
 import { defaultNextKey, inActivityScope, nextOptions, planMatches, type ActivityScope, type AvailableQuest,
   type NextPlan, type NextRecommendation, type NextSource } from './next-step';
 import { ruleHelp } from './safety';
@@ -43,6 +44,10 @@ function read(): Store {
   })), checkins: {} };
 }
 function write(s: Store) { localStorage.setItem(key, JSON.stringify(s)); }
+function withExampleStoreLock<T>(update: () => T): Promise<T> {
+  const locks = globalThis.navigator?.locks;
+  return locks ? locks.request(key, update) : Promise.resolve(update());
+}
 const kstDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', dateStyle: 'short' });
 function rewardsFor(store: Store) {
   return store.rewards ??= { meteorPoints: 0, checkinPoints: 0, meteors: [] };
@@ -104,7 +109,15 @@ export async function request<T>(path: string, method = 'GET', body?: unknown): 
   return data as T;
 }
 export function client(mode: Mode) { return {
-  async start(rememberMode = true) { if (mode === 'api') { const r = await request<{ ready: boolean }>('demo/session', 'POST', {}); if (!r.ready) throw new Error('데모 세션을 시작하지 못했어요.'); } else write(read()); if (rememberMode) localStorage.setItem('naranhi-mode', mode); },
+  async start(rememberMode = true) {
+    if (mode === 'api') {
+      const r = await request<{ ready: boolean }>('demo/session', 'POST', {});
+      if (!r.ready) throw new Error('데모 세션을 시작하지 못했어요.');
+    } else {
+      await withExampleStoreLock(() => write(read()));
+    }
+    if (rememberMode) localStorage.setItem('naranhi-mode', mode);
+  },
   async sky(): Promise<{ stars: Star[]; totalPoints?: number }> {
     if (mode === 'api') return request('sky');
     const store = read();
@@ -137,25 +150,37 @@ export function client(mode: Mode) { return {
   },
   async catchMeteor(meteorId: number): Promise<MeteorClaim> {
     if (mode === 'api') return request('meteors', 'POST', { meteorId });
-    const store = read(), rewards = rewardsFor(store), now = Date.now(), day = kstDay.format(now);
-    if (rewards.meteorDay !== day) { rewards.meteorDay = day; rewards.meteors = []; }
-    const earned = Number.isSafeInteger(meteorId) && isMeteorCatchable(meteorId, now)
-      && rewards.meteors.length < METEOR_DAILY_LIMIT && !rewards.meteors.includes(meteorId);
-    if (earned) { rewards.meteors.push(meteorId); rewards.meteorPoints += METEOR_POINTS; write(store); }
-    return { pointsEarned: earned ? METEOR_POINTS : 0, totalPoints: exampleTotal(store), meteor: { caughtToday: rewards.meteors.length, dailyLimit: METEOR_DAILY_LIMIT } };
+    return withExampleStoreLock(() => {
+      const store = read(), rewards = rewardsFor(store), now = Date.now(), day = kstDay.format(now);
+      if (rewards.meteorDay !== day) { rewards.meteorDay = day; rewards.meteors = []; }
+      const earned = Number.isSafeInteger(meteorId) && isMeteorCatchable(meteorId, now)
+        && rewards.meteors.length < METEOR_DAILY_LIMIT && !rewards.meteors.includes(meteorId);
+      if (earned) { rewards.meteors.push(meteorId); rewards.meteorPoints += METEOR_POINTS; write(store); }
+      return { pointsEarned: earned ? METEOR_POINTS : 0, totalPoints: exampleTotal(store), meteor: { caughtToday: rewards.meteors.length, dailyLimit: METEOR_DAILY_LIMIT } };
+    });
   },
   async checkin(text: string, todayChoice: string): Promise<Checkin> {
     if (mode === 'api') return request('checkin', 'POST', { text, todayChoice });
-    const store = read(), now = Date.now(), day = kstDay.format(now), rewards = rewardsFor(store);
-    const id = Math.max(now, ...Object.keys(store.checkins).map(key => Number(key) + 1));
-    store.checkins[id] = { text, todayChoice, weather: 'partly_cloudy' };
-    const pointsEarned = rewards.checkinDay === day ? 0 : CHECKIN_POINTS;
-    rewards.checkinDay = day;
-    rewards.checkinPoints += pointsEarned;
-    write(store);
-    return { checkinId: id, weather: 'partly_cloudy', help: null, usedFallback: true, pointsEarned, totalPoints: exampleTotal(store) };
+    return withExampleStoreLock(() => {
+      const store = read(), now = Date.now(), day = kstDay.format(now), rewards = rewardsFor(store);
+      const id = Math.max(now, ...Object.keys(store.checkins).map(key => Number(key) + 1));
+      store.checkins[id] = { text, todayChoice, weather: 'partly_cloudy' };
+      const pointsEarned = rewards.checkinDay === day ? 0 : CHECKIN_POINTS;
+      rewards.checkinDay = day;
+      rewards.checkinPoints += pointsEarned;
+      write(store);
+      return { checkinId: id, weather: 'partly_cloudy', help: null, usedFallback: true, pointsEarned, totalPoints: exampleTotal(store) };
+    });
   },
-  async weather(checkinId: number, weather: string) { if (mode === 'api') return request('checkin/weather', 'PATCH', { checkinId, weather }); const s = read(); s.checkins[checkinId].weather = weather; write(s); return { weather }; },
+  async weather(checkinId: number, weather: string) {
+    if (mode === 'api') return request('checkin/weather', 'PATCH', { checkinId, weather });
+    return withExampleStoreLock(() => {
+      const store = read();
+      store.checkins[checkinId].weather = weather;
+      write(store);
+      return { weather };
+    });
+  },
   async recommendations(checkinId: number): Promise<{ items: Recommendation[]; usedFallback: boolean }> {
     if (mode === 'api') return request('recommendations', 'POST', { checkinId });
     const s = read(); const scope = (s.checkins[checkinId]?.todayChoice ?? 'home') as ActivityScope;
@@ -171,12 +196,15 @@ export function client(mode: Mode) { return {
   },
   async chooseNext(attemptId: number, optionKey: string): Promise<{ plan: NextPlan | null }> {
     if (mode === 'api') return request('next-steps', 'PATCH', { attemptId, key: optionKey });
-    const s = read();
-    if (s.stars.some(st => st.memories.some(m => m.parentAttemptId === attemptId))) throw new Error('이미 이어서 기록한 행동이에요.');
-    const option = exampleContext(s, attemptId).options.find(o => o.key === optionKey);
-    if (!option) throw new Error('지금 선택할 수 있는 행동이 아니에요.');
-    s.nextPlan = option.action === 'stop' ? null : { ...option, attemptId }; write(s);
-    return { plan: s.nextPlan };
+    return withExampleStoreLock(() => {
+      const s = read();
+      if (s.stars.some(st => st.memories.some(m => m.parentAttemptId === attemptId))) throw new Error('이미 이어서 기록한 행동이에요.');
+      const option = exampleContext(s, attemptId).options.find(o => o.key === optionKey);
+      if (!option) throw new Error('지금 선택할 수 있는 행동이 아니에요.');
+      s.nextPlan = option.action === 'stop' ? null : { ...option, attemptId };
+      write(s);
+      return { plan: s.nextPlan };
+    });
   },
   async pendingNext(): Promise<{ plan: NextPlan | null }> {
     return mode === 'api' ? request('next-steps') : { plan: read().nextPlan ?? null };
@@ -194,11 +222,13 @@ export function client(mode: Mode) { return {
   async avatar(): Promise<ProfileAvatar> { return mode === 'api' ? request('profile/avatar') : exampleAvatar(read()); },
   async saveAvatar(constellationId: number | null): Promise<ProfileAvatar> {
     if (mode === 'api') return request('profile/avatar', 'PUT', { constellationId });
-    const store = read();
-    if (constellationId !== null && !getCompletedConstellationIds(store.stars).has(constellationId)) throw new ApiError('아직 별을 모두 따지 않은 별자리예요.', 403, 'NOT_ACQUIRED');
-    store.avatarConstellationId = constellationId;
-    write(store);
-    return exampleAvatar(store);
+    return withExampleStoreLock(() => {
+      const store = read();
+      if (constellationId !== null && !getCompletedConstellationIds(store.stars).has(constellationId)) throw new ApiError('아직 별을 모두 따지 않은 별자리예요.', 403, 'NOT_ACQUIRED');
+      store.avatarConstellationId = constellationId;
+      write(store);
+      return exampleAvatar(store);
+    });
   },
   // 프로필 배지 판정용 사실들 (규칙: lib/milestones.ts). 예시 모드는 이 브라우저의 예시 기록으로 어림
   async milestones(): Promise<MilestoneFacts> {
@@ -225,19 +255,24 @@ export function client(mode: Mode) { return {
   },
   async attempt(body: { starId: number; status: 'dim' | 'bright'; reflection: string; verifyMethod: string; stopReason?: string; parentAttemptId?: number; subQuestId?: number | null }): Promise<{ attemptId: number; starId: number; status: string; cheer: string; help: Help; pointsEarned?: number; totalPoints?: number }> {
     if (mode === 'api') return request('attempts', 'POST', body);
-    const s = read(); const star = s.stars.find(x => x.starId === body.starId);
-    if (!star) throw new Error('별을 찾을 수 없어요.');
-    if (body.parentAttemptId && (!s.nextPlan || s.nextPlan.attemptId !== body.parentAttemptId || !planMatches(s.nextPlan, body.starId, body.subQuestId ?? null))) throw new Error('이어갈 행동을 다시 확인해 주세요.');
-    const customTitle = body.subQuestId ? catalogQuest(star.starId)?.easier_title : null;
-    const id = Math.max(Date.now(), ...s.stars.flatMap(st => st.memories.map(m => m.attemptId + 1)));
-    const pointsEarned = star.status !== 'bright' && body.status === 'bright' ? catalogQuest(star.starId)!.stage * 10 : 0;
-    star.status = star.status === 'bright' ? 'bright' : body.status;
-    star.memories.push({ attemptId: id, date: new Date().toISOString(), reflection: body.reflection, status: body.status,
-      stopReason: body.stopReason, parentAttemptId: body.parentAttemptId, subQuestId: body.subQuestId, customTitle });
-    if (body.parentAttemptId) s.nextPlan = null;
-    write(s);
-    const totalPoints = exampleTotal(s);
-    return { attemptId: id, starId: body.starId, status: body.status, cheer: '오늘 손을 뻗은 순간도 당신의 하늘에 남아요.', help: ruleHelp(body.reflection), pointsEarned, totalPoints };
+    return withExampleStoreLock(() => {
+      const s = read(); const star = s.stars.find(x => x.starId === body.starId);
+      if (!star) throw new Error('별을 찾을 수 없어요.');
+      if (body.parentAttemptId && (!s.nextPlan || s.nextPlan.attemptId !== body.parentAttemptId || !planMatches(s.nextPlan, body.starId, body.subQuestId ?? null))) throw new Error('이어갈 행동을 다시 확인해 주세요.');
+      const now = new Date();
+      const newlyBright = star.status !== 'bright' && body.status === 'bright';
+      if (star.status !== 'bright' && hasReachedDailyStarLimit(s.stars, now)) throw new Error(DAILY_STAR_LIMIT_MESSAGE);
+      const customTitle = body.subQuestId ? catalogQuest(star.starId)?.easier_title : null;
+      const id = Math.max(now.getTime(), ...s.stars.flatMap(st => st.memories.map(m => m.attemptId + 1)));
+      const pointsEarned = newlyBright ? catalogQuest(star.starId)!.stage * 10 : 0;
+      star.status = star.status === 'bright' ? 'bright' : body.status;
+      star.memories.push({ attemptId: id, date: now.toISOString(), reflection: body.reflection, status: body.status,
+        stopReason: body.stopReason, parentAttemptId: body.parentAttemptId, subQuestId: body.subQuestId, customTitle });
+      if (body.parentAttemptId) s.nextPlan = null;
+      write(s);
+      const totalPoints = exampleTotal(s);
+      return { attemptId: id, starId: body.starId, status: body.status, cheer: '오늘 손을 뻗은 순간도 당신의 하늘에 남아요.', help: ruleHelp(body.reflection), pointsEarned, totalPoints };
+    });
   }
 }; }
 

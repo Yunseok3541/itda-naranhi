@@ -8,6 +8,8 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { client, isGpsStar, type Help, type Mode, type Star } from '@/lib/mobile-data';
 import { getActivityConstellation, getStarConstellationId } from '@/lib/constellations';
+import { DAILY_STAR_LIMIT_MESSAGE } from '@/lib/star-limit';
+import { starDisplayDescription, starDisplayTitle } from '@/lib/star-display';
 import { Hero, HeroIcon, ScreenBar, Section } from './screen-kit';
 import { NextStepCard } from './next-step-card';
 import type { NextPlan } from '@/lib/next-step';
@@ -18,9 +20,10 @@ const koreanDate = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', mo
 const memoryDate = (v: string) => { const d = new Date(v); return Number.isNaN(d.getTime()) ? v : koreanDate.format(d); };
 const constellationName = (s: Star) => s.constellationName ?? getActivityConstellation(getStarConstellationId(s))?.name;
 
-export default function StarScreen({ mode, star, busy, run, onHelp, onSaved }: {
+export default function StarScreen({ mode, star, dailyLimitReached, busy, run, onHelp, onSaved }: {
   mode: Mode;
   star: Star | undefined;
+  dailyLimitReached: boolean;
   busy: boolean;
   run: (fn: () => Promise<void>) => void;
   onHelp: (help: Help) => void;
@@ -58,18 +61,19 @@ export default function StarScreen({ mode, star, busy, run, onHelp, onSaved }: {
 
   // GPS(도착 확인) 별: 실제 API는 verifyType, 예시 모드만 예시 목록의 16·17 (별 ID는 시드마다 바뀜)
   const outside = isGpsStar(star);
+  const questBlocked = dailyLimitReached && star.status !== 'bright';
   return <>
     <ScreenBar title="별 기록" />
     <Hero
       visual={<HeroIcon tone={star.status === 'untried' ? 'dim' : 'gold'}>{star.status === 'bright' ? '✦' : star.status === 'dim' ? '✧' : '☆'}</HeroIcon>}
-      title={activePlan?.title ?? star.title}
-      message={activePlan?.subQuestId ? `원래 별 · ${star.title}` : star.description ?? undefined}
+      title={starDisplayTitle(activePlan?.title ?? star.title)}
+      message={activePlan?.subQuestId ? `원래 별 · ${star.title}` : star.description && starDisplayDescription(star.description)}
       chip={[constellationName(star), STATUS[star.status]].filter(Boolean).join(' · ')}
     />
 
-    {!saved && planError && <section className="card"><p role="alert">{planError}</p>
+    {!saved && !questBlocked && planError && <section className="card"><p role="alert">{planError}</p>
       <button type="button" onClick={() => setPlanRetry(n => n + 1)}>이어갈 행동 다시 확인</button></section>}
-    {!saved && pending && <section className="card next-step-active">
+    {!saved && !questBlocked && pending && <section className="card next-step-active">
       <h2>지난번에 골라 둔 한 걸음</h2><p>{pending.title}</p>
       <p className="small">{usingPlan ? '이 활동의 결과를 지난 시도와 이어서 기록해요.' : '지금은 원래 별의 활동을 기록해요.'}</p>
       {pending.preparationHref && <Link className="secondary" href={pending.preparationHref}>문의 문장 준비하기</Link>}
@@ -86,6 +90,8 @@ export default function StarScreen({ mode, star, busy, run, onHelp, onSaved }: {
             </Link>
           )}
         </section>
+      : questBlocked
+      ? <p className="error star-limit-error">{DAILY_STAR_LIMIT_MESSAGE}</p>
       : <section className="card">
           <h2>오늘의 기록</h2>
           <p>해낸 만큼, 혹은 손을 뻗은 만큼.<br />어느 쪽이든 소중한 오늘의 기록이에요.</p>
