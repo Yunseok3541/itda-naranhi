@@ -11,6 +11,7 @@ const paths = {
   memory: <><rect x="5" y="4" width="14" height="16" rx="2" /><path d="M9 13h6m-6 3h4m-2-6h2m-1-1v2" /></>,
   horizon: <><path d="M3 15h18M6 19h12m-11-4a5 5 0 0 1 10 0m-5-9V4m5 4 1.5-1.5M7 8 5.5 6.5" /></>,
   refresh: <><path d="M19 10a7 7 0 1 0 1 5m-.7-9v5h-5" /></>,
+  back: <path d="m14.5 6-6 6 6 6" />,
   close: <path d="m6 6 12 12M18 6 6 18" />,
 } as const;
 

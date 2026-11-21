@@ -6,19 +6,21 @@
 // - 프로필 사진은 기본 캐릭터 또는 획득한 도감 캐릭터 중에서 고름
 // - 시작 질문·정책 신청 정보 입력은 설정(⚙) 안으로 (주소 끝 #settings로 바로 열 수 있음)
 import Link from 'next/link';
-import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import CatalogStardust from '@/app/catalog/catalog-stardust';
 import { characters } from '@/app/catalog/characters';
 import { client, type Mode, type ProfileAvatar, type Star } from '@/lib/mobile-data';
 import { evaluate, NO_FACTS, type MilestoneFacts } from '@/lib/milestones';
 import { groupStars, latestGroupIndex } from './night-sky';
 import { ProfileScreen } from './profile-form';
+import { useCloseDialogOnHide } from './use-close-dialog-on-hide';
 import { useShop } from './use-shop';
 import { Avatar, Hero, MoreLinks, ScreenBar, Section, Summary } from './screen-kit';
 import './profile-home.css';
 
 // 'person' = 메인 캐릭터 그림 (screen-kit Avatar → SkyPerson sculpted, 상점 장식도 이 id 기준)
 const DEFAULT_AVATAR = 'person';
+const PROFILE_CATALOG_PREVIEW_SIZE = 4;
 
 const shortDate = (value: string) => {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
@@ -35,18 +37,29 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
   const [avatarChoices, setAvatarChoices] = useState<ProfileAvatar | null>(null);
   const [avatarError, setAvatarError] = useState('');
   const [avatarBusy, setAvatarBusy] = useState(false);
+  const [name, setName] = useState('별을 바라보는 사람');
+  const [draftName, setDraftName] = useState('');
+  const [nameBusy, setNameBusy] = useState(false);
+  const [nameError, setNameError] = useState('');
+  const nameDialog = useRef<HTMLDialogElement>(null);
+  useCloseDialogOnHide(nameDialog);
+  const [catalogExpanded, setCatalogExpanded] = useState(false);
   const avatar = characters.find(character => character.constellationId === avatarChoices?.avatarConstellationId)?.id ?? DEFAULT_AVATAR;
-  const acquiredCharacters = characters.filter(character => avatarChoices?.constellations?.some(
-    item => item.constellationId === character.constellationId && item.acquired,
-  ));
+  const acquiredIds = new Set(avatarChoices?.constellations?.filter(item => item.acquired).map(item => item.constellationId));
+  const acquiredCharacters = characters.filter(character => acquiredIds.has(character.constellationId));
+  const lockedCharacters = characters.filter(character => !acquiredIds.has(character.constellationId));
+  const catalogCharacters = [...acquiredCharacters, ...lockedCharacters];
   const { state: wardrobe } = useShop(mode);
   const [picking, setPicking] = useState(false);
-  // 다른 화면으로 갔다 돌아오면 닫혀 있게 (cacheComponents로 숨겨진 화면도 상태가 남음, use-collapse-on-hide.ts 참고)
-  useLayoutEffect(() => () => setPicking(false), []);
+  const picker = useRef<HTMLDialogElement>(null);
+  useCloseDialogOnHide(picker);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let active = true;
+    client(mode).profile().then(p => {
+      if (active) setName(p.nickname || '별을 바라보는 사람');
+    }).catch(() => { if (active) setError('프로필 이름을 불러오지 못했어요.'); });
     client(mode).sky().then(r => { if (active) setStars(r.stars); }).catch(e => { if (active) setError(e instanceof Error ? e.message : '기록을 불러오지 못했어요.'); });
     client(mode).milestones().then(f => { if (active) setFacts(f); }).catch(() => { /* 배지를 못 불러와도 나머지는 보여 줌 */ });
     client(mode).avatar().then(r => { if (active) setAvatarChoices(r); }).catch(e => { if (active) setAvatarError(e instanceof Error ? e.message : '프로필 그림을 불러오지 못했어요.'); });
@@ -60,7 +73,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
     try {
       const next = await (id === undefined ? client(mode).avatar() : client(mode).saveAvatar(id));
       setAvatarChoices(previous => ({ ...next, constellations: next.constellations ?? previous?.constellations ?? null }));
-      if (id !== undefined) setPicking(false);
+      if (id !== undefined) picker.current?.close();
     } catch (error) {
       setAvatarError(error instanceof Error ? error.message : '프로필 그림을 저장하지 못했어요.');
     } finally { setAvatarBusy(false); }
@@ -98,22 +111,57 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
     <ScreenBar title="나의 프로필" right={<button type="button" className="screen-icon" aria-label="설정 (시작 질문·정책 신청 정보)" onClick={() => setSettings(true)}><span aria-hidden="true">⚙</span><small aria-hidden="true">설정</small></button>} />
 
     <Hero
-      visual={<button type="button" className="avatar-button" aria-label="프로필 그림 바꾸기" onClick={() => setPicking(p => !p)}>
+      visual={<button type="button" className="avatar-button" aria-label="프로필 그림 바꾸기" aria-haspopup="dialog" onClick={() => {
+        picker.current?.showModal();
+        setPicking(true);
+      }}>
         <Avatar id={avatar} item={wardrobe?.equipped} />
         <span className="avatar-edit" aria-hidden="true">✎</span>
       </button>}
-      title="별을 바라보는 사람"
+      title={<button type="button" className="text-button profile-name" aria-label={`${name}, 프로필 이름 수정`} aria-haspopup="dialog"
+        onClick={() => { setDraftName(name); setNameError(''); nameDialog.current?.showModal(); }}>
+        {name} <span aria-hidden="true">✎</span>
+      </button>}
       message={<>나만의 밤하늘을 만들어 가는 중 <span aria-hidden="true">✨</span></>}
       chip={walking}
     />
 
+    <dialog ref={nameDialog} className="avatar-picker name-editor" aria-labelledby="profile-name-heading"
+      onCancel={event => { if (nameBusy) event.preventDefault(); }}>
+      <form onSubmit={async event => {
+        event.preventDefault();
+        const nickname = draftName.trim();
+        if (!nickname || nameBusy) return;
+        setNameBusy(true); setNameError('');
+        try {
+          const saved = await client(mode).saveProfile({ nickname });
+          setName(saved.nickname ?? nickname);
+          nameDialog.current?.close();
+        } catch { setNameError('이름을 저장하지 못했어요. 다시 시도해 주세요.'); }
+        finally { setNameBusy(false); }
+      }}>
+        <h2 id="profile-name-heading">프로필 이름 수정</h2>
+        <label>이름 (최대 30자)<input value={draftName} maxLength={30} required disabled={nameBusy}
+          onChange={e => setDraftName(e.target.value)} /></label>
+        {nameError && <p role="alert">{nameError}</p>}
+        <div className="choices">
+          <button type="button" className="secondary" disabled={nameBusy} onClick={() => nameDialog.current?.close()}>취소</button>
+          <button disabled={nameBusy || !draftName.trim()}>{nameBusy ? '저장 중…' : '저장'}</button>
+        </div>
+      </form>
+    </dialog>
     <Link className="secondary shop-entry" href="/shop">
       <span className="shop-entry-icon" aria-hidden="true">✦</span>
       <span>별빛 상점</span>
       <span className="shop-entry-arrow" aria-hidden="true">→</span>
     </Link>
-    {picking && <section className="card avatar-picker" aria-labelledby="profile-avatar-picker">
-      <h3 id="profile-avatar-picker">프로필 고르기</h3>
+    <dialog ref={picker} className="avatar-picker" aria-labelledby="profile-avatar-picker" onClose={() => setPicking(false)}
+      onCancel={event => { if (avatarBusy) event.preventDefault(); }}>
+      <header className="avatar-picker-header">
+        <h2 id="profile-avatar-picker">프로필 고르기</h2>
+        <button type="button" className="secondary" aria-label="캐릭터 선택 닫기" disabled={avatarBusy} onClick={() => picker.current?.close()}>닫기</button>
+      </header>
+      {picking && <>
       {avatarError && <p role="alert">{avatarError}</p>}
       {!avatarChoices && (avatarError
         ? <button type="button" disabled={avatarBusy} onClick={() => void updateAvatar()}>다시 불러오기</button>
@@ -127,7 +175,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
           <Avatar id={choice.id} size={56} />
           <small>{choice.nickname}</small>
         </button>)}
-        {characters.filter(character => !acquiredCharacters.includes(character)).map(character =>
+        {lockedCharacters.map(character =>
           <button key={character.id} type="button" className="avatar-option avatar-locked" disabled
             aria-label={`${character.nickname}, 미완성`}>
             <span className="avatar avatar-silhouette">
@@ -139,7 +187,8 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
       </div>
       <p className="small">별자리를 완성하면 그 캐릭터를 고를 수 있어요.</p>
       </>}
-    </section>}
+      </>}
+    </dialog>
 
     {error && <p className="error" role="alert">{error}</p>}
 
@@ -152,22 +201,31 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
     <section aria-labelledby="profile-catalog">
       <div className="profile-catalog-header">
         <h2 id="profile-catalog" className="screen-section">나의 별자리 도감</h2>
-        <Link href="/catalog" aria-label="별자리 도감 더 보기">더 보기</Link>
+        {avatarChoices?.constellations && <span className="profile-catalog-count">완성 {acquiredCharacters.length}/{characters.length}</span>}
       </div>
-      {acquiredCharacters.length > 0
-        ? <div className="profile-strip">
-          {acquiredCharacters.map(character => <Link key={character.id} href="/catalog" className="strip-item done"
-            aria-label={`${character.constellation.name} ${character.nickname}, 완성`}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={`/catalog/${character.id}.webp`} alt="" />
-            <small>완성</small>
-          </Link>)}
+      {avatarChoices?.constellations ? <>
+        <div id="profile-catalog-items" className="profile-strip">
+          {(catalogExpanded ? catalogCharacters : catalogCharacters.slice(0, PROFILE_CATALOG_PREVIEW_SIZE)).map(character => {
+            const acquired = acquiredIds.has(character.constellationId);
+            return <Link key={character.id} href="/catalog?from=profile" className={`strip-item ${acquired ? 'done' : 'yet'}`}
+              aria-label={`${character.constellation.name} ${character.nickname}, ${acquired ? '완성' : '미완성'}`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`/catalog/${character.id}.webp`} alt="" />
+              <small>{character.nickname}</small>
+            </Link>;
+          })}
         </div>
-        : avatarChoices
-          ? <p className="small">아직 획득한 별자리가 없어요.</p>
-          : avatarError
-            ? <p className="small" role="alert">획득한 별자리를 불러오지 못했어요.</p>
-            : <p className="small" role="status">별자리를 불러오고 있어요.</p>}
+        <div className="profile-catalog-actions">
+          {catalogCharacters.length > PROFILE_CATALOG_PREVIEW_SIZE && <button type="button" className="secondary"
+            aria-controls="profile-catalog-items" aria-expanded={catalogExpanded}
+            onClick={() => setCatalogExpanded(expanded => !expanded)}>
+            {catalogExpanded ? '도감 접기' : '도감 펼치기'}
+          </button>}
+          <Link href="/catalog?from=profile">전체 도감 열기</Link>
+        </div>
+      </> : avatarError || avatarChoices
+        ? <p className="small" role="alert">획득한 별자리를 불러오지 못했어요.</p>
+        : <p className="small" role="status">별자리를 불러오고 있어요.</p>}
     </section>
 
     <Section id="profile-badges" title="나의 배지">

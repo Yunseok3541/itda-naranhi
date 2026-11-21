@@ -9,8 +9,8 @@ import { defaultNextKey, inActivityScope, nextOptions, planMatches, type Activit
   type NextPlan, type NextRecommendation, type NextSource } from './next-step';
 import { ruleHelp } from './safety';
 export type Mode = 'example' | 'api';
-export type Profile = { startAnswers: StartAnswers | null; policyInfo: PolicyInfo; birthYear: number | null };
-export type ProfileUpdate = { startAnswers?: Partial<StartAnswers>; policyInfo?: PolicyInfo | null; birthYear?: number | null };
+export type Profile = { nickname?: string; startAnswers: StartAnswers | null; policyInfo: PolicyInfo; birthYear: number | null };
+export type ProfileUpdate = { nickname?: string; startAnswers?: Partial<StartAnswers>; policyInfo?: PolicyInfo | null; birthYear?: number | null };
 export type ProfileAvatar = { avatarConstellationId: number | null; constellations: { constellationId: number; name: string; acquired: boolean }[] | null };
 export type Points = { totalPoints: number; serverTime: string; meteor: { caughtToday: number; dailyLimit: number; currentMeteorId: number; nextMeteorAt: string; intervalSeconds: number } };
 export type MeteorClaim = { pointsEarned: number; totalPoints: number; meteor: { caughtToday: number; dailyLimit: number } };
@@ -244,12 +244,8 @@ export function client(mode: Mode) { return {
 /** 추천 기준(프로필)을 저장하면 정책 화면이 기억해 둔 목록을 버리고 다시 불러오게 하는 표시 (서버도 오늘 추천을 지움) */
 const POLICIES_STALE = 'naranhi-policies-stale';
 export function markPoliciesStale() {
-  try { sessionStorage.setItem(POLICIES_STALE, '1'); } catch { /* 표시를 못 남겨도 새로 들어온 화면은 처음부터 불러옴 */ }
+  try { sessionStorage.setItem(POLICIES_STALE, String(policyCriteriaVersion() + 1)); } catch { /* 저장소를 쓸 수 없는 경우 */ }
 }
-export function takePoliciesStale() {
-  try {
-    const stale = sessionStorage.getItem(POLICIES_STALE) === '1';
-    if (stale) sessionStorage.removeItem(POLICIES_STALE);
-    return stale;
-  } catch { return false; }
+export function policyCriteriaVersion() {
+  try { return Number(sessionStorage.getItem(POLICIES_STALE)) || 0; } catch { return 0; }
 }
