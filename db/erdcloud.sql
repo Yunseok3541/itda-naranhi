@@ -31,12 +31,14 @@ CREATE TABLE survey_results (
   id          INT       NOT NULL AUTO_INCREMENT COMMENT '검사 결과 ID',
   user_id     INT       NOT NULL COMMENT '사용자 ID',
   answers     JSON      NOT NULL COMMENT '문항별 응답',
-  ucla_score  SMALLINT  NOT NULL COMMENT 'UCLA 외로움 점수',
-  spin_score  SMALLINT  NOT NULL COMMENT 'Mini-SPIN 점수',
-  created_at  DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '점검 시각',
+  ucla_score  SMALLINT  NULL COMMENT 'UCLA 3문항 외로움 점수 (3~9)',
+  spin_score  SMALLINT  NULL COMMENT '예전 Mini-SPIN 점수 (더 쓰지 않음)',
+  created_at  DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '짚은 시각',
+  lsns_score  SMALLINT  NULL COMMENT 'LSNS-6 관계망 점수 (0~30)',
+  who5_score  SMALLINT  NULL COMMENT 'WHO-5 원점수 (0~25)',
   PRIMARY KEY (id),
   FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-) COMMENT '선택형 마음 점검';
+) COMMENT '선택형 마음 짚기';
 
 CREATE TABLE constellations (
   id          INT          NOT NULL AUTO_INCREMENT COMMENT '별자리 ID',
