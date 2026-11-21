@@ -33,8 +33,16 @@ export function guideSeen() {
   return memory.guide;
 }
 
-/** 시작 안내를 끝냈거나 건너뜀 → 다음에 메인에 들어가면 메뉴 안내를 한 번 보여 줌 */
+/** 시작 안내를 마친 직후 메인이 비출 별자리 (첫 친구를 만났으면 토끼자리). 한 번 쓰면 비움 */
+let skyFocus: number | null = null;
+/** 메인이 처음 비출 별자리를 미리 봄 (그리는 중에 비우지 않음, StrictMode에서 두 번 불려도 같은 값) */
+export function peekSkyFocus() { return skyFocus; }
+/** 메인이 그 별자리를 비춘 뒤 비움 */
+export function clearSkyFocus() { skyFocus = null; }
+
+/** 시작 안내를 끝냈거나 건너뜀 → 다음에 메인에 들어가면 메뉴 안내를 한 번 보여 줌 (첫 친구를 만났으면 토끼자리를 비춘 채) */
 export function finishGuide() {
+  skyFocus = hasFirstFriend() ? FIRST_FRIEND_CONSTELLATION : null;
   memory.guide = true;
   write(GUIDE_KEY, 'done');
   memory.tour = 'pending';

@@ -172,9 +172,11 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  /** 시작 안내를 끝내거나 건너뜀 → 메인에 처음 들어갈 때 메뉴 한 장 안내(menu-tour.tsx) */
  function finishServiceGuide() {
    finishGuide();
+   // 다시 보기(/sky?guide=1)는 안내를 띄운 채 /sky로 바로 이동 → 새로 그려진 메인이 토끼자리를 비춤
+   // (여기서 안내를 먼저 닫으면 이 화면의 메인이 잠깐 그려지며 비출 별자리를 써 버림)
+   if (ready) { router.replace('/sky'); return; }
    setGuiding(false);
-   if (!ready) void run(enterAfterOnboarding);
-   else router.replace('/sky');
+   void run(enterAfterOnboarding);
  }
  async function enterAfterOnboarding() {
    const sky = await client(mode).sky();
