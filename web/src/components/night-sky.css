@@ -272,6 +272,8 @@ html.sky-night-page body {
 }
 .sheet::backdrop { background: #08061965; }
 .star-sheet-content { padding: 14px 16px calc(16px + env(safe-area-inset-bottom)); }
+.star-sheet-content, .star-record { word-break: keep-all; overflow-wrap: break-word; }
+.star-sheet-content :is(h2, .sheet-desc), .star-record .screen-hero :is(h2, p) { white-space: pre-line; }
 .sky-mode .star-sheet-close { float: right; display: grid; place-items: center; width: 44px; min-height: 44px; padding: 0; margin-left: 8px; }
 .sheet-grip { width: 40px; height: 4px; margin: 0 auto 12px; border-radius: 4px; background: var(--glass-line); }
 .sheet h2 { margin: 2px 0 6px; }
@@ -531,6 +533,7 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 /* 안내·오류 */
 .night-ui .help { background: rgba(246, 207, 125, .12); border: 1px solid var(--star-gold-soft); color: var(--starlight); }
 .night-ui .error { background: rgba(255, 120, 150, .16); color: #ffd3dd; }
+.star-limit-error { text-align: center; white-space: pre-line; }
 .night-ui > p[role="status"] { color: var(--starlight); }
 
 .quest-dialog {

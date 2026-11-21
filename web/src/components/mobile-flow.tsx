@@ -16,6 +16,7 @@ import QuestScreen from './quest-screen';
 import StarScreen from './star-screen';
 import { HelpContext, ScreenBar } from './screen-kit';
 import { EMPTY_START, type StartAnswers } from '@/lib/profile';
+import { DAILY_STAR_LIMIT_MESSAGE, hasReachedDailyStarLimit } from '@/lib/star-limit';
 import { getCompletedConstellationIds, getStarConstellationId } from '@/lib/constellations';
 import { consumeConstellationCelebration, queueConstellationCelebration } from '@/lib/constellation-celebration';
 import SkyControlIcon from './sky-control-icon';
@@ -219,11 +220,11 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  const footer = <footer>시연용 서비스 · 실제 개인정보를 입력하지 마세요.{ready&&!guiding&&<button className="text-button" disabled={busy} onClick={()=>{localStorage.removeItem('naranhi-mode');R(false);H(null);SS(null);E('');setNeedsSession(false);setStartStep(null);setStartAnswers(EMPTY_START);setShowStartResult(false);}}>체험 방식 다시 선택</button>}</footer>;
  const feedback = <>
    {help && <aside className="help help-panel" role="alert"><h2>{help.title}</h2>{help.lines.map(line => <p key={line}>{line}</p>)}<button type="button" className="text-button" onClick={() => H(null)}>닫기</button></aside>}
-   {error && <p className="error" role="alert">{error}</p>}
+   {error && <p className={error === DAILY_STAR_LIMIT_MESSAGE ? 'error star-limit-error' : 'error'} role="alert">{error}</p>}
    {needsSession && <section className="card"><p>데모 세션을 다시 시작해 주세요. 작성한 글은 이 화면에 그대로 있어요.</p><button disabled={busy} onClick={() => run(restartSession)}>데모 다시 시작</button></section>}
  </>;
  if(!loaded)return <main className="shell sky-mode"><p className="night-loading">밤하늘을 준비하고 있어요…</p></main>;
- return <HelpContext.Provider value={helpToggle}>{night&&<SkyPanorama background dome={locked} mode={locked ? mode : undefined}/>}<main ref={shell} className={night?`shell sky-mode panorama-content${locked?' sky-locked':''}${!ready||guiding?' sky-intro':''}`:'shell night-ui'} lang="ko">{locked
+ return <HelpContext.Provider value={helpToggle}>{night&&<SkyPanorama background dome={locked} mode={locked ? mode : undefined}/>}<main ref={shell} className={night?`shell sky-mode panorama-content${locked?' sky-locked':''}${!ready||guiding?' sky-intro':''}`:`shell night-ui${screen==='star'?' star-record':''}`} lang="ko">{locked
    // 메인: 왼쪽 위 도움받을 곳, 오른쪽 위 정책추천·청년센터 (머리글 대신 모서리 버튼)
    ? <header className="sky-top">
        <button type="button" className="sky-pill sky-utility sky-help-button" aria-expanded={help?.title===HELP.title} onClick={()=>H(h=>h?.title===HELP.title?null:HELP)}>
@@ -310,7 +311,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
    </div>
  </dialog>}
  {screen==='checkin'&&<QuestScreen mode={mode} busy={busy} run={run} onHelp={H} onError={E}/>}
- {screen==='star'&&<StarScreen key={starId} mode={mode} star={star} busy={busy} run={run} onHelp={H} onSaved={reloadSky}/>}
+ {screen==='star'&&<StarScreen key={starId} mode={mode} star={star} dailyLimitReached={hasReachedDailyStarLimit(stars)} busy={busy} run={run} onHelp={H} onSaved={reloadSky}/>}
  {screen==='shop'&&<StarlightShop mode={mode}/>}
  {screen==='profile'&&<ProfileHome mode={mode}/>}
  {screen==='policy-criteria' && <>

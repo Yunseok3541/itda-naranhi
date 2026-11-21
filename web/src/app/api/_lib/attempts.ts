@@ -3,9 +3,11 @@
 //   회고 응원·위기 안내는 고은비 담당 모듈 @/lib/reflection 의 processReflection 결과({ cheer, help })를 쓴다.
 // 입력 검증 → 별 확인 → 회고 처리(저장 전) → 저장 → 응답. 저장이 실패해도 help는 전달하고, 실패를 성공으로 보내지 않는다
 import { db as pool } from "@/lib/db";
+import type { PoolClient } from "pg";
 import { generateJson } from "@/lib/gemini";
 import { inspectReflection, STOP_REASONS, type AttemptStatus, type StopReason } from "@/lib/reflection";
 import { ruleHelp } from "@/lib/safety";
+import { DAILY_STAR_LIMIT, DAILY_STAR_LIMIT_MESSAGE } from "@/lib/star-limit";
 import { type ApiResult, type Db, fail, KST_DATE, ok, toId } from "./http";
 
 const STATUSES = ["bright", "dim"] as const;
@@ -101,26 +103,47 @@ export async function createAttempt(
   // 저장 전에 회고 처리 → 저장이 실패해도 help를 응답할 수 있음
   const r = await inspectReflection({ status, reflection, starTitle: customTitle ?? starTitle, stopReason }, generate);
 
+  let connection: PoolClient | undefined;
   try {
+    // Serialize saves for this user so the next write sees the previous one in its snapshot.
+    // An injected client already belongs to the caller's transaction.
+    if (db === pool) {
+      connection = await pool.connect();
+      await connection.query("BEGIN ISOLATION LEVEL READ COMMITTED");
+      await connection.query("SELECT id FROM users WHERE id = $1 FOR UPDATE", [userId]);
+    }
     // 포인트(고민기록 #31): 이 별을 처음 밝혔을 때만 v_star_points 점수를 준다. dim·다시 완료는 0점
     // 같은 문장의 CTE는 INSERT 전 상태를 보므로 prev = 이번 시도 전 기록. 잔액의 기준은 뷰 v_user_balance
-    const { rows } = await db.query<{ id: number; date: string; had_bright: boolean; total_before: number; star_points: number }>(
+    const { rows } = await (connection ?? db).query<{ id: number | null; date: string | null; had_bright: boolean; total_before: number; star_points: number }>(
       `WITH prev AS (
          SELECT EXISTS (SELECT 1 FROM star_attempts WHERE user_id = $1 AND star_id = $2 AND status = 'bright') AS had_bright,
                 COALESCE((SELECT total_points FROM v_user_balance WHERE user_id = $1), 0) AS total_before,
                 COALESCE((SELECT points FROM v_star_points WHERE star_id = $2), 0) AS star_points
        ), ins AS (
          INSERT INTO star_attempts (user_id, star_id, status, verify_method, place_id, place_name, reflection, stop_reason, cheer,
-           parent_attempt_id, sub_quest_id, custom_title, risk)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+           parent_attempt_id, sub_quest_id, custom_title, risk, created_at)
+         SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, statement_timestamp()
+         FROM prev
+         WHERE prev.had_bright OR (
+           SELECT count(*) FROM (
+             SELECT star_id FROM star_attempts
+             WHERE user_id = $1 AND status = 'bright'
+             GROUP BY star_id
+             HAVING min(created_at) >= (
+               date_trunc('day', statement_timestamp() AT TIME ZONE 'Asia/Seoul') AT TIME ZONE 'Asia/Seoul'
+             )
+           ) AS collected_today
+         ) < $14
          RETURNING id, created_at
        )
        SELECT ins.id, ${KST_DATE("ins.created_at")} AS date, prev.had_bright, prev.total_before, prev.star_points
-       FROM ins, prev`,
+       FROM prev LEFT JOIN ins ON true`,
       [userId, starId, status, verifyMethod, placeId, placeName, reflection, stopReason, r.cheer,
-        parentAttemptId, subQuestId, customTitle, r.risk],
+        parentAttemptId, subQuestId, customTitle, r.risk, DAILY_STAR_LIMIT],
     );
     const row = rows[0];
+    await connection?.query("COMMIT");
+    if (row.id === null) return fail(409, "DAILY_LIMIT", DAILY_STAR_LIMIT_MESSAGE, { help: r.help });
     const pointsEarned = status === "bright" && !row.had_bright ? Number(row.star_points) : 0;
     return ok(
       {
@@ -143,7 +166,17 @@ export async function createAttempt(
       201,
     );
   } catch (error) {
+    if (connection) {
+      try {
+        await connection.query("ROLLBACK");
+      } catch {
+        connection.release(true);
+        connection = undefined;
+      }
+    }
     console.error("[attempts] 저장 실패", (error as { code?: string }).code ?? error);
     return fail(500, "SAVE_FAILED", "지금은 저장하지 못했어요. 적어 둔 글은 그대로 있어요.", { help: r.help });
+  } finally {
+    connection?.release();
   }
 }

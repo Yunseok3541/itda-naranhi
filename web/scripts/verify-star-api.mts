@@ -20,6 +20,7 @@ const { recommend } = await import("@/app/api/recommendations/service");
 const { processReflection, inspectReflection } = await import("@/lib/reflection");
 const { createAttempt } = await import("@/app/api/_lib/attempts");
 const { getSky } = await import("@/app/api/_lib/sky");
+const { DAILY_STAR_LIMIT } = await import("@/lib/star-limit");
 const { createDraft, listDrafts, updateDraft } = await import("@/app/api/_lib/inquiries");
 const { getCenter, listCenters } = await import("@/app/api/_lib/centers");
 const { characters } = await import("@/app/catalog/characters");
@@ -327,6 +328,7 @@ try {
   check("하위 퀘스트로 밝힌 별을 다시 완료 → 0점", p3.pointsEarned === 0 && p3.totalPoints === one + pointsOf(sq.star_id), p3);
   for (const x of twoStage) await brighten(x.id);
   const afterTwo = (await viewTotal()).total_points;
+  await client.query("UPDATE star_attempts SET created_at = created_at - interval '24 hours' WHERE user_id = $1", [D]);
   for (const x of fourStage) await brighten(x.id);
   const afterFour = await viewTotal();
   const total = one + 20 * twoStage.length + 40 * fourStage.length;
@@ -343,6 +345,23 @@ try {
     earned.reduce((a, b) => a + b, 0) + pointsOf(sq.star_id) === total && afterFour.total_points === total && skyD.totalPoints === total && afterFour.bright_stars === brightCount && dim3.body.totalPoints === total);
   const failedBright = await createAttempt(D, { starId: threeStar, status: "bright" }, brokenDb(client, true), emptyGen);
   check("저장 실패 → pointsEarned 없음, 총점 그대로", failedBright.status === 500 && !("pointsEarned" in failedBright.body) && (await viewTotal()).total_points === total);
+
+  const limitUser = await mk("별 한도 검증");
+  const limitStars = seed.slice(0, DAILY_STAR_LIMIT + 1).map(star => star.id);
+  const saveBright = (starId: number) => createAttempt(limitUser, { starId, status: "bright" }, client, emptyGen);
+  for (const id of limitStars.slice(0, -1)) {
+    check(`한도 안의 별 ${id} 저장 → 201`, (await saveBright(id)).status === 201);
+  }
+  const extraStar = limitStars[DAILY_STAR_LIMIT];
+  const blocked = await saveBright(extraStar);
+  const blockedDim = await createAttempt(limitUser, { starId: extraStar, status: "dim" }, client, emptyGen);
+  check("11번째 새 별 → DAILY_LIMIT, 추가 기록 없음", blocked.status === 409 && blocked.body.code === "DAILY_LIMIT"
+    && (await client.query("SELECT 1 FROM star_attempts WHERE user_id = $1 AND star_id = $2", [limitUser, extraStar])).rowCount === 0);
+  check("한도에 도달하면 새 별의 손 뻗어 보기 저장도 차단", blockedDim.status === 409 && blockedDim.body.code === "DAILY_LIMIT");
+  const repeated = await saveBright(limitStars[0]);
+  check("한도에 도달해도 이미 딴 별의 추가 기록은 0점으로 저장", repeated.status === 201 && repeated.body.pointsEarned === 0);
+  await client.query("UPDATE star_attempts SET created_at = created_at - interval '24 hours' WHERE user_id = $1 AND star_id = $2", [limitUser, limitStars[0]]);
+  check("어제 딴 별은 오늘 한도에서 제외", (await saveBright(extraStar)).status === 201);
 
   // ---------- 센터·문의 초안 (후속) ----------
   check("센터 목록(마포 예시) / 빈 결과 / region 오류", (listCenters("11440").body as Body).centers.length === 1 && (listCenters("26110").body as Body).centers.length === 0 && listCenters("abc").status === 400);

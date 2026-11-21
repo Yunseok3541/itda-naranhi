@@ -5,6 +5,7 @@ import { characters } from '@/app/catalog/characters';
 import { CHECKIN_POINTS, METEOR_DAILY_LIMIT, METEOR_INTERVAL_SECONDS, METEOR_POINTS, isMeteorCatchable, meteorIdAt, meteorStartsAt } from './points';
 import { NO_FACTS, readFacts, type MilestoneFacts } from './milestones';
 import { catalogConstellations, catalogQuest, catalogQuests } from './quest-catalog';
+import { DAILY_STAR_LIMIT_MESSAGE, hasReachedDailyStarLimit } from './star-limit';
 import { defaultNextKey, inActivityScope, nextOptions, planMatches, type ActivityScope, type AvailableQuest,
   type NextPlan, type NextRecommendation, type NextSource } from './next-step';
 import { ruleHelp } from './safety';
@@ -258,11 +259,14 @@ export function client(mode: Mode) { return {
       const s = read(); const star = s.stars.find(x => x.starId === body.starId);
       if (!star) throw new Error('별을 찾을 수 없어요.');
       if (body.parentAttemptId && (!s.nextPlan || s.nextPlan.attemptId !== body.parentAttemptId || !planMatches(s.nextPlan, body.starId, body.subQuestId ?? null))) throw new Error('이어갈 행동을 다시 확인해 주세요.');
+      const now = new Date();
+      const newlyBright = star.status !== 'bright' && body.status === 'bright';
+      if (star.status !== 'bright' && hasReachedDailyStarLimit(s.stars, now)) throw new Error(DAILY_STAR_LIMIT_MESSAGE);
       const customTitle = body.subQuestId ? catalogQuest(star.starId)?.easier_title : null;
-      const id = Math.max(Date.now(), ...s.stars.flatMap(st => st.memories.map(m => m.attemptId + 1)));
-      const pointsEarned = star.status !== 'bright' && body.status === 'bright' ? catalogQuest(star.starId)!.stage * 10 : 0;
+      const id = Math.max(now.getTime(), ...s.stars.flatMap(st => st.memories.map(m => m.attemptId + 1)));
+      const pointsEarned = newlyBright ? catalogQuest(star.starId)!.stage * 10 : 0;
       star.status = star.status === 'bright' ? 'bright' : body.status;
-      star.memories.push({ attemptId: id, date: new Date().toISOString(), reflection: body.reflection, status: body.status,
+      star.memories.push({ attemptId: id, date: now.toISOString(), reflection: body.reflection, status: body.status,
         stopReason: body.stopReason, parentAttemptId: body.parentAttemptId, subQuestId: body.subQuestId, customTitle });
       if (body.parentAttemptId) s.nextPlan = null;
       write(s);
