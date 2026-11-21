@@ -22,6 +22,7 @@ import SkyControlIcon from './sky-control-icon';
 import { useCloseDialogOnHide } from './use-close-dialog-on-hide';
 import { useCollapseOnHide } from './use-collapse-on-hide';
 import ServiceGuide from './service-guide';
+import { BgmToggle } from './bgm';
 import MenuTour from './menu-tour';
 import { finishGuide, guideSeen, useMenuTourPending } from '@/lib/service-guide';
 import './night-sky.css';
@@ -242,6 +243,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
          </Link>
          <form method="dialog"><button className="ghost sky-icon-action"><SkyControlIcon name="close" /> 닫기</button></form>
        </dialog>
+       <BgmToggle />
      </header>
    : ready&&!guiding
    // 다른 화면: 머리글 없음. 각 화면이 공통 틀의 제목 줄(screen-kit.tsx ScreenBar: ‹ 뒤로 · 제목 · ♡ 도움받을 곳)을 그림
@@ -254,6 +256,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
        <Link className="sky-pill sky-utility sky-catalog-button" href="/catalog">
          <span className="sky-utility-symbol"><SkyControlIcon name="book" /></span><span>별자리 도감</span>
        </Link>
+       <BgmToggle />
      </header>}
  {!questOpen && feedback}
  {guiding ? <ServiceGuide replay={ready} onDone={finishServiceGuide} />

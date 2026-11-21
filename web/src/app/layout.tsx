@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { BgmPlayer } from "@/components/bgm";
 
 export const viewport: Viewport = {
   themeColor: "#0d0820", // 밤하늘 분위기 (브라우저 상단 막대 색)
@@ -18,7 +19,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="ko"
       className="h-full antialiased"
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">{children}<BgmPlayer /></body>
     </html>
   );
 }
