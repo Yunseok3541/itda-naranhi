@@ -22,9 +22,11 @@ type Clock = { start: number; frozenAt: number | null };
 /** 단추(44px) 가운데까지 거리 */
 const HALF = 22;
 
-/** 생길 때 화면에서 지나가는 거리 (오른쪽 위 → 왼쪽 아래). 그다음엔 하늘에 붙어서 확대하면 함께 길어짐 */
+/** 생길 때 화면에서 지나가는 거리 (오른쪽 위 → 왼쪽 아래). 그다음엔 하늘에 붙어서 확대하면 함께 길어짐.
+ *  확대한 하늘에서 생기면 별똥별이 큰 만큼 길게 지나가되 화면 밖으로 너무 벗어나지 않게 */
 function travel() {
-  return { dx: Math.min(window.innerWidth * .54, 260) + 30, dy: window.innerHeight * .17 + 30 };
+  const w = window.innerWidth, h = window.innerHeight, k = meteorScale(skyView.get().fov);
+  return { dx: Math.min((Math.min(w * .54, 260) + 30) * k, w * .9), dy: Math.min((h * .17 + 30) * k, h * .45) };
 }
 const between = (min: number, max: number) => min + Math.random() * (max - min);
 /** 화면에 보이는 퀘스트 별 가운데 (화면 좌표) */
@@ -76,6 +78,8 @@ function place(button: HTMLButtonElement, { from, to }: Flight, t: number, fade:
   // 꼬리는 지나온 쪽(시작점 방향)으로. 하늘을 돌리면 화면에서 보이는 방향도 함께 바뀜
   if (a && b) button.style.setProperty('--meteor-tail', `${Math.atan2(a.y - b.y, a.x - b.x).toFixed(3)}rad`);
   button.style.setProperty('--meteor-fade', fade.toFixed(3));
+  // 크기도 지금 하늘 확대 정도로 매 프레임 맞춤 → 처음 나타나는 순간부터 확대한 만큼 큼
+  button.style.setProperty('--meteor-scale', meteorScale(skyView.get().fov).toFixed(3));
 }
 
 // 유성 테스트 모드: 주소에 ?meteorTest 를 붙이면 켜짐 (QA용, 서버·포인트에 기록하지 않음)
@@ -105,7 +109,7 @@ export function meteorScale(fov: number) {
   return 1 + (METEOR_MAX_SCALE - 1) * zoom;
 }
 
-export default function MeteorRewards({ mode, skyTotal, fov = FOV_MAX, hintPaused = false }: { mode: Mode; skyTotal?: number; /** 지금 하늘 시야각. 확대할수록 별똥별이 커짐 */ fov?: number; /** 메뉴 한 장 안내가 떠 있으면 별똥별 안내를 미룸 */ hintPaused?: boolean }) {
+export default function MeteorRewards({ mode, skyTotal, hintPaused = false }: { mode: Mode; skyTotal?: number; /** 메뉴 한 장 안내가 떠 있으면 별똥별 안내를 미룸 */ hintPaused?: boolean }) {
   const [total, setTotal] = useState<number>();
   const [meteor, setMeteor] = useState<number | null>(null);
   const [limitReached, setLimitReached] = useState(false);
@@ -281,7 +285,7 @@ export default function MeteorRewards({ mode, skyTotal, fov = FOV_MAX, hintPause
       {pointsOpen && <p id="sky-points-info">별을 따면 +10~40 · 별똥별 +{METEOR_POINTS} · 하루 첫 체크인 +{CHECKIN_POINTS}</p>}
     </div>}
     {meteor !== null && <button key={meteor} ref={button} type="button" className="sky-pill sky-meteor" aria-label="유성 담기"
-      style={{ '--meteor-scale': meteorScale(fov).toFixed(3) } as CSSProperties}
+      style={{ '--meteor-scale': meteorScale(skyView.get().fov).toFixed(3) } as CSSProperties}
       disabled={limitReached && !test} onClick={event => {
         // 유성은 움직이는 중이라 누른 순간의 자리를 기억 (키보드로 누르면 단추 가운데)
         const box = event.currentTarget.getBoundingClientRect();
