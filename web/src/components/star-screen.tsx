@@ -28,7 +28,7 @@ export default function StarScreen({ mode, star, busy, run, onHelp, onSaved }: {
   onSaved: (result?: { attemptId: number; status: string }) => Promise<string | undefined>;
 }) {
   const router = useRouter();
-  const [status, setStatus] = useState<'dim' | 'bright'>('dim');
+  const [status, setStatus] = useState<'dim' | 'bright'>('bright');
   const [reason, setReason] = useState('');
   const [reflection, setReflection] = useState('');
   const [saved, setSaved] = useState('');

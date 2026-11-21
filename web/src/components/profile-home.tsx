@@ -124,7 +124,11 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
       { value: counts.met, label: '만난 별자리' },
     ]} />
 
-    <Section id="profile-catalog" title="나의 별자리 도감">
+    <section aria-labelledby="profile-catalog">
+      <div className="profile-catalog-header">
+        <h2 id="profile-catalog" className="screen-section">나의 별자리 도감</h2>
+        <Link href="/catalog" aria-label="별자리 도감 더 보기">더 보기</Link>
+      </div>
       <div className="profile-strip">
         {groups.map(g => {
           const c = characters.find(x => x.constellation.name === g.name);
@@ -136,9 +140,8 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
             <small>{done ? '완성' : met ? '만나는 중' : '아직'}</small>
           </Link>;
         })}
-        <Link href="/catalog" className="strip-more"><span aria-hidden="true">+</span>더 보기</Link>
       </div>
-    </Section>
+    </section>
 
     <Section id="profile-badges" title="나의 배지">
       {earned.length
