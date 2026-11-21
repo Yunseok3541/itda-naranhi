@@ -110,7 +110,7 @@
 .policy-support-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .policy-support-actions .secondary { flex: 1 1 max-content; width: auto; margin: 0; font-size: .875rem; }
 .night-ui .policy-not-for-me {
-  display: block; width: fit-content; margin: 4px 0 0 auto; padding: 6px 10px; min-height: 44px; border: 0 !important; background: none !important;
+  display: block; width: fit-content; margin: 4px auto 0; padding: 6px 10px; text-align: center; min-height: 44px; border: 0 !important; background: none !important;
   box-shadow: none !important; color: var(--starlight-dim) !important; font-size: .875rem; font-weight: 600; text-decoration: underline !important;
 }
 .policy-feedback { margin: 12px 0 0; padding: 12px; border: 1px solid rgba(255, 255, 255, .12); border-radius: 12px; }

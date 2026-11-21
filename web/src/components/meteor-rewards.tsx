@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { client, type Mode } from '@/lib/mobile-data';
 import { FOV_MAX, FOV_MIN } from '@/lib/sky-view';
 import { CHECKIN_POINTS, METEOR_POINTS } from '@/lib/points';
@@ -29,6 +29,8 @@ export default function MeteorRewards({ mode, skyTotal, fov = FOV_MAX }: { mode:
   const announced = useRef<number | null>(null);
   const awardTimer = useRef<number>(0);
   const [pointsOpen, setPointsOpen] = useState(false);
+  // 다른 화면으로 갔다 돌아오면 닫혀 있게 (cacheComponents로 숨겨진 화면도 상태가 남음, use-collapse-on-hide.ts 참고)
+  useLayoutEffect(() => () => setPointsOpen(false), []);
   // 별똥별 처음 한 번 안내: 첫 별똥별 옆에 "눌러서 +1". 그 별똥별이 지나가거나 잡으면 끝
   const hints = useSkyHints();
   const meteorHint = meteor !== null && !limitReached && hints.pending('meteor');

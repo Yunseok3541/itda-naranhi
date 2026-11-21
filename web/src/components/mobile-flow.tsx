@@ -1,7 +1,7 @@
 "use client";
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import {ApiError, client, type Mode, type Star, type Help} from '@/lib/mobile-data';
 import NightSky from './night-sky';
 import PoliciesScreen from './policies-screen';
@@ -19,6 +19,8 @@ import { EMPTY_START, type StartAnswers } from '@/lib/profile';
 import { getCompletedConstellationIds, getStarConstellationId } from '@/lib/constellations';
 import { consumeConstellationCelebration, queueConstellationCelebration } from '@/lib/constellation-celebration';
 import SkyControlIcon from './sky-control-icon';
+import { useCloseDialogOnHide } from './use-close-dialog-on-hide';
+import { useCollapseOnHide } from './use-collapse-on-hide';
 import './night-sky.css';
 // 하단 버튼 3개(메인에서만): 프로필 · 오늘의 별 · 도감
 // 정책추천·청년센터는 메인 오른쪽 위, 도움받을 곳은 메인 왼쪽 위, 홈(내 밤하늘)은 다른 화면 머리글의 "나란히"
@@ -43,6 +45,8 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  const router = useRouter();
  const resources = useRef<HTMLDialogElement>(null);
  const questDialog = useRef<HTMLDialogElement>(null);
+ useCloseDialogOnHide(resources);
+ useCloseDialogOnHide(questDialog);
  const questTrigger = useRef<HTMLButtonElement>(null);
  const questTitle = useId();
  const [mode,M]=useState<Mode>('example'),[ready,R]=useState(false),[loaded,L]=useState(false),[busy,B]=useState(false),[error,E]=useState('');const lock=useRef(false);
@@ -54,6 +58,10 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  const [startAnswers,setStartAnswers]=useState<StartAnswers>(EMPTY_START);
  const [startStep,setStartStep]=useState<number | null>(null);
  const [showStartResult,setShowStartResult]=useState(false);
+ // 다른 화면으로 갔다 돌아오면 도움받을 곳 패널·펼친 접기 칸은 닫혀 있게 (cacheComponents로 숨겨진 화면도 상태가 남음)
+ const shell = useRef<HTMLElement>(null);
+ useCollapseOnHide(shell);
+ useLayoutEffect(() => () => H(null), []);
  const [notice,U]=useState('');
  function reportError(error: unknown) {
    if (error instanceof ApiError) {
@@ -200,7 +208,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
    {needsSession && <section className="card"><p>데모 세션을 다시 시작해 주세요. 작성한 글은 이 화면에 그대로 있어요.</p><button disabled={busy} onClick={() => run(restartSession)}>데모 다시 시작</button></section>}
  </>;
  if(!loaded)return <main className="shell sky-mode"><p className="night-loading">밤하늘을 준비하고 있어요…</p></main>;
- return <HelpContext.Provider value={helpToggle}>{night&&<SkyPanorama background dome={locked} mode={locked ? mode : undefined}/>}<main className={night?`shell sky-mode panorama-content${locked?' sky-locked':''}${!ready?' sky-intro':''}`:'shell night-ui'} lang="ko">{locked
+ return <HelpContext.Provider value={helpToggle}>{night&&<SkyPanorama background dome={locked} mode={locked ? mode : undefined}/>}<main ref={shell} className={night?`shell sky-mode panorama-content${locked?' sky-locked':''}${!ready?' sky-intro':''}`:'shell night-ui'} lang="ko">{locked
    // 메인: 왼쪽 위 도움받을 곳, 오른쪽 위 정책추천·청년센터 (머리글 대신 모서리 버튼)
    ? <header className="sky-top">
        <button type="button" className="sky-pill sky-utility sky-help-button" aria-expanded={help?.title===HELP.title} onClick={()=>H(h=>h?.title===HELP.title?null:HELP)}>

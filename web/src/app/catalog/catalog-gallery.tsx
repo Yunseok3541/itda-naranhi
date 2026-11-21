@@ -6,6 +6,7 @@ import { getCompletedConstellationIds } from '@/lib/constellations';
 import { client } from '@/lib/mobile-data';
 import { characters, type Character } from './characters';
 import CatalogStardust from './catalog-stardust';
+import { useCloseDialogOnHide } from '@/components/use-close-dialog-on-hide';
 
 function CharacterArt({ character, acquired, play, large = false }: {
   character: Character;
@@ -56,6 +57,7 @@ export default function CatalogGallery() {
   const [acquired, setAcquired] = useState<ReadonlySet<number> | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
+  useCloseDialogOnHide(dialog);
   const grid = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
