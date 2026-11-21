@@ -66,7 +66,7 @@ export default function GlassSelect<V extends string | null>({ label, options, v
       aria-haspopup="listbox" aria-expanded={open} aria-controls={`${id}-list`} aria-labelledby={`${id}-label ${id}-value`}
       onClick={() => (open ? close() : show())} onKeyDown={onTriggerKey}>
       <span id={`${id}-value`} className={selected?.value === null ? 'glass-select-placeholder' : undefined}>{selected?.label}</span>
-      <span className="glass-select-chevron" aria-hidden="true">⌄</span>
+      <span className="glass-select-chevron" aria-hidden="true">▼</span>
     </button>
     {open && <ul className="glass-select-list" role="listbox" id={`${id}-list`} ref={list} tabIndex={-1}
       aria-labelledby={`${id}-label`} aria-activedescendant={`${id}-opt-${active}`} onKeyDown={onListKey}>
