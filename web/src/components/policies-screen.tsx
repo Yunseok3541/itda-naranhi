@@ -43,6 +43,17 @@ const VIEWS: { value: View; label: string }[] = [
 const pageSize = 24;
 const emptyFilters = { query: '', scope: '', method: '' };
 
+function savedPolicyKey(mode: Mode) {
+  return `naranhi-saved-policies-${mode}`;
+}
+
+function readSavedPolicies(mode: Mode): number[] {
+  try {
+    const ids: unknown = JSON.parse(localStorage.getItem(savedPolicyKey(mode)) ?? '[]');
+    return Array.isArray(ids) ? ids.filter(Number.isSafeInteger) : [];
+  } catch { return []; }
+}
+
 const example: Result = {
   items: [{ policyId: 1, title: '예시 생활 지원 정책', summary: '정책 화면을 체험하기 위한 가상 정보예요. 실제 모집 중인 정책이 아니에요.',
     reason: '집에서 내용을 확인해 볼 수 있는 지원을 살펴봐요.', burdenLabel: '온라인 신청', scope: '예시 지역', deadline: null,
@@ -91,6 +102,23 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
   const [sent, setSent] = useState<Record<number, FeedbackResult>>({});
   const [helping, setHelping] = useState<Policy | null>(null);
   const [checkinOffBusy, setCheckinOffBusy] = useState(false);
+  const [savedPolicies, setSavedPolicies] = useState(() => ({
+    example: readSavedPolicies('example'), api: readSavedPolicies('api'),
+  }));
+  const [saveMessage, setSaveMessage] = useState('');
+
+  function toggleSavedPolicy(policy: Policy) {
+    const current = savedPolicies[mode];
+    const wasSaved = current.includes(policy.policyId);
+    const next = wasSaved ? current.filter(id => id !== policy.policyId) : [...current, policy.policyId];
+    try {
+      localStorage.setItem(savedPolicyKey(mode), JSON.stringify(next));
+      setSavedPolicies({ ...savedPolicies, [mode]: next });
+      setSaveMessage(wasSaved ? `${policy.title} 찜을 해제했어요.` : `${policy.title}을 이 브라우저에 찜했어요.`);
+    } catch {
+      setSaveMessage('찜 상태를 저장하지 못했어요. 다시 시도해 주세요.');
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -224,12 +252,23 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
       </div>
       {filtered.length === 0 && <p>조건에 맞는 정책이 없어요.</p>}
     </section>}
-    {(all ? filtered.slice(0, visibleCount) : filtered).map(policy => <article className="card" key={`${view}-${policy.policyId}`} /* 보기마다 새로 그려 떠오르는 효과(screen-rise)가 탭을 바꿀 때도 보이게 */>
-      <div className="card-tags">
-        {[policy.scope, policy.burdenLabel].filter(Boolean).map(t => <span key={t}>{t}</span>)}
-        {policy.deadline && <span className="gold">{policy.deadline}</span>}
+    <span className="sr-only" role="status">{saveMessage}</span>
+    {(all ? filtered.slice(0, visibleCount) : filtered).map(policy => {
+      const saved = savedPolicies[mode].includes(policy.policyId);
+      return <article className="card" key={`${view}-${policy.policyId}`} /* 보기마다 새로 그려 떠오르는 효과(screen-rise)가 탭을 바꿀 때도 보이게 */>
+      <div className="policy-card-heading">
+        <div>
+          <div className="card-tags">
+            {[policy.scope, policy.burdenLabel].filter(Boolean).map(t => <span key={t}>{t}</span>)}
+            {policy.deadline && <span className="gold">{policy.deadline}</span>}
+          </div>
+          <h2>{policy.title}</h2>
+        </div>
+        <button type="button" className="policy-save" aria-pressed={saved}
+          aria-label={`${policy.title} 찜`} onClick={() => toggleSavedPolicy(policy)}>
+          <span className="policy-save-heart" aria-hidden="true">{saved ? '♥︎' : '♡'}</span>
+        </button>
       </div>
-      <h2>{policy.title}</h2>
       <p>{policy.summary}</p>
       {policy.reason && <p className="policy-reason"><span aria-hidden="true">✦</span> {policy.reason}</p>}
       {policy.tags.length > 0 && <p className="small">{policy.tags.join(' · ')}</p>}
@@ -252,7 +291,8 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
       {sent[policy.policyId]
         ? <SentNote result={sent[policy.policyId]} />
         : <NotForMe policyId={policy.policyId} mode={mode} onSent={r => setSent(prev => ({ ...prev, [policy.policyId]: r }))} />}
-    </article>)}
+    </article>;
+    })}
     {all && visibleCount < filtered.length && <button className="secondary" onClick={() => setVisibleCount(count => count + pageSize)}>정책 더 보기</button>}
     {sentNotes.length > 0 && <section className="card" aria-live="polite">
       {sentNotes.map(([id, r]) => <p key={id} className="small">{r.message}</p>)}
