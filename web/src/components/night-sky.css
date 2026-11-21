@@ -519,7 +519,7 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 
 /* 버튼 */
 /* 아이콘·그림 단추(제목 줄 아이콘·프로필 그림)는 금빛 큰 버튼에서 뺌 */
-.night-ui button:not(.secondary):not(.text-button):not(.sky-pill):not(.screen-icon):not(.avatar-button):not(.avatar-option):not(.glass-select-trigger):not(.policy-save), .night-ui .primary {
+.night-ui button:not(.secondary):not(.text-button):not(.sky-pill):not(.screen-icon):not(.avatar-button):not(.avatar-option):not(.glass-select-trigger):not(.policy-save):not(.quest-action), .night-ui .primary {
   background: linear-gradient(180deg, #ffe3a3, var(--star-gold)); color: #24183f; border: 0;
   box-shadow: 0 0 22px rgba(246, 207, 125, .28);
 }
@@ -536,7 +536,7 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .quest-dialog {
   position: fixed; inset: auto 0 var(--quest-keyboard-inset, 0px);
   width: min(100%, 520px); max-width: 100%;
-  max-height: min(88dvh, calc(var(--quest-viewport-height, 100dvh) - 16px), 700px);
+  height: min(74dvh, calc(var(--quest-viewport-height, 100dvh) - 16px), 460px);
   padding: 0; margin: 0 auto; overflow: hidden;
   border: 1px solid #ac92db6b; border-bottom: 0; border-radius: 24px 24px 0 0;
   background: #1a142d; box-shadow: 0 -12px 45px #0a061a9c;
@@ -544,24 +544,48 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .quest-dialog[open] { display: grid; grid-template-rows: auto minmax(0, 1fr); }
 .quest-dialog::backdrop { background: #09061775; }
 .quest-dialog-header {
-  position: relative; display: flex; align-items: center; justify-content: space-between;
-  margin: 0; padding: 6px 16px; gap: 10px; border-bottom: 1px solid #c4abe22d;
-  background: linear-gradient(125deg, #352349, #241a38);
+  display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; column-gap: 8px;
+  margin: 0; padding: 8px 16px; border-bottom: 1px solid #a58cc638;
+  background: #241b3b;
 }
-.quest-dialog-header h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.075rem; }
+.quest-dialog-header h2 { grid-column: 2; display: flex; justify-content: center; align-items: center; gap: 7px; margin: 0; font-size: 1.075rem; }
 .quest-dialog-header h2 svg { color: var(--star-gold); }
-.sky-mode .quest-dialog .quest-dialog-close {
-  display: grid; place-items: center; flex: none; width: 44px; min-height: 44px; padding: 0;
-  border: 1px solid #bfaae343; border-radius: 50%; background: #e6cbff14;
+.sky-mode .quest-dialog-header .text-button {
+  display: grid; place-items: center; width: 44px; min-height: 44px; padding: 0; margin: 0;
+  border: 1px solid #aa92ca4d; border-radius: 12px; background: #322746; color: #f1e7ff;
 }
+.quest-dialog-back { grid-column: 1; }
+.quest-dialog-close { grid-column: 3; }
+.quest-dialog-header .text-button:focus-visible { outline: 2px solid var(--star-gold); outline-offset: 2px; }
 .quest-dialog-body {
   min-height: 0; overflow-y: auto; overscroll-behavior: contain;
-  padding: 4px 16px calc(16px + env(safe-area-inset-bottom));
+  padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
 }
-.quest-dialog-body textarea { min-height: 72px; font-size: 1rem; }
+.quest-dialog-body .screen-steps { margin: 0 0 12px; }
+.quest-dialog-body textarea { min-height: 68px; font-size: 1rem; }
 .quest-dialog-body .card { margin-block: 10px; }
-.quest-dialog-body .quest-entry { padding: 0; border: 0; box-shadow: none; background: none; }
-.quest-dialog-body .quest-entry :is(label, fieldset) { margin-block: 8px 12px; }
+.quest-dialog-body :is(.quest-entry, .quest-weather-card) {
+  margin: 0; padding: 0; border: 0; box-shadow: none; background: none;
+}
+.quest-dialog-body .quest-entry :is(label, fieldset) { margin: 0 0 10px; }
+.quest-dialog-body .choices.quest-range-options { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.quest-dialog-body .quest-range-options .secondary {
+  margin: 0; min-height: 44px; padding: 8px;
+  border-color: #5e5080; background: #251d39;
+}
+.quest-dialog-body .quest-range-options .secondary[aria-pressed="true"] {
+  border-color: #ac95db; background: #3b2e54; color: #f7eeff;
+}
+.quest-dialog-body:has(> :is(.quest-entry, .quest-weather-card)) { display: flex; flex-direction: column; }
+.quest-dialog-body > :is(.quest-entry, .quest-weather-card) { display: flex; flex: 1; flex-direction: column; }
+.quest-dialog-body .quest-weather-reading {
+  margin-bottom: 12px; padding: 12px;
+  background: #241b38; border: 1px solid #69578369; border-radius: 12px;
+}
+.quest-dialog-body .quest-weather-card h2 { margin: 3px 0 8px; }
+.quest-dialog-body .quest-weather-reading > .small { margin: 0; }
+.quest-dialog-body .quest-weather-options { margin-bottom: 16px; }
+.quest-dialog-body .quest-action { margin-block: auto 0; }
 .quest-dialog-body :is(h2, [tabindex="-1"]) { scroll-margin-top: 10px; }
 .quest-dialog-body [tabindex="-1"]:focus { outline: none; }
 @media (prefers-reduced-motion: no-preference) {

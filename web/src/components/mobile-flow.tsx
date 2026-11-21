@@ -300,14 +300,8 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
      setQuestOpen(false);
      if (document.activeElement === document.body) questTrigger.current?.focus({ preventScroll: true });
    }}>
-   <header className="quest-dialog-header">
-     <h2 id={questTitle}><SkyControlIcon name="star" /> 오늘의 별</h2>
-     <button type="button" className="text-button quest-dialog-close" aria-label="오늘의 별 닫기" onClick={closeQuest}><SkyControlIcon name="close" /></button>
-   </header>
-   <div className="quest-dialog-body">
-     {questOpen && feedback}
-     <QuestScreen mode={mode} busy={busy} run={run} onHelp={H} onError={E} onClose={closeQuest} onTotalPoints={setTotalPoints} />
-   </div>
+   <QuestScreen mode={mode} busy={busy} run={run} onHelp={H} onError={E} onTotalPoints={setTotalPoints}
+     dialog={{ titleId: questTitle, onClose: closeQuest, feedback: questOpen && feedback }} />
  </dialog>}
  {screen==='checkin'&&<QuestScreen mode={mode} busy={busy} run={run} onHelp={H} onError={E}/>}
  {screen==='star'&&<StarScreen key={starId} mode={mode} star={star} busy={busy} run={run} onHelp={H} onSaved={reloadSky}/>}
