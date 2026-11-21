@@ -84,7 +84,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
   </>;
 
   return <div className="profile-home">
-    <ScreenBar title="나의 프로필" right={<button type="button" className="screen-icon" aria-label="설정 (시작 질문·정책 신청 정보)" onClick={() => setSettings(true)}>⚙</button>} />
+    <ScreenBar title="나의 프로필" right={<button type="button" className="screen-icon" aria-label="설정 (시작 질문·정책 신청 정보)" onClick={() => setSettings(true)}><span aria-hidden="true">⚙</span><small aria-hidden="true">설정</small></button>} />
 
     <Hero
       visual={<button type="button" className="avatar-button" aria-label="프로필 그림 바꾸기" onClick={() => setPicking(p => !p)}>
@@ -122,7 +122,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
       { value: counts.bright, label: '딴 별' },
       { value: counts.dim, label: '손을 뻗은 별' },
       { value: counts.met, label: '만난 별자리' },
-    ]} />
+    ]} note="딴 별은 해낸 일, 손을 뻗은 별은 시도해 본 일이에요. 둘 다 내 하늘에 남아요." />
 
     <Section id="profile-catalog" title="나의 별자리 도감">
       <div className="profile-strip">
