@@ -132,7 +132,7 @@ export function angleBetween(a: Vec3, b: Vec3) {
 /** 화면 긴 쪽 기준 배율 (px / 평사도법 거리) */
 export const scaleFor = (fov: number, width: number, height: number) => Math.max(width, height) / 2 / (2 * Math.tan(fov / 4));
 
-function cameraAxes({ lon, lat }: Pick<SkyView, 'lon' | 'lat'>) {
+export function cameraAxes({ lon, lat }: Pick<SkyView, 'lon' | 'lat'>) {
   const forward: Vec3 = [Math.cos(lat) * Math.cos(lon), Math.cos(lat) * Math.sin(lon), Math.sin(lat)];
   const east: Vec3 = [-Math.sin(lon), Math.cos(lon), 0];
   const north: Vec3 = [-Math.sin(lat) * Math.cos(lon), -Math.sin(lat) * Math.sin(lon), Math.cos(lat)];

@@ -30,6 +30,15 @@ const QUESTIONS = ['오늘 하루는 어땠어요?', '지금 마음은 어떤 �
 const DETAIL_SPAN = 90;
 const CHARACTER_ART_SIZE = 128;
 
+function fadeBetween(start: number, end: number, value: number) {
+  const t = Math.max(0, Math.min(1, (value - start) / (end - start)));
+  return t * t * (3 - 2 * t);
+}
+
+function viewportLight(x: number, y: number, width: number, height: number) {
+  return fadeBetween(-8, 56, Math.min(x, y, width - x, height - y));
+}
+
 const koreanDate = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'long', day: 'numeric' });
 function memoryDate(value: string) {
   const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -118,7 +127,7 @@ function freeBand() {
   // 처음 안내 카드가 떠 있으면 그 아래부터 (안내가 가리키는 별을 카드가 가리지 않게)
   const hint = document.querySelector('.sky-hint')?.getBoundingClientRect().bottom;
   const top = actions === undefined ? undefined : Math.max(actions, hint ?? 0);
-  return frame && top !== undefined ? { top: top + 12 - frame.top, bottom: frame.height * 0.76 } : undefined;
+  return frame && top !== undefined ? { top: top + 12 - frame.top, bottom: frame.height * 0.70 } : undefined;
 }
 
 // 별 상세를 열 때: 별자리 전체가 아니라 고른 별을 크게. 별자리 맞춤 시야의 이 비율만큼 더 확대
@@ -413,13 +422,17 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   }, [centers, companions, flying, focusedIndex, panned, skies, view, frame]);
 
   // 화면에 별 하나만 남아도 확대 배율을 기준으로 이름표와 기록 동작을 유지한다.
-  const detailed = useMemo(() => {
-    if (focusedIndex !== safeIndex && view.fov >= FOV_MAX - 3 * RAD) return false;
+  const span = useMemo(() => {
     const pts = (projected[safeIndex] ?? []).filter((p): p is NonNullable<typeof p> => !!p);
-    if (pts.length < 2) return false;
+    if (pts.length < 2) return 0;
     const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
-    return Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) >= DETAIL_SPAN;
-  }, [focusedIndex, projected, safeIndex, view.fov]);
+    return Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+  }, [projected, safeIndex]);
+  const detailed = span >= DETAIL_SPAN && (focusedIndex === safeIndex || view.fov < FOV_MAX - 3 * RAD);
+  // 시야가 가까워질수록 별이 선명해지고, 선은 그보다 늦게 드러난다.
+  const overview = 1 - fadeBetween(FOV_MAX - 18 * RAD, FOV_MAX, view.fov);
+  const starDetail = fadeBetween(38, 116, span) * overview;
+  const lineDetail = fadeBetween(64, 144, span) * overview;
 
   // 지금 별자리 별 이름표 자리 (겹치면 숨김)
   // 별 상세 창이 열려 있으면 이름표는 숨김 (창 제목이 같은 이름이고, 별 바로 아래 창에 이름표가 가려짐)
@@ -483,13 +496,19 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
           const lit = g.stars[a]?.status === 'bright' && g.stars[b]?.status === 'bright';
           const near = gi === safeIndex && detailed;
           const celebrating = g.id === completedId && lit;
-          return <g key={`${g.id}-${a}-${b}`}>
+          const inView = Math.max(
+            viewportLight(p.x, p.y, frame.width, frame.height),
+            viewportLight(q.x, q.y, frame.width, frame.height),
+            viewportLight((p.x + q.x) / 2, (p.y + q.y) / 2, frame.width, frame.height),
+          );
+          const opacity = inView * (gi === safeIndex ? .18 + .82 * lineDetail : .16 + .26 * lineDetail);
+          return <g key={`${g.id}-${a}-${b}`} className="sky-constellation-edge" style={{ '--edge-light': opacity } as CSSProperties}>
             <line x1={p.x} y1={p.y} x2={q.x} y2={q.y}
               className={`edge${lit ? ' lit' : ''}${gi === safeIndex ? ' current' : ''}${celebrating ? ' completion-edge' : ''}`}
               pathLength={celebrating ? 1 : undefined}
               style={celebrating ? { animationDelay: `${Math.min(edgeIndex, 7) * 80}ms` } : undefined} />
             {/* 멀리서 볼 때는 선 주변(손가락 굵기)을 눌러도 그 별자리로 가까이 감 */}
-            {!near && <line x1={p.x} y1={p.y} x2={q.x} y2={q.y} className="edge-hit" onClick={() => jump(gi)} />}
+            {!near && opacity > .08 && <line x1={p.x} y1={p.y} x2={q.x} y2={q.y} className="edge-hit" onClick={() => jump(gi)} />}
           </g>;
         }))}
       </svg>
@@ -497,10 +516,20 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
         const p = positions[gi]?.[i];
         if (!p || !tracked[gi]) return null;
         const isCurrent = gi === safeIndex;
+        // 가까운 별 두 개의 터치 영역이 서로의 중심을 가리지 않게 한다.
+        const spacing = isCurrent && detailed
+          ? Math.min(...positions[gi].flatMap((point, index) =>
+            point && index !== i ? [Math.hypot(point.x - p.x, point.y - p.y)] : []))
+          : Infinity;
+        const hitSize = Math.min(56, Math.max(16, spacing * 2 - 4));
         const emphasis = isCurrent && detailed ? ' current' : isCurrent ? ' current far' : ' other';
         return <button key={s.starId} type="button"
           className={`nstar ${s.status}${emphasis}${selected?.starId === s.starId ? ' active' : ''}`}
-          style={{ left: p.x, top: p.y, animationDelay: `${(i * 0.7) % 3}s` }}
+          style={{ left: p.x, top: p.y, animationDelay: `${(i * 0.7) % 3}s`,
+            '--star-hit-size': `${hitSize}px`, '--star-core-size': `${Math.min(29, Math.max(12, spacing - 2))}px`,
+            '--star-light': (isCurrent ? .55 + .45 * starDetail : .42) * viewportLight(p.x, p.y, frame.width, frame.height),
+            '--star-scale': isCurrent ? .72 + .28 * starDetail : .75,
+          } as CSSProperties}
           aria-label={`${s.title}, ${labels[s.status]}${namedStar === s.starId ? ', 이 별의 기억 열기' : ''}`}
           onClick={() => {
             finishHint('star');

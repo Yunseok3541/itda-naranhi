@@ -1,4 +1,4 @@
-// 루트 quests.json(별 원본) → db/init/02_seed.sql(새 DB) + db/migrations/20261121_quests_sync.sql(Neon 동기화, 기록 유지) 생성 (고민기록 #31)
+// 루트 quests.json(별 원본) → 새 DB 시드와 운영 DB용 별자리 동기화 SQL 생성
 // 실행 (web/에서):
 //   node node_modules/tsx/dist/cli.mjs scripts/gen-quest-seed.mts           두 SQL 파일을 다시 씀
 //   node node_modules/tsx/dist/cli.mjs scripts/gen-quest-seed.mts --check   쓰지 않고, 파일이 JSON과 다르면 실패 (커밋 전 확인용)
@@ -136,13 +136,14 @@ ${subRows};
 SELECT setval('sub_quests_id_seq', ${maxStar});`;
 
 const GENERATED = "-- ⚠ 자동 생성 파일: 직접 고치지 말고 루트 quests.json을 고친 뒤 web/에서 `node node_modules/tsx/dist/cli.mjs scripts/gen-quest-seed.mts`";
+const syncPath = "db/migrations/20261124_constellation_shapes.sql";
 
 const seedSql = `-- 별자리 ${data.constellations.length}개 · 별 ${data.quests.length}개 (원본: 루트 quests.json, 규칙: docs/고민기록.md #31)
 ${GENERATED}
 -- 별자리 = 도감 캐릭터 10명 (id = web/src/app/catalog/characters.ts 순서, 이름·테마도 도감과 같음). 난이도 = constellations.stage (${stageCount})
 -- 추천 범위는 기존 규칙: gps 별 = 바깥, stage 1 = 집 안, stage 2 이상 = 집 근처 (api/recommendations/service.ts scopeOf)
 -- 포인트: 별을 처음 밝히면 그 별자리 난이도 × 10 (뷰 v_star_points). 별자리 합계 = 난이도 × 10 × 별 수
--- 운영 DB(Neon)는 db/migrations/20261121_quests_sync.sql로 맞춤 (같은 스크립트가 함께 만듦, 기록을 지우지 않음)
+-- 운영 DB(Neon)는 ${syncPath}로 맞춤 (같은 스크립트가 함께 만듦, 기록을 지우지 않음)
 
 ${content}
 
@@ -156,16 +157,19 @@ ${content}
 // 운영 DB(Neon)용 동기화 SQL: 기록을 지우지 않고 별자리·별·하위 퀘스트를 quests.json 내용으로 덮어씀
 // 별 ID·하위 퀘스트 ID가 그대로라 star_attempts(시도·회고)·sub_quest 참조가 깨지지 않음
 // (20261120_points.sql은 이미 Neon에 적용된 파일이라 더 이상 만들지 않음)
-const syncSql = `-- 동기화 SQL: 루트 quests.json → 별자리 ${data.constellations.length}개·별 ${data.quests.length}개·하위 퀘스트 ${data.quests.length}개 (feat/points, 고민기록 #31)
+const initSchema = readFileSync(`${root}db/init/01_schema.sql`, "utf8").replace(/\r\n/g, "\n");
+const acquiredView = initSchema.match(/CREATE VIEW v_user_acquired_constellations AS[\s\S]*?;/)?.[0];
+if (!acquiredView) throw new Error("획득 별자리 뷰 정의를 찾지 못했어요.");
+const syncSql = `-- 동기화 SQL: 루트 quests.json → 별자리 ${data.constellations.length}개·별 ${data.quests.length}개·하위 퀘스트 ${data.quests.length}개
 ${GENERATED}
 -- 대상: 이미 운영 중인 DB (팀 공용 Neon). 새로 만드는 DB는 db/init/02_seed.sql에 같은 내용이 있음
--- 순서: 20261120_points.sql 다음 (포인트 뷰·stars.focus·tags가 필요). 없으면 처음에 멈추고 아무것도 바꾸지 않음
+-- 순서: 기존 별 동기화(20261121_quests_sync.sql)와 프로필 도감(20261121_profile_avatar.sql) 적용 이후
 -- ✅ 기록을 지우지 않음: 별 ID(= quest id)가 그대로라 시도·회고·오늘의 추천·설문은 그대로 남음
 --   바뀌는 것: 별자리 이름·테마·단계·별 수, 별의 소속 별자리·순서·문구·확인 방식·바깥 여부·focus·tags, 하위 퀘스트 문구
 --   지우는 것: quests.json에 없는 별자리 (별이 하나도 없을 때만)와 그 별자리를 가리키는 user_constellations 줄
 -- quests.json을 고칠 때마다 다시 생성되고, Neon에서 다시 실행하면 됨. 여러 번 실행해도 결과가 같음 (한 트랜잭션)
 -- 적용: Neon 콘솔 → SQL Editor에 이 파일 내용을 붙여넣고 Run
---       또는 psql "$DATABASE_URL" -f db/migrations/20261121_quests_sync.sql
+--       또는 psql "$DATABASE_URL" -f ${syncPath}
 -- 확인: SELECT id, stage, name, star_count FROM constellations ORDER BY id;   → ${data.constellations.map((c) => `${c.id} ${c.name}`).join(", ")}
 --       SELECT count(*) FROM stars;  → ${data.quests.length}      SELECT count(*) FROM sub_quests;  → ${data.quests.length}
 
@@ -179,6 +183,17 @@ BEGIN
     RAISE EXCEPTION '20261120_points.sql을 먼저 적용해 주세요 (v_star_points, stars.focus 없음)';
   END IF;
 END $$;
+
+-- 기존 40개 구성으로 완성한 도감 친구는 계속 사용할 수 있도록 획득 날짜를 보관한다.
+LOCK TABLE star_attempts IN SHARE ROW EXCLUSIVE MODE;
+INSERT INTO user_constellations (user_id, constellation_id, started_at, completed_at)
+SELECT user_id, constellation_id, acquired_at, acquired_at
+FROM v_user_acquired_constellations
+WHERE NOT EXISTS (SELECT 1 FROM stars WHERE id = 41)
+ON CONFLICT (user_id, constellation_id) DO UPDATE
+SET completed_at = LEAST(user_constellations.completed_at, EXCLUDED.completed_at);
+
+${acquiredView.replace("CREATE VIEW", "CREATE OR REPLACE VIEW")}
 
 -- 1. 별자리 (id = 도감 캐릭터 순서)
 INSERT INTO constellations (id, stage, name, theme, star_count) VALUES
@@ -222,7 +237,7 @@ COMMIT;
 
 const outputs: [string, string][] = [
   ["db/init/02_seed.sql", seedSql],
-  ["db/migrations/20261121_quests_sync.sql", syncSql],
+  [syncPath, syncSql],
 ];
 let stale = 0;
 for (const [rel, text] of outputs) {

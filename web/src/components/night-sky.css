@@ -371,13 +371,23 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 }
 .sky-anchors .edge.lit { stroke: rgba(246, 207, 125, .5); stroke-dasharray: none; }
 .sky-anchors .edge.lit.current { stroke: rgba(246, 218, 158, .57); stroke-width: 1.5; stroke-dasharray: none; }
-.sky-anchors .nstar { pointer-events: auto; }
+.sky-anchors .nstar {
+  pointer-events: auto;
+  opacity: var(--star-light, 1);
+  transform: translate(-50%, -50%) scale(var(--star-scale, 1));
+}
+.sky-anchors .sky-constellation-edge { opacity: var(--edge-light, 1); }
 .sky-anchors .nstar .glow { width: 30px; height: 30px; border: 1.5px solid rgba(238, 233, 255, .6); }
 .sky-anchors .nstar.dim .glow { width: 34px; height: 34px; border: 1.5px solid rgba(246, 207, 125, .55); background: radial-gradient(circle, rgba(246, 207, 125, .22), transparent 70%); }
-/* 다른 별자리 별: 작고 흐리게, 이름 없음 */
-.sky-anchors .nstar.other { opacity: .5; transform: translate(-50%, -50%) scale(.75); }
-/* 지금 별자리라도 축소해서 작게 보이면 이름 없이 작게 (night-sky.tsx DETAIL_SPAN) */
-.sky-anchors .nstar.far { opacity: .8; transform: translate(-50%, -50%) scale(.7); }
+@media (prefers-reduced-motion: no-preference) {
+  .sky-anchors .nstar { transition: opacity 160ms ease-out, transform 160ms ease-out; }
+  .sky-anchors .sky-constellation-edge { transition: opacity 200ms ease-out; }
+  .sky-anchors .edge { transition: stroke 180ms ease-out; }
+  @starting-style {
+    .sky-anchors .nstar,
+    .sky-anchors .sky-constellation-edge { opacity: 0; }
+  }
+}
 /* 지금 별자리 별 이름 */
 /* 위치는 가려지는 별과 미니맵을 피해 정한다. */
 .nstar-label {
@@ -807,7 +817,16 @@ html.sky-locked-page { --sky-dock-height: 96px; --person-height: 15dvh; }
 .sky-anchors .nstar.current svg.core { width: 29px; height: 29px; }
 .sky-anchors .nstar.current:not(.far) {
   --node-light: 221, 207, 255;
+  z-index: 1;
+  pointer-events: none;
 }
+.sky-anchors .nstar.current:not(.far)::before {
+  content: ""; position: absolute; inset: 50% auto auto 50%; translate: -50% -50%;
+  width: var(--star-hit-size, 56px); height: var(--star-hit-size, 56px); border-radius: 50%;
+  pointer-events: auto;
+}
+.sky-anchors .nstar.current:not(.far) .nstar-label { pointer-events: auto; }
+.sky-anchors .nstar.current:not(.far):has(.nstar-label) { z-index: 2; }
 .sky-anchors .nstar.current.dim { --node-light: 240, 192, 241; }
 .sky-anchors .nstar.current.bright { --node-light: 255, 219, 151; }
 .sky-anchors .nstar.current:not(.far) .glow {
@@ -826,6 +845,7 @@ html.sky-locked-page { --sky-dock-height: 96px; --person-height: 15dvh; }
   pointer-events: none;
 }
 .sky-anchors .nstar.current:not(.far) svg.core {
+  width: var(--star-core-size, 29px); height: var(--star-core-size, 29px);
   filter: drop-shadow(0 0 3px rgba(var(--node-light), .8))
     drop-shadow(0 0 8px rgba(var(--node-light), .48));
 }

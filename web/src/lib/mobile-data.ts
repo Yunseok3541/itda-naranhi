@@ -32,16 +32,28 @@ export const weatherNames: Record<string, string> = { sunny: '맑음', partly_cl
 // New IDs mean old example records cannot be relabelled safely. Leave v1 untouched.
 const key = 'naranhi-example-v2';
 type Rewards = { meteorPoints: number; checkinPoints: number; checkinDay?: string; meteorDay?: string; meteors: number[] };
-type Store = { stars: Star[]; checkins: Record<number, { text: string; todayChoice: string; weather: string }>; nextPlan?: NextPlan | null; rewards?: Rewards; avatarConstellationId?: number | null };
-function read(): Store {
-  const raw = localStorage.getItem(key);
-  if (raw) return JSON.parse(raw);
-  return { stars: catalogConstellations.flatMap(c => c.quests.map((id, position) => {
+type Store = { stars: Star[]; checkins: Record<number, { text: string; todayChoice: string; weather: string }>; nextPlan?: NextPlan | null; rewards?: Rewards; avatarConstellationId?: number | null; previouslyAcquired?: number[] };
+const catalogStars = catalogConstellations.flatMap(c => c.quests.map((id, position): Star => {
     const q = catalogQuest(id)!;
     return { starId: id, title: q.title, description: q.description, constellationId: c.id,
       constellationName: c.name, position: position + 1, verifyType: q.verify_type ?? 'self',
-      status: 'untried' as const, memories: [] };
-  })), checkins: {} };
+      status: 'untried', memories: [] };
+}));
+
+function read(): Store {
+  const raw = localStorage.getItem(key);
+  if (!raw) return { stars: catalogStars.map(star => ({ ...star, memories: [] })), checkins: {} };
+  const store = JSON.parse(raw) as Store;
+  const existing = new Map(store.stars.map(star => [star.starId, star]));
+  const missing = catalogStars.filter(star => !existing.has(star.starId));
+  if (missing.length) {
+    // 예전 40개 버전에서 이미 얻은 친구는 별이 추가되어도 계속 쓸 수 있다.
+    store.previouslyAcquired ??= catalogConstellations
+      .filter(group => group.quests.filter(id => id <= 40).every(id => existing.get(id)?.status === 'bright'))
+      .map(group => group.id);
+    store.stars.push(...missing.map(star => ({ ...star, memories: [] })));
+  }
+  return store;
 }
 function write(s: Store) { localStorage.setItem(key, JSON.stringify(s)); }
 function withExampleStoreLock<T>(update: () => T): Promise<T> {
@@ -64,8 +76,11 @@ function exampleTotal(store: Store, wardrobe = readWardrobe()) {
   const starPoints = store.stars.reduce((sum, star) => sum + (star.status === 'bright' ? (catalogQuest(star.starId)?.stage ?? 0) * 10 : 0), 0);
   return starPoints + (store.rewards?.meteorPoints ?? 0) + (store.rewards?.checkinPoints ?? 0) - wardrobe.purchases.reduce((sum,p) => sum + p.paid, 0);
 }
+function exampleAcquired(store: Store) {
+  return new Set([...getCompletedConstellationIds(store.stars), ...(store.previouslyAcquired ?? [])]);
+}
 function exampleAvatar(store: Store): ProfileAvatar {
-  const acquired = getCompletedConstellationIds(store.stars);
+  const acquired = exampleAcquired(store);
   const selected = store.avatarConstellationId === undefined
     ? characters.find(character => character.id === localStorage.getItem('naranhi-avatar'))?.constellationId ?? null
     : store.avatarConstellationId;
@@ -224,7 +239,7 @@ export function client(mode: Mode) { return {
     if (mode === 'api') return request('profile/avatar', 'PUT', { constellationId });
     return withExampleStoreLock(() => {
       const store = read();
-      if (constellationId !== null && !getCompletedConstellationIds(store.stars).has(constellationId)) throw new ApiError('아직 별을 모두 따지 않은 별자리예요.', 403, 'NOT_ACQUIRED');
+      if (constellationId !== null && !exampleAcquired(store).has(constellationId)) throw new ApiError('아직 별을 모두 따지 않은 별자리예요.', 403, 'NOT_ACQUIRED');
       store.avatarConstellationId = constellationId;
       write(store);
       return exampleAvatar(store);

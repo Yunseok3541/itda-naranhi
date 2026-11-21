@@ -96,7 +96,10 @@ Object.defineProperty(globalThis, 'localStorage', { value: {
 const example = client('example');
 await example.start();
 const sky = await example.sky();
-check('example uses all 40 reviewed quests and 10 constellations', () => { assert.equal(sky.stars.length, 40); assert.equal(new Set(sky.stars.map(s => s.constellationId)).size, 10); });
+check('example uses every catalog quest and constellation', () => {
+  assert.equal(sky.stars.length, catalogQuests.length);
+  assert.equal(new Set(sky.stars.map(s => s.constellationId)).size, catalogConstellations.length);
+});
 check('legacy example records untouched', () => assert.equal(storage.get('naranhi-example-v1'), 'legacy-record-not-to-be-deleted'));
 const saved = await example.attempt({ starId: 6, status: 'dim', reflection: '', stopReason: 'tired', verifyMethod: 'self' });
 const next = await example.nextSteps(saved.attemptId);
