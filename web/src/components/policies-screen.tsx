@@ -149,16 +149,16 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
     finally { setCheckinOffBusy(false); }
   }
   return <>
-    {/* 머리줄 + 보기 전환은 스크롤해도 위에 붙어 있음 (FE_QA: 쭉 내리면 뒤로 가기가 사라짐) */}
+    {/* 머리줄은 스크롤해도 위에 붙어 있음 (FE_QA: 쭉 내리면 뒤로 가기가 사라짐). 보기 전환은 배경 위 버튼으로 함께 스크롤 */}
     <div className="policy-screen-header">
       <ScreenBar title={all ? '모든 정책' : '정책 추천'} {...(all ? { onBack: () => selectView('recommended'), backLabel: '맞춤 추천으로' } : {})} />
-      <div className="policy-view-switch" role="group" aria-label="정책 보기">
+    </div>
+    <div className="policy-view-switch" role="group" aria-label="정책 보기">
         {VIEWS.map(v => <button key={v.value} type="button" className="secondary" aria-pressed={view === v.value}
           onClick={() => selectView(v.value)}>
           {view === v.value && <span aria-hidden="true">✓ </span>}{v.label}
           {count[v.value] !== null && <span className="policy-view-count">{count[v.value]}</span>}
         </button>)}
-      </div>
     </div>
     <Hero
       visual={<HeroIcon>✦</HeroIcon>}
@@ -198,7 +198,7 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
       </div>
       {filtered.length === 0 && <p>조건에 맞는 정책이 없어요.</p>}
     </section>}
-    {(all ? filtered.slice(0, visibleCount) : filtered).map(policy => <article className="card" key={policy.policyId}>
+    {(all ? filtered.slice(0, visibleCount) : filtered).map(policy => <article className="card" key={`${view}-${policy.policyId}`} /* 보기마다 새로 그려 떠오르는 효과(screen-rise)가 탭을 바꿀 때도 보이게 */>
       <div className="card-tags">
         {[policy.scope, policy.burdenLabel].filter(Boolean).map(t => <span key={t}>{t}</span>)}
         {policy.deadline && <span className="gold">{policy.deadline}</span>}
