@@ -126,6 +126,14 @@ function Practice({ heading, onNext, mode, onHelp }: {
   const [gift, setGift] = useState(false);
   const complete = done === SPOTS.length;
   const task = TASKS[Math.min(done, TASKS.length - 1)];
+  // "다음"은 저장이 끝나고 도감 등록 모달을 닫은 뒤에야 나타남 (마지막 별 단추와 같은 자리라, 연타하면 모달을 건너뛰던 문제)
+  const showNext = complete && !saving && !gift;
+  const nextButton = useRef<HTMLButtonElement>(null);
+  const modalShown = useRef(false);
+  useEffect(() => {
+    if (gift) modalShown.current = true;
+    else if (showNext && modalShown.current) nextButton.current?.focus({ preventScroll: true });
+  }, [gift, showNext]);
 
   /** 딴 별을 실제 토끼자리 별 기록으로 저장. 이미 딴 별(다시 보기)은 다시 기록하지 않음 */
   async function record() {
@@ -156,7 +164,10 @@ function Practice({ heading, onNext, mode, onHelp }: {
   function pick() {
     setPopped(done);
     setDone(done + 1);
-    if (done + 1 === SPOTS.length) void record();
+    if (done + 1 === SPOTS.length) {
+      setSaving(true); // 같은 순간에 "다음"이 나타나지 않게 바로 잠금
+      void record();
+    }
   }
 
   return <>
@@ -205,6 +216,7 @@ function Practice({ heading, onNext, mode, onHelp }: {
         </div>}
 
     {complete && saveFailed && <p className="small guide-note" role="alert">별을 저장하지 못했어요. 메인의 {firstFriend.constellation.name}에서 다시 딸 수 있어요.</p>}
-    {complete && <button type="button" className="guide-next" disabled={saving} onClick={onNext}>{saving ? '별을 담는 중…' : '다음'}</button>}
+    {complete && saving && <p className="small guide-saving" role="status">별을 담는 중…</p>}
+    {showNext && <button ref={nextButton} type="button" className="guide-next" onClick={onNext}>다음</button>}
   </>;
 }

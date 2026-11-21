@@ -24,6 +24,9 @@
 .service-guide .guide-time { text-align: center; }
 .sky-mode .service-guide .guide-next { width: 100%; margin-top: 16px; border-radius: 16px; }
 .service-guide .guide-note { margin-top: 10px; }
+/* 첫 친구 모달: "계속하기"가 잠긴 동안 초점이 모달 자체에 가서 생기는 테두리는 감춤 (constellation-celebration.tsx) */
+.constellation-celebration:focus { outline: none; }
+.service-guide .guide-saving { margin: 16px 0 0; min-height: 52px; display: grid; place-items: center; }
 
 /* 연습 별자리 */
 .guide-constellation { display: block; width: 100%; max-width: 320px; height: auto; margin: 8px auto 4px; overflow: visible; }

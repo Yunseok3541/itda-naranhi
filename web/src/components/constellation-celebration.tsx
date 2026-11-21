@@ -2,12 +2,13 @@
 
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { characters } from '@/app/catalog/characters';
 
 /**
  * 별자리를 완성해 도감에 친구가 담길 때 뜨는 모달.
  * 기본: 1.2초 뒤 나타나 잠시 뒤 도감으로 이동. onDone을 주면(시작 안내의 첫 친구) 도감으로 가지 않고 "계속하기"를 누를 때까지 그대로
+ * (이때 "계속하기"·Esc는 뜬 뒤 0.8초 동안 잠금: 앞 화면에서 연타하던 손가락에 바로 닫히지 않게)
  */
 export default function ConstellationCelebration({ constellationId, name, title, message, onDone }: {
   constellationId: number; name: string;
@@ -22,14 +23,16 @@ export default function ConstellationCelebration({ constellationId, name, title,
   const character = characters.find(friend => friend.constellationId === constellationId);
 
   const stay = !!onDone;
+  const [canClose, setCanClose] = useState(!stay);
   useEffect(() => {
     const modal = dialog.current;
     if (!modal) return;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const revealAt = reduced ? 200 : stay ? 900 : 1200;
+    const revealAt = reduced ? 200 : stay ? 400 : 1200;
     if (stay) {
       const reveal = window.setTimeout(() => modal.showModal(), revealAt);
-      return () => { window.clearTimeout(reveal); if (modal.open) modal.close(); };
+      const unlock = window.setTimeout(() => setCanClose(true), revealAt + 800);
+      return () => { window.clearTimeout(reveal); window.clearTimeout(unlock); if (modal.open) modal.close(); };
     }
     const leaveAt = revealAt + 3400;
     const reveal = window.setTimeout(() => modal.showModal(), revealAt);
@@ -45,7 +48,7 @@ export default function ConstellationCelebration({ constellationId, name, title,
 
   return (
     <dialog ref={dialog} className="constellation-celebration" aria-labelledby={titleId}
-      onCancel={event => { event.preventDefault(); if (onDone) onDone(); else router.replace('/catalog'); }}>
+      onCancel={event => { event.preventDefault(); if (!canClose) return; if (onDone) onDone(); else router.replace('/catalog'); }}>
       <div className="constellation-award">
         <span aria-hidden="true">✧</span>
         {character ? (
@@ -58,7 +61,7 @@ export default function ConstellationCelebration({ constellationId, name, title,
       </div>
       <h2 id={titleId}>{title ?? <>{name}를<br />획득하였습니다</>}</h2>
       <p>{message ?? '새 별자리가 도감에 담겼어요.'}</p>
-      <button type="button" className="ghost" onClick={() => onDone ? onDone() : router.replace('/catalog')}>{onDone ? '계속하기' : '도감으로 이동'}</button>
+      <button type="button" className="ghost" disabled={!canClose} onClick={() => onDone ? onDone() : router.replace('/catalog')}>{onDone ? '계속하기' : '도감으로 이동'}</button>
     </dialog>
   );
 }
