@@ -259,9 +259,7 @@ button.policy-save:focus-visible { outline: 2px solid #ffe1a0; outline-offset: 2
   width: auto; min-height: 44px; margin: 0; padding: 0 10px; border: 0 !important; border-radius: 12px;
   background: none !important; box-shadow: none !important; color: var(--starlight-dim, #b9b0d6) !important; font-size: .8125rem; text-decoration: underline;
 }
-.apply-helper .apply-helper-privacy { margin: 3px 16px 0; color: var(--starlight-dim, #b9b0d6); font-size: .8125rem; }
-.apply-helper-privacy summary { width: fit-content; cursor: pointer; padding-block: 5px; }
-.apply-helper-privacy p { margin: 2px 0 4px; line-height: 1.5; }
+.apply-helper .apply-helper-privacy { display: flex; gap: 6px; margin: 4px 16px 2px; color: var(--starlight-dim, #b9b0d6); font-size: .75rem; line-height: 1.45; }
 .apply-helper-restored { align-self: center; margin: 0; color: var(--starlight-dim, #b9b0d6); }
 
 /* 폰 키보드가 올라오면 --kb(가려진 높이)만큼 창을 올리고 줄임 (apply-helper.tsx가 visualViewport로 계산) */
