@@ -145,6 +145,12 @@ button.help-panel-close:is(:hover, :focus-visible) { border-color: #cdb8ed; back
 @media (max-width: 359px) { .night-ui .policy-quick-links .policy-quick-link { gap: 3px; padding: 0; font-size: .8rem; } .policy-quick-links svg { width: 16px; height: 16px; } }
 .policy-quick-links svg { width: 18px; height: 18px; color: var(--star-gold); }
 .policy-quick-links .policy-quick-link span { color: var(--starlight-dim); font-size: 1.05rem; }
+/* 정책 화면 첫 방문에 추천 기준 정하기로 보낼지 확인하는 동안 (policies-screen.tsx useFirstVisitSetup)
+   금방 끝나면 빈 밤하늘만 보이고, 오래 걸릴 때만 글자가 천천히 나타남 (화면 공통 떠오르는 효과보다 우선하게 선택자를 구체적으로) */
+@media (prefers-reduced-motion: no-preference) {
+  .shell.night-ui > p.night-loading.policy-first-visit-wait { animation: policy-first-visit-wait .4s ease-out .6s both; }
+  @keyframes policy-first-visit-wait { from { opacity: 0; } }
+}
 .night-ui .center-saved-draft { margin-bottom: 12px; }
 
 /* 정책 카드의 추천 이유 */

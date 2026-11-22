@@ -100,7 +100,8 @@ const exampleHelperPolicy: HelperPolicy = {
 
 export default function PoliciesScreen({ mode, onError, onClearError }: { mode: Mode; onError: (error: unknown) => void; onClearError: () => void }) {
   // 추천 기준이 아직 없으면 위쪽 버튼을 "추천 기준 정하기"(질문 하나씩)로, 있으면 "추천 기준 바꾸기"
-  const hasCriteria = useFirstVisitSetup(mode);
+  // checking: 첫 방문이라 추천 기준 정하기로 안내할지 확인하는 중 → 그동안 목록을 그리지도 불러오지도 않음
+  const { hasCriteria, checking } = useFirstVisitSetup(mode);
   const [view, setView] = useState<View>('recommended');
   const [filters, setFilters] = useState(emptyFilters);
   const [visibleCount, setVisibleCount] = useState(pageSize);
@@ -137,6 +138,7 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
 
   const feed = view === 'saved' ? 'all' : view;
   useEffect(() => {
+    if (checking) return; // 추천 기준 정하기로 넘어갈 수도 있어 확인이 끝난 뒤에 불러옴
     let active = true;
     async function load() {
       // 추천 기준을 바꾸고 돌아왔으면 기억해 둔 두 보기를 모두 버리고 새로 불러옴 (서버도 오늘 추천을 지웠음)
@@ -166,7 +168,7 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
     // onError reports into the parent; changes to the parent must not reload recommendations.
     // `loaded` is read only to skip views that are already loaded; a new result must not trigger another load.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, view, feed, retry]);
+  }, [mode, view, feed, retry, checking]);
 
   const byView = loaded.mode === mode ? loaded.byView : {};
   const result = byView[feed] ?? null;
@@ -222,6 +224,8 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
     } catch (error) { onError(error); }
     finally { setCheckinOffBusy(false); }
   }
+  // 확인하는 동안은 정책 화면 대신 빈 밤하늘 (오래 걸릴 때만 안내 글자가 천천히 나타남, screen-kit.css)
+  if (checking) return <p className="night-loading policy-first-visit-wait" role="status">정책을 준비하고 있어요…</p>;
   return <>
     {/* 머리줄은 스크롤해도 위에 붙어 있음 (FE_QA: 쭉 내리면 뒤로 가기가 사라짐). 보기 전환은 배경 위 버튼으로 함께 스크롤 */}
     <div className="policy-screen-header">
@@ -379,26 +383,50 @@ function NotForMe({ policyId, mode, onSent }: { policyId: number; mode: Mode; on
   </fieldset>;
 }
 
+/** 한 번 안내했는지 (저장소를 못 쓰면 안내하지 않은 것으로 치지 않고 "안내함" → 다시 끌려가지 않게) */
+function setupOffered(key: string) {
+  try { return !!localStorage.getItem(key); } catch { return true; }
+}
+/** 프로필 확인이 이보다 오래 걸리면(서버가 느릴 때) 이번에는 안내하지 않고 정책 화면을 보여 줌 → 빈 화면에 갇히지 않게 */
+const SETUP_CHECK_LIMIT_MS = 4000;
+
 /** 정책 화면 첫 방문: 추천 기준이 하나도 없으면 추천 기준 정하기(/policies/setup)로 한 번 안내.
- *  한 번 안내했거나 이미 기준이 있으면 기억해서 다시 보내지 않음 (나가도 다시 끌려가지 않게, 브라우저·체험 방식별) */
+ *  한 번 안내했거나 이미 기준이 있으면 기억해서 다시 보내지 않음 (나가도 다시 끌려가지 않게, 브라우저·체험 방식별)
+ *  아직 안내하지 않은 첫 방문에는 확인이 끝날 때까지 checking = true → 정책 목록이 잠깐 보였다가 넘어가지 않게.
+ *  안내하기로 하면 화면이 바뀔 때까지 계속 checking */
 function useFirstVisitSetup(mode: Mode) {
   const router = useRouter();
+  const key = `naranhi-policy-setup-offered-${mode}`;
   // null = 아직 모름(불러오는 중·실패) → 버튼은 기존 "추천 기준 바꾸기"
   const [has, setHas] = useState<boolean | null>(null);
+  const [checking, setChecking] = useState(() => !setupOffered(key));
+  // 추천 기준 정하기로 넘어가 숨겨질 때 안내했다는 기록을 다시 읽어 둠 → [이전]으로 돌아오면(cacheComponents로 이 화면이 그대로 다시 보임)
+  // 확인 화면 없이 바로 정책 목록
+  useLayoutEffect(() => () => setChecking(!setupOffered(key)), [key]);
   useEffect(() => {
-    const key = `naranhi-policy-setup-offered-${mode}`;
-    let offered = true;
-    try { offered = !!localStorage.getItem(key); } catch { /* 저장소를 못 쓰면 안내하지 않음 */ }
-    let active = true;
+    const offered = setupOffered(key);
+    let active = true, gaveUp = false;
+    let limit: number | undefined;
+    if (!offered) {
+      router.prefetch('/policies/setup'); // 넘어갈 때 빈 화면이 짧게
+      limit = window.setTimeout(() => { gaveUp = true; setChecking(false); }, SETUP_CHECK_LIMIT_MS);
+    }
     client(mode).profile().then(profile => {
       if (!active) return;
       const found = hasRecommendationCriteria(profile);
       setHas(found);
-      if (offered) return;
+      if (offered || gaveUp) return; // 너무 늦게 왔으면 이미 정책 화면을 보여 줬으니 이번에는 보내지 않음 (다음 방문에 다시 확인)
+      window.clearTimeout(limit);
       try { localStorage.setItem(key, found ? 'has-criteria' : 'offered'); } catch { /* 이번 방문만 */ }
-      if (!found) router.replace('/policies/setup');
-    }).catch(() => { /* 못 불러오면 안내하지 않고 정책 화면 그대로 */ });
-    return () => { active = false; };
-  }, [mode, router]);
-  return has;
+      if (found) setChecking(false);
+      else router.replace('/policies/setup');
+    }).catch(() => {
+      // 못 불러오면 안내하지 않고 정책 화면 그대로
+      if (!active) return;
+      window.clearTimeout(limit);
+      setChecking(false);
+    });
+    return () => { active = false; window.clearTimeout(limit); };
+  }, [mode, router, key]);
+  return { hasCriteria: has, checking };
 }
