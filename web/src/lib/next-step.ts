@@ -1,5 +1,6 @@
-import { catalogQuest } from './quest-catalog';
+import { catalogConstellations, catalogQuest } from './quest-catalog';
 
+/** 지금 제안하는 것은 swap(다른 별)·stop(쉬어 가기)뿐. smaller·retry는 예전에 저장된 계획을 읽기 위해 남겨 둠 (2026-11-22 고민기록) */
 export type NextAction = 'smaller' | 'retry' | 'swap' | 'stop';
 export type ActivityScope = 'rest' | 'home' | 'near' | 'out';
 export type NextOption = {
@@ -10,6 +11,8 @@ export type NextOption = {
   title: string;
   reason: string;
   preparationHref?: string;
+  /** 그 별의 별자리 이름 (제안 카드에 표시) */
+  constellationName?: string;
 };
 export type NextPlan = NextOption & { attemptId: number };
 export type NextRecommendation = {
@@ -52,27 +55,16 @@ export function inActivityScope(q: AvailableQuest, scope: ActivityScope) {
   return true;
 }
 
-/** Same source of candidates in API and example mode. No diagnosis or automatic promotion. */
+/** Same source of candidates in API and example mode. No diagnosis or automatic promotion.
+ *  - 방금 만난 별(손을 뻗었든 땄든)은 다시 권하지 않음 → "더 작게 해 보기"·"다른 날 그대로"는 제안하지 않음
+ *  - 같은 별자리의 다른 별을 먼저, 그다음 다른 별자리. 같은 별자리 안에서는 아직 안 만난 별 먼저, 비슷한 결(주제·태그) 먼저
+ *  - 단계를 올리지 않고(지금 별보다 어려운 별 제외), 오늘 고른 활동 범위 안에서만, 최대 3개 + 쉬어 가기 */
 export function nextOptions(source: NextSource, quests: AvailableQuest[], scope: ActivityScope): NextOption[] {
   const current = quests.find(q => q.id === source.starId);
   if (!current || scope === 'rest') return [{ ...STOP_OPTION }];
   const meta = catalogQuest(current.id);
   const options: NextOption[] = [];
-  if (source.status === 'dim' && source.stopReason !== 'cost' && inActivityScope(current, scope)) {
-    // Do not recommend the very same sub-quest immediately after trying it.
-    for (const sub of current.subQuests.filter(s => s.id !== source.subQuestId).slice(0, 1)) {
-      options.push({ key: `smaller:${sub.id}`, action: 'smaller', starId: current.id, subQuestId: sub.id,
-        title: sub.title, reason: '같은 별을 미리 준비된 더 작은 활동으로 만나 볼 수 있어요.',
-        ...(meta?.category === 'center' && /문의 문장/.test(sub.title) ? { preparationHref: '/centers' } : {}),
-      });
-    }
-    // Keep the exact smaller activity when choosing to retry on a different day.
-    const previousSub = current.subQuests.find(s => s.id === source.subQuestId);
-    options.push({ key: 'retry', action: 'retry', starId: current.id, subQuestId: previousSub?.id ?? null,
-      title: previousSub?.title ?? current.title,
-      reason: '오늘 상황이 맞지 않았다면, 같은 활동을 다른 날 선택해도 괜찮아요.',
-    });
-  }
+  const sameSky = (q: AvailableQuest) => q.constellationId === current.constellationId ? 1 : 0;
   const alternatives = quests.filter(q => {
     if (q.id === current.id || q.status === 'bright' || q.stage > current.stage || !inActivityScope(q, scope)) return false;
     const other = catalogQuest(q.id);
@@ -81,29 +73,29 @@ export function nextOptions(source: NextSource, quests: AvailableQuest[], scope:
     if (source.stopReason === 'crowded' && other.tags.includes('social')) return false;
     return true;
   }).sort((a, b) => {
+    const untried = (q: AvailableQuest) => q.status === 'untried' ? 1 : 0;
     const score = (q: AvailableQuest) => {
       const other = catalogQuest(q.id)!;
-      return (q.constellationId === current.constellationId ? 4 : 0)
-        + (other.focus === meta?.focus ? 3 : 0)
+      return (other.focus === meta?.focus ? 3 : 0)
         + other.tags.filter(t => meta?.tags.includes(t)).length
         + (source.stopReason === 'tired' || source.stopReason === 'no_time' ? current.stage - q.stage : 0);
     };
-    return score(b) - score(a) || a.id - b.id;
+    return sameSky(b) - sameSky(a) || untried(b) - untried(a) || score(b) - score(a) || a.id - b.id;
   });
   for (const q of alternatives.slice(0, 3)) options.push({
     key: `swap:${q.id}`, action: 'swap', starId: q.id, subQuestId: null, title: q.title,
-    reason: source.stopReason === 'cost' ? '물건을 사지 않고 해 볼 수 있는 목록의 다른 별이에요.'
-      : source.stopReason === 'crowded' ? '함께하는 활동 대신 다른 방식으로 해 볼 수 있는 별이에요.'
-        : '현재 활동과 관련된 기존 목록에서 고른 다른 별이에요.',
+    constellationName: catalogConstellations.find(c => c.id === q.constellationId)?.name,
+    reason: source.stopReason === 'cost' ? '물건을 사지 않고 해 볼 수 있는 다른 별이에요.'
+      : source.stopReason === 'crowded' ? '사람이 많은 곳 대신 다른 방식으로 해 볼 수 있는 별이에요.'
+        : sameSky(q) ? '같은 별자리에서 이어서 만날 수 있는 별이에요.' : '비슷한 결의 다른 별자리 별이에요.',
   });
   options.push({ ...STOP_OPTION });
   return options;
 }
 
-export function defaultNextKey(source: NextSource, options: NextOption[]) {
-  const preferred = source.status === 'bright' || source.stopReason === 'cost' || source.stopReason === 'not_for_me'
-    ? 'swap' : source.stopReason === 'weather' ? 'retry' : 'smaller';
-  return (options.find(o => o.action === preferred) ?? options.find(o => o.action !== 'stop') ?? options[0]).key;
+/** 우선 제안의 기본값 (AI가 없거나 틀렸을 때): 맨 앞 별(같은 별자리 먼저), 별이 없으면 쉬어 가기 */
+export function defaultNextKey(options: NextOption[]) {
+  return (options.find(o => o.action !== 'stop') ?? options[0]).key;
 }
 
 export function planMatches(plan: NextPlan, starId: number, subQuestId: number | null) {

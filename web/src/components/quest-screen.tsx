@@ -126,7 +126,7 @@ export default function QuestScreen({ mode, busy, run, onHelp, onError, dialog, 
             if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) dialog.onClose();
           }}>
             <div className="card-tags"><span className="gold">✦ 오늘의 별</span></div>
-            <h3>{i.title}</h3><p>{i.reason}</p><strong>이 별 만나기</strong>
+            <h3>{i.title}</h3><p>{i.reason}</p><strong>이 별과 만나 보기</strong>
           </Link>)
         : <section className="card"><h3>오늘은 쉬어 가도 괜찮아요</h3>
           <button type="button" className="secondary" onClick={dialog.onClose}>내 밤하늘로</button></section>}

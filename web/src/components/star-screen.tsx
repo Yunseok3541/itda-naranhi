@@ -53,7 +53,7 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
     let active = true;
     client(mode).pendingNext().then(r => {
       if (active) { setPending(r.plan?.starId === star?.starId ? r.plan : null); setPlanError(''); }
-    }).catch(() => { if (active) setPlanError('지난번에 고른 행동을 확인하지 못했어요. 다시 확인하거나 원래 별로 기록할 수 있어요.'); })
+    }).catch(() => { if (active) setPlanError('지난번에 골라 둔 별을 확인하지 못했어요. 다시 확인하거나 원래 별로 기록할 수 있어요.'); })
       .finally(() => { if (active) setPlanLoaded(true); });
     return () => { active = false; };
   }, [mode, star?.starId, planRetry]);
@@ -87,12 +87,12 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
     />
 
     {!saved && !questBlocked && planError && <section className="card"><p role="alert">{planError}</p>
-      <button type="button" onClick={() => setPlanRetry(n => n + 1)}>이어갈 행동 다시 확인</button></section>}
+      <button type="button" onClick={() => setPlanRetry(n => n + 1)}>이어볼 별 다시 확인</button></section>}
     {!saved && !questBlocked && pending && <section className="card next-step-active">
-      <h2>지난번에 골라 둔 한 걸음</h2><p>{pending.title}</p>
-      <p className="small">{usingPlan ? '이 활동의 결과를 지난 시도와 이어서 기록해요.' : '지금은 원래 별의 활동을 기록해요.'}</p>
+      <h2>지난번에 골라 둔 이어볼 별</h2><p>{pending.title}</p>
+      <p className="small">{usingPlan ? '지난 시도와 이어서 기록해요.' : '이번엔 이어서 기록하지 않고 이 별만 기록해요.'}</p>
       {pending.preparationHref && <Link className="secondary" href={pending.preparationHref}>문의 문장 준비하기</Link>}
-      <button type="button" className="text-button" disabled={busy} onClick={() => setUsingPlan(v => !v)}>{usingPlan ? '이번에는 원래 별로 기록하기' : '골라 둔 활동으로 이어가기'}</button>
+      <button type="button" className="text-button" disabled={busy} onClick={() => setUsingPlan(v => !v)}>{usingPlan ? '이번엔 이어서 기록하지 않기' : '지난 시도와 이어서 기록하기'}</button>
     </section>}
     {saved
       ? <section className="card saved">

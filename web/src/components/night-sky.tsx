@@ -663,7 +663,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
         {questBlocked ? <p className="error star-limit-error">{DAILY_STAR_LIMIT_MESSAGE}</p> :
         <div className="sheet-actions">
           <Link className="primary sky-icon-action" href={`/stars/${selected.starId}`}>
-            <SkyControlIcon name={selected.status === 'untried' ? 'star' : 'memory'} /> {selected.status === 'untried' ? '퀘스트 시작' : '이 별 다시 기록하기'}
+            <SkyControlIcon name={selected.status === 'untried' ? 'star' : 'memory'} /> {/* 같은 일은 같은 이름: 오늘의 별 추천과 같이 "이 별과 만나 보기". "이 별 만나 보기"는 "이별"로 읽혀서 "과"를 붙임 (기능발견성 다시 점검 #5) */}{selected.status === 'untried' ? '이 별과 만나 보기' : '이 별과 다시 만나 보기'}
           </Link>
         </div>}
       </div>

@@ -75,7 +75,7 @@ export async function createAttempt(
   if ((b.parentAttemptId != null && parentAttemptId === null) || (b.subQuestId != null && subQuestId === null)) {
     return invalid("이어갈 기록과 작은 활동 번호를 확인해 주세요.");
   }
-  if (subQuestId !== null && parentAttemptId === null) return invalid("작은 활동은 선택한 다음 행동에서 이어가 주세요.");
+  if (subQuestId !== null && parentAttemptId === null) return invalid("작은 활동은 골라 둔 이어볼 별에서 이어가 주세요.");
   let customTitle: string | null = null;
   if (parentAttemptId !== null) {
     try {
@@ -90,7 +90,7 @@ export async function createAttempt(
       const targetSub = parent.next_action === 'smaller' ? parent.next_sub_quest_id
         : parent.next_action === 'retry' ? parent.sub_quest_id : null;
       if (!['smaller', 'retry', 'swap'].includes(parent.next_action) || targetStar !== starId || targetSub !== subQuestId) {
-        return invalid("지난번에 고른 다음 행동과 달라요. 다음 행동을 다시 골라 주세요.");
+        return invalid("지난번에 골라 둔 별과 달라요. 이어볼 별을 다시 골라 주세요.");
       }
       if (subQuestId !== null) {
         const sub = (await db.query<{ title: string }>(

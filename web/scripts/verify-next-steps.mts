@@ -18,9 +18,20 @@ const quests: AvailableQuest[] = catalogQuests.map(q => ({
 }));
 const source: NextSource = { attemptId: 81, starId: 6, status: 'dim', stopReason: 'tired', reflection: '' };
 const small = nextOptions(source, quests, 'out');
-check('uses reviewed smaller title', () => assert.equal(small.find(o => o.action === 'smaller')?.title, catalogQuest(6)!.easier_title));
-check('tired -> smaller default', () => assert.equal(defaultNextKey(source, small), 'smaller:1006'));
-check('weather -> retry default', () => assert.equal(defaultNextKey({ ...source, stopReason: 'weather' }, small), 'retry'));
+const skyOf = (id: number | null) => quests.find(q => q.id === id)!.constellationId;
+const swaps = small.filter(o => o.action === 'swap');
+check('tried star is not offered again (no smaller / retry)', () => {
+  assert(small.every(o => o.action === 'swap' || o.action === 'stop'));
+  assert(!small.some(o => o.starId === 6));
+});
+check('same constellation first, then others', () => {
+  assert(swaps.length > 0);
+  assert.equal(skyOf(swaps[0].starId), skyOf(6));
+  const firstOther = swaps.findIndex(o => skyOf(o.starId) !== skyOf(6));
+  assert(firstOther === -1 || swaps.slice(firstOther).every(o => skyOf(o.starId) !== skyOf(6)));
+});
+check('swaps carry their constellation name', () => assert(swaps.every(o => o.constellationName === catalogConstellations.find(c => c.id === skyOf(o.starId))?.name)));
+check('default is the first offered star', () => assert.equal(defaultNextKey(small), swaps[0].key));
 check('never increases stage', () => assert(small.filter(o => o.action === 'swap').every(o => catalogQuest(o.starId!)!.stage <= 2)));
 check('home excludes actual outdoor quests, including stage 1 outdoor quest', () => {
   const opts = nextOptions(source, quests, 'home');
@@ -35,7 +46,6 @@ check('cost does not suggest buying again or paid smaller versions', () => {
 });
 check('crowded excludes social alternatives', () => assert(nextOptions({ ...source, stopReason: 'crowded' }, quests, 'out')
   .filter(o => o.action === 'swap').every(o => !catalogQuest(o.starId!)!.tags.includes('social'))));
-check('retry retains exact smaller activity', () => assert.equal(nextOptions({ ...source, subQuestId: 1006 }, quests, 'out').find(o => o.action === 'retry')?.subQuestId, 1006));
 check('completed attempt suggests another star without promoting stage', () => {
   const done = { ...source, status: 'bright' as const };
   assert(!nextOptions(done, quests, 'out').some(o => o.action === 'retry' || o.action === 'smaller'));
@@ -59,7 +69,7 @@ const fakeAi = ((async () => {
   return { data: { key: 'swap:99999', reason: '없는 별' }, usedFallback: false, modelVersion: 'test', fallbackReason: null };
 }) as unknown) as typeof generateJson;
 const recommendation = await suggestNext(1, { attemptId: 81 }, fakeDb(), fakeAi);
-check('AI hallucinated ID falls back', () => { assert.equal(recommendation.status, 200); assert.equal(recommendation.body.usedFallback, true); assert.equal(recommendation.body.recommendedKey, 'smaller:1006'); });
+check('AI hallucinated ID falls back', () => { assert.equal(recommendation.status, 200); assert.equal(recommendation.body.usedFallback, true); assert.equal(recommendation.body.recommendedKey, swaps[0].key); });
 const callsBefore = aiCalls;
 const missing = await suggestNext(2, { attemptId: 81 }, fakeDb(false), fakeAi);
 check('other user attempt is hidden and does not call AI', () => { assert.equal(missing.status, 404); assert.equal(aiCalls, callsBefore); });
@@ -67,8 +77,8 @@ const danger = await suggestNext(1, { attemptId: 81 }, fakeDb(true, 'danger'), f
 check('safety guidance overrides recommendation and does not call AI', () => { assert.equal(danger.body.recommendedKey, 'stop'); assert(danger.body.help); assert.equal(aiCalls, callsBefore); });
 const invalid = await chooseNext(1, { attemptId: 81, key: 'swap:99999' }, fakeDb());
 check('client cannot choose unoffered target', () => { assert.equal(invalid.status, 400); assert.equal(selectedRows, 0); });
-const chosen = await chooseNext(1, { attemptId: 81, key: 'smaller:1006' }, fakeDb());
-check('valid choice resolves server-side title and target', () => { const p = chosen.body.plan as NextPlan; assert.equal(p.title, catalogQuest(6)!.easier_title); assert.equal(p.subQuestId, 1006); });
+const chosen = await chooseNext(1, { attemptId: 81, key: swaps[0].key }, fakeDb());
+check('valid choice resolves server-side title and target', () => { const p = chosen.body.plan as NextPlan; assert.equal(p.starId, swaps[0].starId); assert.equal(p.title, catalogQuest(swaps[0].starId!)!.title); assert.equal(p.subQuestId, null); });
 const stopped = await pendingNext(1, fakeDb());
 check('stop does not resurrect older plans', () => assert.equal(stopped.body.plan, null));
 const throwAi = (async () => { throw new Error('timeout'); }) as typeof generateJson;
@@ -84,7 +94,7 @@ const attemptDb: Db = { query: (async (sql: string, values?: unknown[]) => {
   throw new Error('Unexpected attempt query');
 }) as Db['query'] };
 const continued = await createAttempt(1, { starId: 6, status: 'bright', parentAttemptId: 81, subQuestId: 1006 }, attemptDb);
-check('follow-up attempt saves parent and reviewed smaller title', () => { assert.equal(continued.status, 201); assert.equal(insertedValues?.[9], 81); assert.equal(insertedValues?.[10], 1006); assert.equal(insertedValues?.[11], catalogQuest(6)!.easier_title); });
+check('legacy smaller plan follow-up still saves parent and reviewed smaller title', () => { assert.equal(continued.status, 201); assert.equal(insertedValues?.[9], 81); assert.equal(insertedValues?.[10], 1006); assert.equal(insertedValues?.[11], catalogQuest(6)!.easier_title); });
 const wrong = await createAttempt(1, { starId: 7, status: 'bright', parentAttemptId: 81, subQuestId: 1006 }, attemptDb);
 check('follow-up cannot change chosen target', () => assert.equal(wrong.status, 400));
 
@@ -104,14 +114,21 @@ check('legacy example records untouched', () => assert.equal(storage.get('naranh
 const saved = await example.attempt({ starId: 6, status: 'dim', reflection: '', stopReason: 'tired', verifyMethod: 'self' });
 const next = await example.nextSteps(saved.attemptId);
 const plan = await example.chooseNext(saved.attemptId, next.recommendedKey);
-check('example pending choice survives next client instance', () => assert.equal(plan.plan?.title, catalogQuest(6)!.easier_title));
+const target = plan.plan!.starId!;
+check('example suggests another star in the same constellation first', () => { assert.notEqual(target, 6); assert.equal(skyOf(target), skyOf(6)); });
+check('example pending choice survives next client instance', () => assert.equal(plan.plan?.title, catalogQuest(target)!.title));
 assert.equal((await client('example').pendingNext()).plan?.attemptId, saved.attemptId);
-const child = await example.attempt({ starId: 6, status: 'bright', reflection: '', verifyMethod: 'self', parentAttemptId: saved.attemptId, subQuestId: plan.plan!.subQuestId });
-check('example follow-up consumes plan and stores actual smaller action', () => assert.equal(child.status, 'bright'));
-check('first completion still earns existing stage-based points', () => { assert.equal(saved.pointsEarned, 0); assert.equal(child.pointsEarned, 20); assert.equal(child.totalPoints, 20); });
+const child = await example.attempt({ starId: target, status: 'bright', reflection: '', verifyMethod: 'self', parentAttemptId: saved.attemptId, subQuestId: plan.plan!.subQuestId });
+const targetPoints = catalogQuest(target)!.stage * 10;
+check('example follow-up consumes plan', () => assert.equal(child.status, 'bright'));
+check('first completion still earns existing stage-based points', () => { assert.equal(saved.pointsEarned, 0); assert.equal(child.pointsEarned, targetPoints); assert.equal(child.totalPoints, targetPoints); });
 assert.equal((await example.pendingNext()).plan, null);
-const history = (await example.sky()).stars.find(s => s.starId === 6)!.memories;
-check('example records linked parent without erasing prior attempt', () => { assert.equal(history.length, 2); assert.equal(history[1].parentAttemptId, history[0].attemptId); assert.equal(history[1].customTitle, catalogQuest(6)!.easier_title); });
-const again = await example.attempt({ starId: 6, status: 'bright', reflection: '', verifyMethod: 'self' });
-check('repeat completion does not duplicate points', () => { assert.equal(again.pointsEarned, 0); assert.equal(again.totalPoints, 20); });
+const after = (await example.sky()).stars;
+check('example records linked parent without erasing prior attempt', () => {
+  assert.equal(after.find(s => s.starId === 6)!.memories.length, 1);
+  const linked = after.find(s => s.starId === target)!.memories;
+  assert.equal(linked.length, 1); assert.equal(linked[0].parentAttemptId, saved.attemptId);
+});
+const again = await example.attempt({ starId: target, status: 'bright', reflection: '', verifyMethod: 'self' });
+check('repeat completion does not duplicate points', () => { assert.equal(again.pointsEarned, 0); assert.equal(again.totalPoints, targetPoints); });
 console.log(`\n${passed} offline next-step checks passed. No real DB / AI requests made.`);
