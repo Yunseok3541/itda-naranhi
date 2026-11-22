@@ -607,8 +607,8 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
           event.currentTarget.focus({ preventScroll: true });
           setListKey(k => k + 1);
           list.current?.showModal();
-        }}><SkyControlIcon name="starList" /> 모든 별 보기</button>
-        <dialog className="night-list" ref={list} aria-label="모든 별 목록"
+        }}><SkyControlIcon name="starList" /> 별 목록</button>
+        <dialog className="night-list" ref={list} aria-label="별 목록"
           onClick={event => { if (event.target === event.currentTarget) closeList(); }}>
           <div className="night-list-body">
             <div className="sheet-grip" aria-hidden="true" />

@@ -150,9 +150,10 @@ button.policy-save {
   display: grid; place-items: center; width: 44px; height: 44px; margin: 0; padding: 0;
   color: #d9c8ff; background: transparent; border: 0; border-radius: 50%;
 }
-.policy-save-heart { font: 30px/1 "Segoe UI Symbol", sans-serif; }
+.policy-save-star { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; transition: fill .18s ease; }
+button.policy-save[aria-pressed="true"] .policy-save-star { fill: currentColor; filter: drop-shadow(0 0 6px rgba(255, 225, 160, .55)); }
 button.policy-save[aria-pressed="true"] { color: #ffe1a0; }
-@media (hover: hover) { button.policy-save:hover .policy-save-heart { filter: brightness(1.2); } }
+@media (hover: hover) { button.policy-save:hover .policy-save-star { filter: brightness(1.2); } }
 button.policy-save:focus-visible { outline: 2px solid #ffe1a0; outline-offset: 2px; }
 .policy-filters .choices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .policy-filters .glass-select { min-width: 0; margin-block: 0; }
@@ -346,3 +347,14 @@ button.policy-save:focus-visible { outline: 2px solid #ffe1a0; outline-offset: 2
   @keyframes step-slide-fwd { from { opacity: 0; transform: translateX(16px); } }
   @keyframes step-slide-back { from { opacity: 0; transform: translateX(-16px); } }
 }
+
+/* 청년센터 전화 (centers-screen.tsx CenterPhone): 번호 버튼 → 확인 창 → 전화 걸기 */
+.center-phone { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.night-ui .center-phone-button { display: inline-flex; align-items: center; gap: 6px; width: auto; min-height: 44px; margin: 0; padding: 8px 14px; }
+.center-phone-button svg, .center-call-number svg { width: 18px; height: 18px; flex: none; }
+.center-call-dialog { padding: 22px 20px 16px; border-radius: 20px; border: 1px solid var(--glass-line); background: #15123a; color: var(--starlight); }
+.center-call-dialog h2 { margin: 0 0 6px; font-size: 1.125rem; }
+.center-call-number { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 1.375rem; font-weight: 700; color: #ffe3a3; }
+.night-ui .center-call-go { display: flex; align-items: center; justify-content: center; margin-top: 14px; text-decoration: none; }
+.center-call-dialog .secondary { margin-top: 8px; }
+.night-ui .center-call-cancel { display: block; width: 100%; min-height: 44px; margin-top: 4px; }

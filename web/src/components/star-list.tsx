@@ -61,8 +61,8 @@ export default function StarList({ groups, current, completed, onGroup, onStar, 
   return <>
     <div className="star-list-head">
       <div className="star-list-title">
-        <h2 id={`${baseId}-title`}>모든 별</h2>
-        <button type="button" className="text-button star-list-close" aria-label="모든 별 닫기" onClick={onClose}><SkyControlIcon name="close" /></button>
+        <h2 id={`${baseId}-title`}>별 목록</h2>
+        <button type="button" className="text-button star-list-close" aria-label="별 목록 닫기" onClick={onClose}><SkyControlIcon name="close" /></button>
       </div>
       <p className="star-list-summary">딴 별 <b>{count('bright')}</b> · 손 뻗은 별 <b>{count('dim')}</b> · 남은 별 <b>{count('untried')}</b></p>
       <p className="star-list-legend" aria-hidden="true">

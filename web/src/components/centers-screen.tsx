@@ -5,9 +5,10 @@
 // - 상세: 대표 영역(센터 이름·주소) → 센터 정보 · 프로그램 · 문의 문장 준비 · 앞까지 가 보기 카드
 // - 저장한 초안은 센터 소개 바로 아래에서 다시 불러올 수 있음
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { ApiError, request, type Help, type Mode } from '@/lib/mobile-data';
 import { Hero, HeroIcon, MoreLinks, ScreenBar, Section } from './screen-kit';
+import SkyControlIcon from './sky-control-icon';
 import type { Center } from '@/app/api/_lib/centers-data';
 
 type CenterInfo = Omit<Center, 'id'> & { centerId: number };
@@ -129,7 +130,8 @@ export default function CentersScreen({ mode, centerId, onError, onHelp, onClear
       <section className="card">
         <h2>센터 정보</h2>
         <p>운영시간: {center.hours ?? '확인된 정보가 없어요'}</p>
-        {center.phone && <p>전화: {center.phone}</p>}
+        {center.phone && <CenterPhone name={center.name} phone={center.phone}
+          onPrepare={() => inquiry.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })} />}
         {center.source && <p className="small">출처: <a href={center.source.url} target="_blank" rel="noopener noreferrer">{center.source.name}</a> · {center.source.basisDate} 기준</p>}
       </section>
       {center.programs.length > 0 && <Section id="center-programs" title="프로그램">
@@ -156,5 +158,31 @@ export default function CentersScreen({ mode, centerId, onError, onHelp, onClear
         <Link href="/policies">나에게 맞는 정책 보기</Link>
       </MoreLinks>
     </>}
+  </>;
+}
+
+/** 센터 전화: 누르면 바로 걸지 않고 확인 창을 한 번 띄움.
+ *  전화를 부담스러워하는 사용자를 생각한 앱이라 실수로 걸리지 않게 하고, 문의 문장을 먼저 준비하는 길도 같이 보여 줌.
+ *  (109·1577-0199 같은 위기 상담 번호는 망설이지 않게 확인 없이 바로 걸림 — help-lines.tsx) */
+function CenterPhone({ name, phone, onPrepare }: { name: string; phone: string; onPrepare: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  const tel = phone.replace(/[^\d+]/g, '');
+  const close = () => dialog.current?.close();
+  return <>
+    <p className="center-phone">전화
+      <button type="button" className="secondary center-phone-button" aria-haspopup="dialog" onClick={() => dialog.current?.showModal()}>
+        <SkyControlIcon name="phone" />{phone}
+      </button>
+    </p>
+    <dialog ref={dialog} className="screen-help-dialog center-call-dialog" aria-labelledby={titleId}
+      onClick={event => { if (event.target === event.currentTarget) close(); }}>
+      <h2 id={titleId}>{name}에 전화할까요?</h2>
+      <p className="center-call-number"><SkyControlIcon name="phone" />{phone}</p>
+      <p className="small">통화가 부담되면 할 말을 먼저 적어 볼 수 있어요. 전화하지 않아도 괜찮아요.</p>
+      <a className="primary center-call-go" href={`tel:${tel}`} onClick={close}>전화 걸기</a>
+      <button type="button" className="secondary" onClick={() => { close(); onPrepare(); }}>문의 문장 먼저 준비하기</button>
+      <button type="button" className="text-button center-call-cancel" onClick={close}>닫기</button>
+    </dialog>
   </>;
 }
