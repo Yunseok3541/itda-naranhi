@@ -477,6 +477,65 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 }
 .sky-quest-character-art .sky-person { position: relative; animation: none; filter: drop-shadow(0 2px 5px #b68ee541); }
 .sky-quest-character:focus-visible { outline: 2px solid var(--star-gold); outline-offset: 2px; }
+.sky-quest-bubble {
+  --bubble-border: #ded0eb32;
+  position: absolute;
+  inset-inline-start: calc(50% - clamp(44px, 7vw, 56px));
+  inset-block-end: calc(100% - var(--person-height) * .05);
+  translate: -50% 0;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 38px;
+  min-height: 25px;
+  padding-inline: 9px;
+  border: 1px solid var(--bubble-border);
+  border-radius: 12px;
+  background: #272134;
+  box-shadow: 0 4px 12px #0b081b52;
+  color: #decddf;
+  font-size: .8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.sky-quest-bubble::before {
+  content: "";
+  position: absolute;
+  inset: -8px -3px;
+}
+.sky-quest-bubble::after {
+  content: "";
+  position: absolute;
+  inset-block-end: -4px;
+  inset-inline-end: 9px;
+  width: 6px;
+  height: 6px;
+  rotate: 45deg;
+  border: solid var(--bubble-border);
+  border-width: 0 1px 1px 0;
+  border-end-end-radius: 2px;
+  background: #272134;
+}
+.sky-quest-bubble[data-intro] {
+  --bubble-border: #e6bf874f;
+  min-height: 30px;
+  padding-inline: 12px;
+  color: #f6e2be;
+}
+.sky-quest-bubble-dots { display: grid; place-items: center; width: 20px; font-size: 0; }
+.sky-quest-bubble-dots::after {
+  content: "";
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: -7px 0 currentColor, 7px 0 currentColor;
+}
+.sky-quest-character:focus-visible .sky-quest-bubble { --bubble-border: var(--star-gold); }
+@media (prefers-reduced-motion: no-preference) {
+  .sky-quest-bubble { animation: quest-bubble-in .24s ease-out both; }
+  @keyframes quest-bubble-in { from { opacity: 0; transform: translateY(3px); } }
+}
 
 /* 세로가 짧은 화면: 안내 한 줄을 숨겨 별자리 자리를 넓힘 (하늘 끌기 안내는 캐릭터·목록으로도 알 수 있음) */
 @media (max-height: 700px) {

@@ -497,6 +497,9 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     };
   }, [hint]);
   const questBlocked = selected && selected.status !== 'bright' && !isTutorialStar(selected.starId) && hasReachedDailyStarLimit(stars);
+  const horizon = frame && projector(view, frame.width, frame.height)(unit(view.lon / RAD, 0));
+  const showQuestBubble = !!(frame && horizon && horizon.y < frame.height * 0.88) && !questOpen;
+  const firstQuest = hints.pending('quest');
   return <section className={`night${hint === 'star' ? ' hint-star' : ''}`} aria-label="내 밤하늘">
     <MeteorRewards key={mode} mode={mode} skyTotal={totalPoints} hintPaused={hintsPaused} />
 
@@ -632,8 +635,14 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     </div>
 
     <button ref={questTrigger} type="button" className="sky-quest-character"
-      aria-label="오늘의 별" aria-haspopup="dialog" aria-expanded={questOpen} onClick={onOpenQuest}>
+      aria-label="오늘의 별" aria-haspopup="dialog" aria-expanded={questOpen} onClick={() => {
+        onOpenQuest();
+        finishHint('quest');
+      }}>
       <span className="sky-quest-character-art"><DressedSkyPerson mode={mode} /></span>
+      {showQuestBubble && <span className="sky-quest-bubble" data-intro={firstQuest || undefined} aria-hidden="true">
+        {firstQuest ? '오늘의 별' : <span className="sky-quest-bubble-dots">…</span>}
+      </span>}
     </button>
 
     {completedGroup && <ConstellationCelebration constellationId={completedGroup.id} name={completedGroup.name} />}
