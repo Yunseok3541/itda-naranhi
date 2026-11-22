@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import MobileFlow from '@/components/mobile-flow';
 
-type SkyParams = Promise<{ completed?: string; memory?: string; guide?: string; tour?: string; checkin?: string }>;
+type SkyParams = Promise<{ completed?: string; memory?: string; guide?: string; tour?: string; checkin?: string; resume?: string }>;
 
 function readId(value: string | undefined) {
   if (typeof value !== 'string' || !/^\d+$/.test(value)) return undefined;
@@ -10,12 +10,12 @@ function readId(value: string | undefined) {
 }
 
 async function Sky({ searchParams }: { searchParams: SkyParams }) {
-  const { completed, memory, guide, tour, checkin } = await searchParams;
+  const { completed, memory, guide, tour, checkin, resume } = await searchParams;
   const attemptId = readId(completed), starId = readId(memory);
   // guide=1: 설정의 "사용 안내 다시 보기" → 시작 안내부터 (끝나면 /sky로 돌아옴)
   const replay = guide === '1';
   // tour=1: 메뉴 안내만 다시 (확인·시연용)
-  return <MobileFlow key={`${attemptId ?? ''}:${starId ?? ''}:${replay ? 'guide' : ''}:${checkin ?? ''}`} completionAttemptId={attemptId} memoryStarId={starId} guide={replay} tour={tour === '1'} checkin={checkin === '1'} />;
+  return <MobileFlow key={`${attemptId ?? ''}:${starId ?? ''}:${replay ? 'guide' : ''}:${checkin ?? ''}:${resume ?? ''}`} completionAttemptId={attemptId} memoryStarId={starId} guide={replay} tour={tour === '1'} checkin={checkin === '1' || resume === 'today'} resumeToday={resume === 'today'} />;
 }
 
 export default function Page({ searchParams }: { searchParams: SkyParams }) {

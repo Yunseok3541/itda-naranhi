@@ -15,7 +15,41 @@ import MindCheckOffer from './mind-check-offer';
 const WEATHER_OPTIONS = Object.entries(weatherNames).map(([value, label]) => ({ value, label }));
 const GREETINGS = ['오늘 하루는 어땠어요?', '지금 마음은 어떤 날씨예요?', '오늘은 어떤 하루인가요?', '요즘 어떻게 지내요?'];
 
-export default function QuestScreen({ mode, busy, run, onHelp, onError, dialog, onTotalPoints }: {
+type RecommendationReturn = {
+  day: string;
+  mode: Mode;
+  items: Recommendation[];
+  fallback: boolean;
+  needsHelp: boolean;
+  text?: string;
+  choice?: string;
+  check?: Checkin;
+};
+
+const returnKey = 'naranhi-today-recommendations';
+const recommendationDay = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+let returnVisit: RecommendationReturn | null = null;
+
+function readReturnVisit(mode: Mode) {
+  const day = recommendationDay();
+  if (returnVisit?.mode === mode && returnVisit.day === day) return returnVisit;
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(returnKey) ?? 'null') as RecommendationReturn | null;
+    if (cached?.mode === mode && cached.day === day && Array.isArray(cached.items)) return cached;
+  } catch { /* Storage can be unavailable. */ }
+  return null;
+}
+
+function saveReturnVisit(visit: RecommendationReturn) {
+  returnVisit = visit;
+  const { day, mode, items, fallback, needsHelp } = visit;
+  try {
+    sessionStorage.setItem(returnKey, JSON.stringify({ day, mode, items, fallback, needsHelp }));
+  } catch { /* In-memory navigation remains available. */ }
+}
+
+export default function QuestScreen({ restoreRecommendations = false, mode, busy, run, onHelp, onError, dialog, onTotalPoints }: {
+  restoreRecommendations?: boolean;
   mode: Mode;
   busy: boolean;
   run: (fn: () => Promise<void>) => void;
@@ -24,14 +58,15 @@ export default function QuestScreen({ mode, busy, run, onHelp, onError, dialog, 
   dialog: { titleId: string; onClose: () => void; feedback: ReactNode };
   onTotalPoints?: (points: number) => void;
 }) {
-  const [text, setText] = useState('');
-  const [choice, setChoice] = useState('home');
-  const [check, setCheck] = useState<Checkin | null>(null);
-  const [items, setItems] = useState<Recommendation[] | null>(null);
-  const [fallback, setFallback] = useState(false);
-  const [step, setStep] = useState(0);
+  const [restored] = useState(() => restoreRecommendations ? readReturnVisit(mode) : null);
+  const [text, setText] = useState(restored?.text ?? '');
+  const [choice, setChoice] = useState(restored?.choice ?? 'home');
+  const [check, setCheck] = useState<Checkin | null>(restored?.check ?? null);
+  const [items, setItems] = useState<Recommendation[] | null>(restored?.items ?? null);
+  const [fallback, setFallback] = useState(restored?.fallback ?? false);
+  const [step, setStep] = useState(restored ? 2 : 0);
   const [greeting] = useState(() => GREETINGS[Math.floor(Date.now() / 86_400_000) % GREETINGS.length]);
-  const savedInput = useRef<{ text: string; choice: string } | null>(null);
+  const savedInput = useRef<{ text: string; choice: string } | null>(restored?.check ? { text: restored.text?.trim() ?? '', choice: restored.choice ?? 'home' } : null);
   const entry = useRef<HTMLElement>(null);
   const weatherHeading = useRef<HTMLHeadingElement>(null);
   const results = useRef<HTMLDivElement>(null);
@@ -39,7 +74,7 @@ export default function QuestScreen({ mode, busy, run, onHelp, onError, dialog, 
   const checkinId = check?.checkinId;
   const showEntry = step === 0;
   const entryHint = useId();
-  const hasHelp = !!check?.help;
+  const hasHelp = !!check?.help || (!check && !!restored?.needsHelp);
   useEffect(() => {
     const target = step === 0 && savedInput.current ? entry.current
       : step === 1 && !hasHelp ? weatherHeading.current
@@ -72,7 +107,7 @@ export default function QuestScreen({ mode, busy, run, onHelp, onError, dialog, 
   }
 
   function goBack() {
-    setStep(current => Math.max(0, current - 1));
+    setStep(current => current === 2 && check ? 1 : 0);
   }
 
   const content = <>
@@ -80,6 +115,7 @@ export default function QuestScreen({ mode, busy, run, onHelp, onError, dialog, 
 
     {showEntry && <section ref={entry} className="card quest-entry" tabIndex={-1}>
       <h3 className="quest-greeting">{greeting}</h3>
+      {restoreRecommendations && !restored && !check && <p className="small" role="status">이전 추천을 찾지 못했어요. 한 줄을 남기고 다시 추천받을 수 있어요.</p>}
       <label>마음에 떠오른 한 줄
         <span id={entryHint} className="small quest-entry-hint">한 줄을 적으면 마음 날씨를 볼 수 있어요.</span>
         <textarea required aria-describedby={entryHint} disabled={busy} maxLength={300} value={text} onChange={e => setText(e.target.value)} placeholder={mode === 'example' ? '예: 오늘은 한숨 돌렸어요' : '지금 마음을 짧게 적어 주세요'} /></label>
@@ -122,8 +158,11 @@ export default function QuestScreen({ mode, busy, run, onHelp, onError, dialog, 
       <Section id="quest-stars" title="추천 별">
       <p className="small">{mode === 'example' ? '예시 추천이에요.' : fallback ? '기본 추천이에요.' : 'AI가 만든 추천은 틀릴 수 있어요.'}</p>
       {items.length
-        ? items.map(i => <Link className="card recommendation" key={i.starId} href={`/stars/${i.starId}`} onClick={event => {
-            if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) dialog.onClose();
+        ? items.map(i => <Link className="card recommendation" key={i.starId} href={`/stars/${i.starId}?from=today`} onClick={event => {
+            if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+              if (check) saveReturnVisit({ day: recommendationDay(), mode, text, choice, check, items, fallback, needsHelp: hasHelp });
+              dialog.onClose();
+            }
           }}>
             <div className="card-tags"><span className="gold">✦ 오늘의 별</span></div>
             <h3>{i.title}</h3><p>{i.reason}</p><strong>이 별과 만나 보기</strong>
