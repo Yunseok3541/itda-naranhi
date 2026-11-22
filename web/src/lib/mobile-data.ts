@@ -329,7 +329,10 @@ export function client(mode: Mode) { return {
       if (body.parentAttemptId) s.nextPlan = null;
       write(s);
       const totalPoints = exampleTotal(s);
-      return { attemptId: id, starId: body.starId, status: body.status, cheer: '오늘 손을 뻗은 순간도 당신의 하늘에 남아요.', help: ruleHelp(body.reflection), pointsEarned, totalPoints };
+      const cheer = body.status === 'bright'
+        ? '오늘 해낸 일이 당신의 하늘에 별로 남았어요.'
+        : '오늘 손을 뻗은 순간도 당신의 하늘에 남아요.';
+      return { attemptId: id, starId: body.starId, status: body.status, cheer, help: ruleHelp(body.reflection), pointsEarned, totalPoints };
     });
   }
 }; }
