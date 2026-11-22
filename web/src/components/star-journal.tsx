@@ -91,7 +91,8 @@ export default function StarJournal({ mode }: { mode: Mode }) {
   // 다시 꺼내 보는 카드: 일주일 전 오늘 → 없으면 처음 딴 별 (한 장만)
   const recall = useMemo(() => {
     const weekAgo = byDay.get(addDays(today, -7));
-    if (weekAgo?.length) return { kind: '일주일 전 오늘', entry: weekAgo[0] };
+    // 한 줄이나 사진이 남은 기록을 먼저 (다시 꺼내 볼 거리가 있는 것)
+    if (weekAgo?.length) return { kind: '일주일 전 오늘', entry: weekAgo.find(e => e.reflection || e.photo) ?? weekAgo[0] };
     const first = [...(entries ?? [])].reverse().find(e => e.status === 'bright');
     return first && first.day !== today ? { kind: '처음 딴 별', entry: first } : null;
   }, [byDay, entries, today]);
