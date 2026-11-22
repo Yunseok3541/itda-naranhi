@@ -13,12 +13,12 @@ export function NextStepCard({ mode, attemptId, busy, run, onHelp }: {
   const [result, setResult] = useState<NextRecommendation | null>(null);
   const [selection, setSelection] = useState<{ plan: NextPlan | null } | null>(null);
   return <section className="card next-step-card" aria-labelledby="next-step-heading">
-    <h2 id="next-step-heading">다음에 이어볼 별</h2>
-    <p>같은 별을 작게 만나거나 다른 별을 골라도 괜찮아요. 오늘은 마쳐도 돼요.</p>
-    {!result && <button type="button" disabled={busy} onClick={() => run(async () => {
+    <h2 id="next-step-heading">다음 걸음도 골라 둘까요?</h2>
+    <p>같은 별을 작게 만나거나 다른 별을 골라도 괜찮아요. 오늘은 여기서 마쳐도 돼요.</p>
+    {!result && <button type="button" className="secondary" disabled={busy} onClick={() => run(async () => {
       const next = await client(mode).nextSteps(attemptId);
       onHelp(next.help); setResult(next);
-    })}>{busy ? '다음 행동을 살펴보고 있어요…' : '기존 별에서 다음 행동 찾아보기'}</button>}
+    })}>{busy ? '다음 행동을 살펴보고 있어요…' : '다음에 해 볼 걸음 보기'}</button>}
     {result && !selection && <>
       <p className="small">{mode === 'example' ? '예시 모드 · 목록과 선택한 이유를 바탕으로 고른 기본 제안이에요.'
         : result.usedFallback ? '기본 규칙으로 고른 제안이에요.' : 'AI의 제안이에요. 다른 선택을 해도 괜찮아요.'}</p>
