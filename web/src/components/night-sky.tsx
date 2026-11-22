@@ -267,6 +267,10 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   const safeIndex = Math.min(index, Math.max(groups.length - 1, 0));
   const current = groups[safeIndex];
   const complete = !!current && completed.has(current.id);
+  const completedCount = groups.filter(group => completed.has(group.id)).length;
+  const overviewSubtitle = completedCount === groups.length
+    ? '별자리를 모두 이었어요'
+    : completedCount > 0 ? `별자리 ${completedCount}개를 이었어요` : current?.theme;
 
   /** i번째 별자리로 하늘을 옮기고 알맞게 확대 */
   function flyToGroup(i: number, starId: number | null = null) {
@@ -507,6 +511,9 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   const horizon = frame && projector(view, frame.width, frame.height)(unit(view.lon / RAD, 0));
   const showQuestBubble = !!(frame && horizon && horizon.y < frame.height * 0.88) && !questOpen;
   const firstQuest = hints.pending('quest');
+  const subtitle = detailed
+    ? complete && current ? `${current.name}를 이었어요` : current?.theme
+    : overviewSubtitle;
   return <section className={`night${hint === 'star' ? ' hint-star' : ''}`} aria-label="내 밤하늘">
     <MeteorRewards key={mode} mode={mode} skyTotal={totalPoints} hintPaused={hintsPaused} />
 
@@ -517,7 +524,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
         <p aria-live="polite">{reveal
           ? !reveal.arrived ? `${current.name}로 이동하고 있어요`
             : reveal.star ? `‘${reveal.star.title}’, 바로 이 별이에요` : '별을 눌러 오늘 해 볼 일을 골라 보세요'
-          : complete ? '별자리를 모두 이었어요' : current.theme}</p>
+          : subtitle}</p>
       </div>
       {labelSpot && !reveal && !selected && <p className="night-hint">{namedUntried ? '별을 한 번 더 누르면 해 볼 일이 열려요' : '별을 한 번 더 누르면 그날의 기억이 열려요'}</p>}
     </> : <div className="night-title"><h1>아직 하늘이 비어 있어요</h1><p>밤하늘을 다시 불러와 주세요.</p></div>}
