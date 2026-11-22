@@ -225,7 +225,6 @@ function Practice({ heading, onNext, mode, onHelp, saveStars }: {
             <input value={line} maxLength={60} placeholder="예: 창밖이 생각보다 밝았어요" onChange={e => setLine(e.target.value)} />
           </label>}
           <button type="button" className="guide-pick" onClick={pick}>하늘의 별 따기</button>
-          {done === 0 && <p className="small guide-note">끝까지 못 한 날엔 &lsquo;손 뻗어 보기&rsquo;로 남겨도 돼요. 희미한 별도 내 하늘에 남아요.</p>}
           {done === 1 && <p className="small guide-note">매일 한 줄을 남기면 AI가 마음 날씨를 골라 줘요. 진단이 아니라 참고 기록이에요.</p>}
         </div>}
 
