@@ -174,7 +174,7 @@
     {"id": 65, "stage": 4, "focus": "outing", "title": "체험 장소까지 가는 길을 미리 살펴보기", "description": "예정된 체험이 없어도 관심 장소의 교통편과 돌아오는 길을 같이 살펴봐요.", "easier_title": "지도에서 장소 한 곳에 표시 남기기", "tags": ["outdoor", "career"], "is_outside": false},
     {"id": 66, "stage": 4, "focus": "work", "title": "오늘 해 본 일에서 배운 점 한 가지 적기", "description": "체험, 일, 공부 중 작은 일 하나를 골라 다음에도 써 보고 싶은 점을 적어요.", "easier_title": "배운 점을 한 단어로 적기", "tags": ["career", "learning"], "is_outside": false},
     {"id": 67, "stage": 1, "focus": "daily", "title": "숨 한 번 편하게 고르기", "description": "편한 자세로 숨을 한 번 천천히 쉬어 봐요.", "easier_title": "어깨 힘을 잠깐 빼 보기", "tags": ["rest"], "is_outside": false},
-    {"id": 68, "stage": 1, "focus": "daily", "title": "지금 마음에 가까운 날씨 고르기", "description": "지금 마음을 날씨로 빗대어 봐요. 떠오르는 날씨가 없어도 괜찮아요.", "easier_title": "떠오르는 날씨 하나 생각해 보기", "tags": ["rest"], "is_outside": false},
+    {"id": 68, "stage": 1, "focus": "daily", "title": "고개 들어 위를 한 번 올려다보기", "description": "창밖 하늘이든 천장이든 괜찮아요. 잠깐 시선을 위로 올려 봐요.", "easier_title": "눈길만 살짝 위로 올려 보기", "tags": ["rest"], "is_outside": false},
     {"id": 69, "stage": 1, "focus": "daily", "title": "오늘의 작은 기억 한 줄 남기기", "description": "지금 눈에 들어온 것이나 오늘 남기고 싶은 일을 한 줄로 적어 봐요.", "easier_title": "오늘 떠오른 단어 하나 적기", "tags": ["rest"], "is_outside": false},
     {"id": 70, "stage": 1, "focus": "daily", "title": "지금 해 본 작은 일 인정해 주기", "description": "여기까지 와 본 나에게 조용히 한마디 해 주세요. 수고했어요.", "easier_title": "속으로 수고했다고 말해 보기", "tags": ["rest"], "is_outside": false}
   ]

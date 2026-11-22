@@ -49,9 +49,6 @@
 .sky-mode .service-guide .guide-nav button { flex: 1 1 0; width: auto; min-width: 0; margin: 0; min-height: 48px; }
 .sky-mode .service-guide .guide-nav .ghost { flex: 0 0 auto; min-width: 5.5em; padding-inline: 18px; }
 .service-guide .guide-nav .ghost:disabled { opacity: .4; }
-.guide-weather { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-.sky-mode .guide-weather .ghost { width: auto; min-height: 40px; margin: 0; padding: 0 14px; border-radius: 999px; font-weight: 600; }
-.sky-mode .guide-weather .ghost[aria-pressed="true"] { border-color: var(--star-gold); background: rgba(246, 207, 125, .16); color: #ffe3a3; }
 .guide-line { display: block; margin-top: 12px; }
 .sky-mode .guide-line input { width: 100%; box-sizing: border-box; min-height: 48px; padding: 0 14px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, .24); background: rgba(255, 255, 255, .08); color: var(--starlight); font: inherit; }
 .guide-line input::placeholder { color: var(--starlight-dim); }
@@ -68,7 +65,6 @@
   .service-guide[data-step="practice"] .guide-constellation { height: min(24dvh, 122px); margin-block: 5px 0; }
   .service-guide[data-step="practice"] .guide-task { padding: 9px 10px; }
   .sky-mode .service-guide[data-step="practice"] .guide-task .guide-nav { margin-top: 8px; }
-  .service-guide[data-step="practice"] .guide-weather,
   .service-guide[data-step="practice"] .guide-line { margin-top: 8px; }
 }
 

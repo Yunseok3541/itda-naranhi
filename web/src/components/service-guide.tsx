@@ -9,7 +9,7 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'rea
 import { characters } from '@/app/catalog/characters';
 import CatalogStardust from '@/app/catalog/catalog-stardust';
 import { getStarConstellationId } from '@/lib/constellations';
-import { client, weatherNames, type Help, type Mode } from '@/lib/mobile-data';
+import { client, type Help, type Mode } from '@/lib/mobile-data';
 import { CHECKIN_POINTS, METEOR_POINTS } from '@/lib/points';
 import { catalogQuest, FIRST_FRIEND_CONSTELLATION, TUTORIAL_STAR_IDS } from '@/lib/quest-catalog';
 import { giveFirstFriend } from '@/lib/service-guide';
@@ -133,7 +133,8 @@ function GuideNav({ onBack, backDisabled = false, children }: { onBack: () => vo
 
 /** 양자리 별 네 개를 실제 기록으로 저장하고 첫 친구를 보여 준다.
  *  - done = 딴 별 수, cursor = 지금 보고 있는 일 (spots.length면 완성 화면). "이전"으로 앞의 일을 다시 볼 수 있음
- *  - 네 번째 별을 따는 순간 한꺼번에 저장 → 그 전에는 날씨·한 줄을 고쳐도 되고, 저장한 뒤에는 그대로 보여 주기만 함 */
+ *  - 네 번째 별을 따는 순간 한꺼번에 저장 → 그 전에는 한 줄을 고쳐도 되고, 저장한 뒤에는 그대로 보여 주기만 함
+ *  - 마음 날씨는 여기서 묻지 않음: 오늘의 별(한 줄 → AI가 고른 날씨)에서 처음 만나게 해 같은 질문을 두 번 하지 않음 */
 function Practice({ active, heading, onNext, onBack, mode, onHelp, saveStars }: {
   active: boolean; heading: RefObject<HTMLHeadingElement | null>; onNext: () => void; onBack: () => void;
   mode: Mode; onHelp: (help: Help) => void; saveStars: boolean;
@@ -141,7 +142,6 @@ function Practice({ active, heading, onNext, onBack, mode, onHelp, saveStars }: 
   const [done, setDone] = useState(0);
   const [cursor, setCursor] = useState(0);
   const [dir, setDir] = useState<'fwd' | 'back'>('fwd');
-  const [weather, setWeather] = useState<string | null>(null);
   const [line, setLine] = useState('');
   const [popped, setPopped] = useState<number | null>(null);
   // 이번에 양자리가 처음 완성되면 도감 등록 모달을 보여 준다.
@@ -155,7 +155,7 @@ function Practice({ active, heading, onNext, onBack, mode, onHelp, saveStars }: 
   const finished = cursor === total;
   /** 이미 딴 별의 일을 다시 보는 중 → 주 단추는 "다음" */
   const revisiting = cursor < done;
-  /** 저장한 뒤에는 날씨·한 줄을 바꿔도 기록에 남지 않으니 잠금 */
+  /** 저장한 뒤에는 한 줄을 바꿔도 기록에 남지 않으니 잠금 */
   const locked = complete && saveStars;
   // 완성 화면의 "다음"은 저장이 끝나고 도감 등록 모달을 닫은 뒤에야 누를 수 있음 (마지막 별 단추와 같은 자리라, 연타하면 모달을 건너뛰던 문제)
   const showNext = finished && !saving && !saveFailed && !gift;
@@ -179,7 +179,7 @@ function Practice({ active, heading, onNext, onBack, mode, onHelp, saveStars }: 
       }
       const picked = new Set(aries.filter(star => star.status === 'bright').map(star => star.starId));
       const wasComplete = TUTORIAL_STAR_IDS.every(id => picked.has(id));
-      const reflections = ['', weather ? `마음 날씨 · ${weatherNames[weather]}` : '', line.trim()];
+      const reflections = ['', '', line.trim()];
       for (const [i, starId] of TUTORIAL_STAR_IDS.entries()) {
         if (picked.has(starId)) continue;
         const result = await api.attempt({ starId, status: 'bright', reflection: reflections[i] ?? '', verifyMethod: 'self' });
@@ -256,14 +256,9 @@ function Practice({ active, heading, onNext, onBack, mode, onHelp, saveStars }: 
           data-dir={i === cursor ? dir : undefined} inert={i !== cursor}>
           <b>{task.title}</b>
           <p className="small">{task.description}</p>
-          {i === 1 && <div className="guide-weather" role="group" aria-label="마음 날씨">
-            {Object.entries(weatherNames).map(([code, name]) => <button key={code} type="button" className="ghost" disabled={locked}
-              aria-pressed={weather === code} onClick={() => setWeather(w => w === code ? null : code)}>{name}</button>)}
-          </div>}
           {i === 2 && <label className="guide-line"><span className="sr-only">오늘을 기억할 한 줄</span>
             <input value={line} maxLength={60} readOnly={locked} placeholder="예: 창밖이 생각보다 밝았어요" onChange={e => setLine(e.target.value)} />
           </label>}
-          {i === 1 && <p className="small guide-note">매일 한 줄을 남기면 AI가 마음 날씨를 골라 줘요. 진단이 아니라 참고 기록이에요.</p>}
         </div>)}
         <div className="guide-task-step step-slide" data-dir={finished ? dir : undefined} inert={!finished}>
           {finished && <>
