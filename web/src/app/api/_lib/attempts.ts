@@ -35,6 +35,17 @@ export async function createAttempt(
   const help400 = ruleHelpFromBody(body);
   const invalid = (msg: string) => fail(400, "INVALID", msg, { help: help400 });
 
+  let image: Buffer | null = null;
+  if (b.requestId !== undefined && (typeof b.requestId !== "string" || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(b.requestId))) return invalid("저장 요청을 다시 확인해 주세요.");
+  if (b.photo !== undefined) {
+    if (!b.requestId || typeof b.photo !== "string" || b.photo.length > 700000 || !b.photo.startsWith("data:image/jpeg;base64,")) return invalid("사진 형식과 크기를 확인해 주세요.");
+    try {
+      const sharp = (await import("sharp")).default;
+      const input = sharp(Buffer.from(b.photo.slice(23), "base64"), {limitInputPixels: 4000000});
+      if ((await input.metadata()).format !== "jpeg") return invalid("JPEG 사진을 선택해 주세요.");
+      image = await input.rotate().resize({width:1200,height:1200,fit:"inside",withoutEnlargement:true}).jpeg({quality:78}).toBuffer();
+    } catch { return invalid("사진을 읽지 못했어요."); }
+  }
   const starId = toId(b.starId);
   if (starId === null) return invalid("starId가 필요해요.");
   if (!STATUSES.includes(b.status as AttemptStatus)) return invalid("status는 bright 또는 dim이어야 해요.");
@@ -113,6 +124,14 @@ export async function createAttempt(
       await connection.query("BEGIN ISOLATION LEVEL READ COMMITTED");
       await connection.query("SELECT id FROM users WHERE id = $1 FOR UPDATE", [userId]);
     }
+    const tx = connection ?? db;
+    if (b.requestId) {
+      const prev = (await tx.query("SELECT a.id, a.star_id, a.status, a.cheer FROM memory_photos m JOIN star_attempts a ON a.id=m.attempt_id WHERE m.user_id=$1 AND m.request_id=$2", [userId,b.requestId])).rows[0];
+      if (prev) {
+        await connection?.query("COMMIT");
+        return ok({attemptId:prev.id,starId:prev.star_id,status:prev.status,cheer:prev.cheer,help:r.help,pointsEarned:0});
+      }
+    }
     // 포인트(고민기록 #31): 이 별을 처음 밝혔을 때만 v_star_points 점수를 준다. dim·다시 완료는 0점
     // 같은 문장의 CTE는 INSERT 전 상태를 보므로 prev = 이번 시도 전 기록. 잔액의 기준은 뷰 v_user_balance
     const { rows } = await (connection ?? db).query<{ id: number | null; date: string | null; had_bright: boolean; total_before: number; star_points: number }>(
@@ -143,6 +162,7 @@ export async function createAttempt(
         parentAttemptId, subQuestId, customTitle, r.risk, DAILY_STAR_LIMIT, TUTORIAL_STAR_IDS],
     );
     const row = rows[0];
+    if (row.id && b.requestId) await tx.query("INSERT INTO memory_photos(attempt_id,user_id,request_id,photo) VALUES ($1,$2,$3,$4)",[row.id,userId,b.requestId,image]);
     await connection?.query("COMMIT");
     if (row.id === null) return fail(409, "DAILY_LIMIT", DAILY_STAR_LIMIT_MESSAGE, { help: r.help });
     const pointsEarned = status === "bright" && !row.had_bright ? Number(row.star_points) : 0;

@@ -3,6 +3,7 @@
 // - 대표 영역: 별(상태별 빛) + 별 이름 + 별자리·상태 칩
 // - 요약 칸은 넣지 않음
 // - 부가 기능: 위치로 도착 확인(바깥 별)은 접어 둠
+import { preparePhoto } from './memory-album';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -35,6 +36,10 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
   const [status, setStatus] = useState<'dim' | 'bright'>('bright');
   const [reason, setReason] = useState('');
   const [reflection, setReflection] = useState('');
+  const [photo,setPhoto]=useState<string>();
+  const [requestId,setRequestId]=useState<string>();
+  const [photoBusy,setPhotoBusy]=useState(false);
+  const [photoError,setPhotoError]=useState('');
   const [saved, setSaved] = useState('');
   const [completionHref, setCompletionHref] = useState<string>();
   const [place, setPlace] = useState('');
@@ -52,6 +57,15 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
       .finally(() => { if (active) setPlanLoaded(true); });
     return () => { active = false; };
   }, [mode, star?.starId, planRetry]);
+  async function choosePhoto(event: React.ChangeEvent<HTMLInputElement>) {
+    const file=event.target.files?.[0];
+    event.target.value='';
+    if(!file)return;
+    setPhotoBusy(true);setPhotoError('');
+    try { setPhoto(await preparePhoto(file));setRequestId(id=>id??crypto.randomUUID()); }
+    catch(err){setPhotoError(err instanceof Error?err.message:'사진을 읽지 못했어요.');}
+    finally{setPhotoBusy(false);}
+  }
   const activePlan = usingPlan ? pending : null;
 
   if (!star) return <>
@@ -103,6 +117,13 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
             {REASONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select></label>}
           <label>오늘을 기억할 한 줄<textarea disabled={busy} maxLength={300} value={reflection} onChange={e => setReflection(e.target.value)} placeholder="짧게 적어도, 비워 두어도 괜찮아요" /></label>
+          <fieldset className="photo-picker" disabled={busy || photoBusy}>
+            <legend>사진 남기기 (선택)</legend>
+            <label>{photo?'사진 바꾸기':'앨범에서 선택'}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={choosePhoto}/></label>
+            <label>카메라로 찍기<input type="file" accept="image/*" capture="environment" onChange={choosePhoto}/></label>
+          </fieldset>
+          {photo && <><img className="photo-preview" src={photo} alt="선택한 사진"/><button type="button" className="secondary" disabled={busy||photoBusy} onClick={()=>setPhoto(undefined)}>사진 빼기</button></>}
+          {photoError && <p role="alert">{photoError}</p>}
           {outside && <details>
             <summary>위치로 도착 확인 (선택)</summary>
             <p className="small">기기 좌표는 저장하지 않아요. 목표 장소 연동 전이라 지금은 직접 도착 기록으로 저장해요.</p>
@@ -113,8 +134,8 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
             {place && <p role="status" className="small">{place}</p>}
           </details>}
           {!planLoaded && <p className="small" role="status">지난 기록을 확인하고 있어요. 확인이 끝나면 저장할 수 있어요.</p>}
-          <button disabled={busy || !planLoaded} onClick={() => run(async () => {
-            const r = await client(mode).attempt({ starId: star.starId, status, reflection, verifyMethod: 'self',
+          <button disabled={busy || photoBusy || !planLoaded} onClick={() => run(async () => {
+            const r = await client(mode).attempt({ photo, requestId, starId: star.starId, status, reflection, verifyMethod: 'self',
               ...(activePlan ? { parentAttemptId: activePlan.attemptId, subQuestId: activePlan.subQuestId } : {}),
               ...(status === 'dim' && reason ? { stopReason: reason } : {}) });
             onHelp(r.help);

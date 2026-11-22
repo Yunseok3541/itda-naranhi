@@ -1,5 +1,7 @@
 'use client';
 
+import { Album } from './memory-album';
+import { client,type MemoryPhoto,type Mode } from '@/lib/mobile-data';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
@@ -23,8 +25,19 @@ export default function ConstellationCelebration({ constellationId, name, title,
   const router = useRouter();
   const character = characters.find(friend => friend.constellationId === constellationId);
 
-  const stay = !!onDone;
-  const [canClose, setCanClose] = useState(!stay);
+  const [mode,setMode]=useState<Mode>('example');
+  const [photos,setPhotos]=useState<MemoryPhoto[]|null>(null);
+  const [album,setAlbum]=useState(false);
+  useEffect(()=>{
+    let active=true;
+    const m=localStorage.getItem('naranhi-mode')==='api'?'api':'example';
+
+    client(m).memoryPhotos().then(list=>{if(active){setMode(m);setPhotos(list.filter(p=>p.group===constellationId));}}).catch(()=>{if(active)setPhotos([]);});
+    return ()=>{active=false;};
+  },[constellationId]);
+  const stay = !!onDone || !!photos?.length || photos===null;
+  const [unlocked, setCanClose] = useState(false);
+  const canClose = !stay || unlocked;
   useEffect(() => {
     const modal = dialog.current;
     if (!modal) return;
@@ -35,6 +48,7 @@ export default function ConstellationCelebration({ constellationId, name, title,
       const unlock = window.setTimeout(() => setCanClose(true), revealAt + 800);
       return () => { window.clearTimeout(reveal); window.clearTimeout(unlock); if (modal.open) modal.close(); };
     }
+
     const leaveAt = revealAt + 3400;
     const reveal = window.setTimeout(() => modal.showModal(), revealAt);
     const fade = window.setTimeout(() => { modal.dataset.leaving = 'true'; }, leaveAt);
@@ -49,7 +63,7 @@ export default function ConstellationCelebration({ constellationId, name, title,
 
   return (
     <dialog ref={dialog} className="constellation-celebration" aria-labelledby={titleId}
-      onCancel={event => { event.preventDefault(); if (!canClose) return; if (onDone) onDone(); else router.replace('/catalog'); }}>
+      onCancel={event => { if(event.target!==dialog.current)return; event.preventDefault(); if (!canClose) return; if (onDone) onDone(); else router.replace('/catalog'); }}>
       <div className="constellation-award">
         <span aria-hidden="true">✧</span>
         {character ? (
@@ -63,6 +77,8 @@ export default function ConstellationCelebration({ constellationId, name, title,
       </div>
       <h2 id={titleId}>{title ?? <>{name}를<br />획득하였습니다</>}</h2>
       <p>{message ?? '새 별자리가 도감에 담겼어요.'}</p>
+      {!!photos?.length && <button disabled={!canClose} onClick={()=>setAlbum(true)}>기억 앨범 보기</button>}
+      {album && photos && <Album group={constellationId} mode={mode} photos={photos} onClose={()=>setAlbum(false)} onRemove={id=>setPhotos(photos.filter(p=>p.id!==id))}/>}
       <button type="button" className="ghost" disabled={!canClose} onClick={() => onDone ? onDone() : router.replace('/catalog')}>{onDone ? '계속하기' : '도감으로 이동'}</button>
     </dialog>
   );

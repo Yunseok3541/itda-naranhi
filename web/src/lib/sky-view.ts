@@ -78,6 +78,22 @@ export const skyView = {
     frame = next;
     emit();
   },
+  /** Keep publishing camera frames until the caller ends the motion or another camera action takes over. */
+  glide(next: (view: SkyView, elapsed: number) => SkyView | null) {
+    skyView.stopFlight();
+    panned = false;
+    flying = true;
+    let last = performance.now();
+    const tick = (now: number) => {
+      const position = next(view, Math.max(0, Math.min(50, now - last)) / 1000);
+      if (!position) { flying = false; return; }
+      last = now;
+      view = clampView(position);
+      anim = requestAnimationFrame(tick);
+      emit();
+    };
+    anim = requestAnimationFrame(tick);
+  },
   /** 목표 방향으로 돌아본 뒤, 그 별자리에 맞는 시야각으로 다가간다. */
   flyTo(target: SkyView, ms = 600, { onArrival }: { onArrival?: () => void } = {}) {
     skyView.stopFlight();
