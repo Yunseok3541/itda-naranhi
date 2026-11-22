@@ -168,8 +168,9 @@ export default function PolicySetup({ mode, onExit, onSaved }: {
     <section className="card policy-setup-card" aria-label="추천 기준 질문">
       <div className="policy-setup-top">
         <StarProgress steps={QUESTIONS.map(k => NAMES[k])} current={progress} label="질문 순서 (요즘의 나 3개, 신청 정보 6개)" />
-        <span className="policy-setup-topic">{topic}</span>
-        {pos === 0 && <p className="small">모두 선택이에요. 고르지 않고 넘어가도 괜찮아요.</p>}
+        {/* 시작 질문과 같은 머리글: 별 아래 묶음 이름 + 매 질문 같은 안내 한 줄 */}
+        <h2 className="policy-setup-topic">{topic}</h2>
+        <p className="small">모두 선택이에요. 고르지 않고 넘어가도 괜찮아요.</p>
       </div>
       <div key={pos} ref={step} tabIndex={-1} className="policy-setup-step step-slide" data-dir={dir}>
         {current === 'break' ? <div className="policy-setup-break">
@@ -186,11 +187,12 @@ export default function PolicySetup({ mode, onExit, onSaved }: {
           </button>
         </div> : question(current)}
       </div>
+      {/* 시작 질문처럼 이전·다음은 카드 안, 선택지 바로 아래 */}
+      {error && <p className="error" role="alert">{error}</p>}
+      <nav className="policy-setup-nav" aria-label="질문 이동">
+        <button type="button" className="secondary" disabled={busy} onClick={() => pos === 0 ? onExit() : go(pos - 1)}>이전</button>
+        <button type="button" disabled={busy || blocked} onClick={next}>{label}</button>
+      </nav>
     </section>
-    {error && <p className="error" role="alert">{error}</p>}
-    <nav className="policy-setup-nav" aria-label="질문 이동">
-      <button type="button" className="secondary" disabled={busy} onClick={() => pos === 0 ? onExit() : go(pos - 1)}>이전</button>
-      <button type="button" disabled={busy || blocked} onClick={next}>{label}</button>
-    </nav>
   </div>;
 }

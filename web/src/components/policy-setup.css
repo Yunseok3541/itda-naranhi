@@ -1,12 +1,8 @@
 /* 추천 기준 정하기 (policy-setup.tsx). 공통 틀은 screen-kit.css, 별 카드(.choice-cards)는 night-sky.css
    이 파일에는 Tailwind 지시문을 넣지 않는다 (night-sky.css 머리말 참고) */
 
-/* 화면 높이만큼 채우고 이전·다음 줄을 맨 아래에 붙임 → 질문마다 카드 길이가 달라도 버튼은 늘 같은 자리 (엄지 영역) */
-.policy-setup {
-  display: flex; flex-direction: column;
-  min-height: calc(100dvh - max(14px, env(safe-area-inset-top)));
-  word-break: keep-all;
-}
+/* 시작 질문과 같은 구성: 카드 하나 안에 별 순서 · 묶음 이름 · 질문 · 이전/다음 */
+.policy-setup { word-break: keep-all; }
 .policy-setup [tabindex="-1"]:focus { outline: none; }
 .night-ui .policy-setup-card { margin: 6px 0 0; padding: 16px 16px 20px; overflow: hidden; }
 
@@ -14,8 +10,8 @@
 .policy-setup-top { display: grid; justify-items: center; gap: 6px; margin-bottom: 16px; text-align: center; }
 /* 요즘의 나(3) | 신청 정보(6) 사이를 조금 띄움 */
 .policy-setup-top .star-progress li:nth-child(4) { margin-inline-start: 10px; }
-.policy-setup-topic { font-size: .8125rem; font-weight: 750; color: var(--star-gold); }
-.night-ui .policy-setup-top .small { margin: 2px 0 0; }
+.night-ui .policy-setup-topic { margin: 4px 0 0; font-size: 1.05rem; font-weight: 750; color: var(--starlight); }
+.night-ui .policy-setup-top .small { margin: 0; color: var(--starlight-dim); }
 
 /* 질문: 한 화면에 하나라 시작 질문보다 크게. 보기가 많은 질문(일·학력)도 덜 길어지게 카드는 조금 촘촘히 */
 .policy-setup-step .choice-cards { margin: 0; }
@@ -46,15 +42,7 @@
 .night-ui .policy-setup-break .small { margin: 10px 0 0; }
 .night-ui .policy-setup-break .secondary { margin: 16px 0 0; }
 
-/* 이전 · 다음: 화면 아래에 붙은 줄. 긴 질문을 내려 볼 때도 떠 있고, 뒤 글자가 비치지 않게 바탕을 깖 */
-.policy-setup-nav {
-  position: sticky; bottom: 0; z-index: 3;
-  display: grid; grid-template-columns: minmax(5.5em, auto) minmax(0, 1fr); gap: 10px;
-  margin: auto -18px 0; padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
-  background: linear-gradient(180deg, rgba(24, 18, 52, .72), rgba(24, 18, 52, .94));
-  border-top: 1px solid rgba(255, 255, 255, .08);
-  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
-}
-.policy-setup > .error { margin-top: 12px; }
-.policy-setup > .error + .policy-setup-nav { margin-top: auto; }
+/* 이전 · 다음: 시작 질문처럼 카드 안, 선택지 바로 아래 */
+.policy-setup-nav { display: grid; grid-template-columns: minmax(5.5em, 2fr) 3fr; gap: 10px; margin-top: 18px; }
+.policy-setup-card > .error { margin: 12px 0 0; }
 .night-ui .policy-setup-nav button { margin: 0; min-height: 52px; border-radius: 16px; }
