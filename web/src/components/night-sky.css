@@ -663,7 +663,6 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 }
 .quest-dialog-body .quest-weather-card h2 { margin: 3px 0 8px; }
 .quest-dialog-body .quest-weather-reading > .small { margin: 0; }
-.quest-dialog-body .quest-weather-options { margin-bottom: 16px; }
 .quest-dialog-body .quest-action { margin-block: auto 0; }
 .quest-dialog-body :is(h2, [tabindex="-1"]) { scroll-margin-top: 10px; }
 .quest-dialog-body [tabindex="-1"]:focus { outline: none; }
