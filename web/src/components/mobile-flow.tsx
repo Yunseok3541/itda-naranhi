@@ -134,6 +134,9 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
    if (!questDialog.current || questDialog.current.open) return;
    if (!questOpened.current && restoreOnFirstOpen && readReturnVisit(mode)) setResumeCount(count => count + 1);
    questOpened.current = true;
+   // 밤하늘에서 열어 둔 도움받을 곳 창이 오늘의 별 창 안 맨 위로 따라 들어와 자리를 차지하던 문제 → 열 때 닫음
+   // (오늘의 별 안에서 뜨는 안전 안내 경고는 제목이 달라 그대로 둠)
+   H(h => h?.title === HELP.title ? null : h);
    questTrigger.current?.focus({ preventScroll: true });
    questDialog.current.showModal();
    setQuestOpen(true);
@@ -244,6 +247,9 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
      document.removeEventListener('keydown', onKeyDown);
    };
  }, [help]);
+ // 다른 화면으로 갔다 돌아와도 도움받을 곳 창이 남아 있던 문제: cacheComponents라 Next가 떠난 화면을 숨겨 둔 채 상태를 그대로 들고 있음
+ // 숨겨질 때 effect 정리 함수가 불리므로 거기서 닫음. 안전 안내(제목이 다른 경고 창)는 그대로 둠
+ useEffect(() => () => H(h => h?.title === HELP.title ? null : h), []);
  // 메인(밤하늘)과 첫 화면은 어두운 밤하늘 테마, 나머지 화면은 아직 기존 테마
  const night = screen==='sky'||!ready||guiding;
  // 메인 "내 밤하늘"은 스크롤 없이 한 화면에 고정 (night-sky.css의 .sky-locked). 아래 안내는 "모든 별 목록" 창 안으로
