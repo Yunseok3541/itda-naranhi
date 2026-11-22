@@ -29,7 +29,8 @@ import { starDisplayDescription, starDisplayTitle } from '@/lib/star-display';
 const labels = { untried: '아직 만나기 전', dim: '손을 뻗은 별', bright: '딴 별' } as const;
 /** 지금 별자리가 화면에서 이만큼(px, 대각선) 이상일 때만 퀘스트 이름표·큰 별 표시 */
 const DETAIL_SPAN = 90;
-const CHARACTER_ART_SIZE = 128;
+/** 캐릭터 그림을 그리는 기본 크기(px). 화면에서는 transform으로 맞추므로, 원본(약 500~700px)에 가깝게 잡아야 크게 확대할 때 흐려지지 않음 */
+const CHARACTER_ART_SIZE = 512;
 const COMPANION_SCALE = 1.1;
 
 function fadeBetween(start: number, end: number, value: number) {
@@ -421,6 +422,9 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   }
 
   // 별 버튼만 화면 기준으로 거른다. 선은 끝점이 화면 밖이어도 보이는 부분을 남긴다.
+  // 캐릭터가 화면에서 빠지는 순간(축소·전체 보기·다른 별자리로 이동) 뚝 끊기지 않게, 잠깐 남겨 두고 흐려지며 사라지게 함
+  const [leavingCompanion, setLeavingCompanion] = useState<{ index: number; opacity: number } | null>(null);
+  const shownCompanion = useRef<{ index: number; opacity: number } | null>(null);
   const { projected, positions, companionPositions } = useMemo(() => {
     if (!frame) return { projected: [], positions: [], companionPositions: [] };
     const project = projector(view, frame.width, frame.height);
@@ -430,23 +434,35 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
       point && point.x > -pad && point.x < frame.width + pad &&
       point.y > -pad && point.y < frame.height + pad ? point : null,
     ));
-    let characterIndex = focusedIndex;
+    // 화면 가운데에서 그 별자리 중심까지 거리 (1 이상이면 시점에서 벗어남)
+    const offCenter = (index: number) => {
+      const point = project(centers[index]);
+      return point ? Math.hypot((point.x / frame.width - 0.5) / 0.3, (point.y / frame.height - 0.5) / 0.25) : Infinity;
+    };
+    const fadeIn = (distance: number) => {
+      const weight = Math.max(0, Math.min(1, (1 - distance) / 0.55));
+      return weight * weight * (3 - 2 * weight);
+    };
+    let characterIndex: number | null = focusedIndex;
     let reveal = 1;
     if (panned && !flying) {
       // Use the center of the current viewport at any zoom, including the whole-sky view.
       let closest = 1;
       characterIndex = null;
-      centers.forEach((center, index) => {
-        const point = project(center);
-        if (!point) return;
-        const distance = Math.hypot((point.x / frame.width - 0.5) / 0.3, (point.y / frame.height - 0.5) / 0.25);
+      centers.forEach((_, index) => {
+        const distance = offCenter(index);
         if (distance < closest) { closest = distance; characterIndex = index; }
       });
-      const weight = Math.min(1, (1 - closest) / 0.55);
-      reveal = weight * weight * (3 - 2 * weight);
+      reveal = fadeIn(closest);
+    } else if (characterIndex === null) {
+      // 가까이 보던 별자리가 없어도(축소·전체 보기) 시점이 지금 별자리에 맞아 있는 동안만 캐릭터를 보여 줌.
+      // 자동으로 하늘이 흘러가 가운데에서 벗어나면 그만큼 옅어지다 사라짐
+      const distance = offCenter(safeIndex);
+      if (distance < 1) { characterIndex = safeIndex; reveal = fadeIn(distance); }
     }
     const companionPositions = companions.map((companion, index) => {
-      if (!companion || index !== characterIndex) return null;
+      const leaving = index !== characterIndex && index === leavingCompanion?.index;
+      if (!companion || (index !== characterIndex && !leaving)) return null;
       const center = project(companion.center);
       const [left, right, top, bottom] = companion.axes.map(project);
       if (!center || !left || !right || !top || !bottom) return null;
@@ -460,11 +476,30 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
           center.y < -scaledHalfHeight || center.y > frame.height + scaledHalfHeight) return null;
       const transform = [dx, dy, ex, ey].map(component => component * COMPANION_SCALE / CHARACTER_ART_SIZE);
       const coverage = Math.max(2 * halfWidth / frame.width, 2 * halfHeight / frame.height);
-      const opacity = 0.42 * reveal * Math.max(0.38, 1 - Math.max(0, coverage - 0.8) * 0.62);
-      return { character: companion.character, center, transform, opacity };
+      // 축소해서 캐릭터가 화면에 작게 보일수록 은은하게(최대 절반까지) 옅어짐
+      const distant = 0.5 + 0.5 * fadeBetween(0.12, 0.55, coverage);
+      const opacity = leaving ? leavingCompanion.opacity : 0.42 * reveal * distant * Math.max(0.38, 1 - Math.max(0, coverage - 0.8) * 0.62);
+      return { character: companion.character, center, transform, opacity, leaving, index };
     });
     return { projected, positions, companionPositions };
-  }, [centers, companions, flying, focusedIndex, panned, skies, view, frame]);
+  }, [centers, companions, flying, focusedIndex, leavingCompanion, panned, safeIndex, skies, view, frame]);
+  const visibleCompanion = companionPositions.find(placement => placement && !placement.leaving) ?? null;
+  const visibleCompanionIndex = visibleCompanion?.index ?? -1;
+  useEffect(() => {
+    if (visibleCompanion) shownCompanion.current = { index: visibleCompanion.index, opacity: visibleCompanion.opacity };
+  });
+  useEffect(() => {
+    if (visibleCompanionIndex >= 0) return;
+    const last = shownCompanion.current;
+    shownCompanion.current = null;
+    // 마지막으로 보이던 투명도는 직전 화면에서만 알 수 있어, 사라지는 순간에 한 번 넘겨 줌
+    if (last) setLeavingCompanion(last);
+  }, [visibleCompanionIndex]);
+  useEffect(() => {
+    if (!leavingCompanion) return;
+    const timer = window.setTimeout(() => setLeavingCompanion(null), 520);
+    return () => window.clearTimeout(timer);
+  }, [leavingCompanion]);
 
   // 화면에 별 하나만 남아도 확대 배율을 기준으로 이름표와 기록 동작을 유지한다.
   const span = useMemo(() => {
@@ -618,8 +653,8 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
       <div className="sky-companion-layer">
         {companionPositions.map(placement => {
           if (!placement) return null;
-          const { character, center, transform, opacity } = placement;
-          return <div key={character.id} className="sky-constellation-character" style={{
+          const { character, center, transform, opacity, leaving } = placement;
+          return <div key={character.id} className={`sky-constellation-character${leaving ? ' leaving' : ''}`} style={{
             left: center.x, top: center.y, width: CHARACTER_ART_SIZE, height: CHARACTER_ART_SIZE, '--companion-opacity': opacity,
             transform: `translate(-50%, -50%) matrix(${transform.join(',')},0,0)`, '--companion-light': character.color,
           } as CSSProperties}>

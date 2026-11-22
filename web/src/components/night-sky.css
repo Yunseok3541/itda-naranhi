@@ -356,12 +356,19 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
   position: absolute;
   pointer-events: none;
   opacity: var(--companion-opacity);
-  filter: drop-shadow(0 0 16px var(--companion-light));
+  filter: drop-shadow(0 0 64px var(--companion-light));
 }
 .sky-constellation-character img { object-fit: contain; filter: saturate(.78); }
+/* 화면에서 빠질 때(축소·전체 보기) 잠깐 남아 흐려지며 사라짐 (night-sky.tsx leavingCompanion) */
+.sky-constellation-character.leaving { opacity: 0; }
 @media (prefers-reduced-motion: no-preference) {
   .sky-constellation-character { animation: sky-companion-appear .45s ease-out; }
   @keyframes sky-companion-appear { from { opacity: 0; } }
+  .sky-constellation-character.leaving { animation: sky-companion-leave .5s ease-in forwards; }
+  @keyframes sky-companion-leave {
+    from { opacity: var(--companion-opacity); filter: drop-shadow(0 0 64px var(--companion-light)) blur(0); }
+    to { opacity: 0; filter: drop-shadow(0 0 64px var(--companion-light)) blur(24px); }
+  }
   .sky-constellation-character img { animation: sky-companion-light 7s ease-in-out infinite alternate; }
   @keyframes sky-companion-light { from { opacity: .74; } to { opacity: 1; } }
 }
