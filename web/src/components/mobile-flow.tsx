@@ -296,7 +296,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
    <div className="onboarding-step-top">
      <StarProgress steps={START_STEPS} current={startStep} label="시작 질문 순서" />
      <h2 aria-live="polite">시작 질문<span className="sr-only"> {startStep + 1}/3</span></h2>
-     <p className="small">모든 질문은 고르지 않고 넘어가도 돼요.</p>
+     <p className="small">모든 질문은 고르지 않고 넘어가도 괜찮아요.</p>
    </div>
    {/* 세 질문을 같은 자리에 겹쳐 두고 지금 질문만 보임 → 카드 크기가 가장 긴 질문(②)에 맞춰 늘 같고 이전·다음 버튼도 제자리
        (숨긴 질문은 inert: 누르거나 읽히지 않음). 지금 질문이 되는 순간 data-dir이 붙어 밀려 들어옴 */}
