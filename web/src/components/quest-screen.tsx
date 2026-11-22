@@ -4,7 +4,7 @@
 // - 요약 칸은 넣지 않음 (이 화면은 입력이 중심)
 // - 부가 기능: 날씨 직접 바꾸기는 접어 둠
 import Link from 'next/link';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { client, weatherNames, type Checkin, type Help, type Mode, type Recommendation } from '@/lib/mobile-data';
 import { TODAY_RANGE } from '@/lib/profile';
 import GlassSelect from './glass-select';
@@ -38,6 +38,7 @@ export default function QuestScreen({ mode, busy, run, onHelp, onError, dialog, 
   const weather = check ? weatherNames[check.weather] || check.weather : null;
   const checkinId = check?.checkinId;
   const showEntry = step === 0;
+  const entryHint = useId();
   const hasHelp = !!check?.help;
   useEffect(() => {
     const target = step === 0 && savedInput.current ? entry.current
@@ -79,12 +80,14 @@ export default function QuestScreen({ mode, busy, run, onHelp, onError, dialog, 
 
     {showEntry && <section ref={entry} className="card quest-entry" tabIndex={-1}>
       <h3 className="quest-greeting">{greeting}</h3>
-      <label>마음에 떠오른 한 줄<textarea disabled={busy} maxLength={300} value={text} onChange={e => setText(e.target.value)} placeholder="가상 내용으로 적어 주세요" /></label>
+      <label>마음에 떠오른 한 줄
+        <span id={entryHint} className="small quest-entry-hint">한 줄을 적으면 마음 날씨를 볼 수 있어요.</span>
+        <textarea required aria-describedby={entryHint} disabled={busy} maxLength={300} value={text} onChange={e => setText(e.target.value)} placeholder={mode === 'example' ? '예: 오늘은 한숨 돌렸어요' : '지금 마음을 짧게 적어 주세요'} /></label>
       <fieldset><legend>오늘의 활동 범위</legend>
         <p className="small">지금 고른 범위를 기준으로 오늘의 별을 추천해요.</p>
         <div className="choices quest-range-options">{TODAY_RANGE.map(([v, l]) => <button key={v} type="button" disabled={busy} className="secondary" aria-pressed={choice === v} onClick={() => setChoice(v)}>{l}</button>)}</div>
       </fieldset>
-      <button className="quest-action" disabled={busy || !text.trim()} onClick={saveEntry}>{busy ? '저장 중…' : check?.checkinId === null ? '다시 저장하기' : '다음'}</button>
+      <button className="quest-action" disabled={busy || !text.trim()} onClick={saveEntry}>{busy ? '저장 중…' : check?.checkinId === null ? '다시 저장하기' : '마음 날씨 보기'}</button>
     </section>}
 
     {check && step !== 2 && (step === 1 || checkinId === null) && <section className="card quest-weather-card">
