@@ -7,49 +7,18 @@ import Link from 'next/link';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { client, weatherNames, type Checkin, type Help, type Mode, type Recommendation } from '@/lib/mobile-data';
 import { TODAY_RANGE } from '@/lib/profile';
-import GlassSelect from './glass-select';
 import { Section, Steps } from './screen-kit';
 import SkyControlIcon from './sky-control-icon';
 import MindCheckOffer from './mind-check-offer';
+import { readReturnVisit, recommendationDay, saveReturnVisit } from '@/lib/today-recommendation-return';
+import { PendingNextLink } from './next-step-card';
 
 const WEATHER_OPTIONS = Object.entries(weatherNames).map(([value, label]) => ({ value, label }));
 const GREETINGS = ['오늘 하루는 어땠어요?', '지금 마음은 어떤 날씨예요?', '오늘은 어떤 하루인가요?', '요즘 어떻게 지내요?'];
 
-type RecommendationReturn = {
-  day: string;
-  mode: Mode;
-  items: Recommendation[];
-  fallback: boolean;
-  needsHelp: boolean;
-  text?: string;
-  choice?: string;
-  check?: Checkin;
-};
-
-const returnKey = 'naranhi-today-recommendations';
-const recommendationDay = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
-let returnVisit: RecommendationReturn | null = null;
-
-function readReturnVisit(mode: Mode) {
-  const day = recommendationDay();
-  if (returnVisit?.mode === mode && returnVisit.day === day) return returnVisit;
-  try {
-    const cached = JSON.parse(sessionStorage.getItem(returnKey) ?? 'null') as RecommendationReturn | null;
-    if (cached?.mode === mode && cached.day === day && Array.isArray(cached.items)) return cached;
-  } catch { /* Storage can be unavailable. */ }
-  return null;
-}
-
-function saveReturnVisit(visit: RecommendationReturn) {
-  returnVisit = visit;
-  const { day, mode, items, fallback, needsHelp } = visit;
-  try {
-    sessionStorage.setItem(returnKey, JSON.stringify({ day, mode, items, fallback, needsHelp }));
-  } catch { /* In-memory navigation remains available. */ }
-}
-
-export default function QuestScreen({ restoreRecommendations = false, mode, busy, run, onHelp, onError, dialog, onTotalPoints, onSaved }: {
+export default function QuestScreen({ restoreRecommendations = false, open, mode, busy, run, onHelp, onError, dialog, onTotalPoints, onSaved }: {
   restoreRecommendations?: boolean;
+  open: boolean;
   mode: Mode;
   busy: boolean;
   run: (fn: () => Promise<void>) => void;
@@ -113,6 +82,7 @@ export default function QuestScreen({ restoreRecommendations = false, mode, busy
   }
 
   const content = <>
+    {open && <PendingNextLink mode={mode} inQuest />}
     <Steps label="오늘의 별 찾는 순서" steps={['한 줄 기록', '마음 날씨', '오늘의 별']} current={step} />
 
     {showEntry && <section ref={entry} className="card quest-entry" tabIndex={-1}>
@@ -136,19 +106,24 @@ export default function QuestScreen({ restoreRecommendations = false, mode, busy
         <p className="small">오늘의 한 줄을 날씨로 빗대 본 거예요. 진단이 아닌 참고 기록이에요.</p>
       </div>
       {check.checkinId !== null && <>
-        <details className="quest-weather-options">
-          <summary>날씨 바꾸기</summary>
-          <GlassSelect label="내 마음에 가까운 날씨" options={WEATHER_OPTIONS} disabled={busy} value={check.weather}
-            onChange={next => {
-              if (next === check.weather) return;
-              run(async () => {
-                await client(mode).weather(check.checkinId!, next);
-                setCheck({ ...check, weather: next });
-              });
-            }} />
-        </details>
+        {/* 선택지가 5개뿐이라 접지 않고 늘 보이게. AI가 고른 날씨에 표시, 다른 걸 누르면 바로 바뀜 */}
+        <div className="quest-weather-options" role="radiogroup" aria-label="내 마음에 가까운 날씨">
+          <p className="small">다르게 느껴지면 골라 주세요.</p>
+          <div className="quest-weather-row">
+            {WEATHER_OPTIONS.map(option => <button key={option.value} type="button" role="radio" className="secondary"
+              aria-checked={check.weather === option.value} disabled={busy}
+              onClick={() => {
+                if (option.value === check.weather) return;
+                run(async () => {
+                  await client(mode).weather(check.checkinId!, option.value);
+                  setCheck({ ...check, weather: option.value });
+                });
+              }}>{option.label}</button>)}
+          </div>
+        </div>
         <button className="quest-action" disabled={busy} onClick={() => run(async () => {
           const result = await client(mode).recommendations(check.checkinId!);
+          saveReturnVisit({ day: recommendationDay(), mode, text, choice, check, items: result.items, fallback: result.usedFallback, needsHelp: hasHelp });
           setItems(result.items);
           setFallback(result.usedFallback);
           setStep(2);
@@ -158,6 +133,7 @@ export default function QuestScreen({ restoreRecommendations = false, mode, busy
 
     {step === 2 && items && <div ref={results} tabIndex={-1}>
       <Section id="quest-stars" title="추천 별">
+      <button type="button" className="text-button" onClick={() => { setText(''); setCheck(null); setStep(0); }}>새 한 줄 남기기</button>
       <p className="small">{mode === 'example' ? '예시 추천이에요.' : fallback ? '기본 추천이에요.' : 'AI가 만든 추천은 틀릴 수 있어요.'}</p>
       {items.length
         ? items.map(i => <Link className="card recommendation" key={i.starId} href={`/stars/${i.starId}?from=today`} onClick={event => {
@@ -178,7 +154,7 @@ export default function QuestScreen({ restoreRecommendations = false, mode, busy
 
   return <>
     <header className="quest-dialog-header">
-      {step > 0 && <button type="button" className="text-button quest-dialog-back" aria-label="이전 단계" disabled={busy} onClick={goBack}>
+      {step > 0 && <button type="button" className="text-button quest-dialog-back" aria-label={step === 2 && !check ? '한 줄 기록으로' : '이전 단계'} disabled={busy} onClick={goBack}>
         <SkyControlIcon name="back" />
       </button>}
       <h2 id={dialog.titleId}><SkyControlIcon name="star" /> 오늘의 별</h2>

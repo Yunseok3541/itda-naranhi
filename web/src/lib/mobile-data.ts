@@ -29,13 +29,14 @@ function exampleMind() {
 export type Help = { title: string; lines: string[] } | null;
 export type Status = 'untried' | 'dim' | 'bright';
 // 예전 예시 기록에는 별자리 메타데이터가 없을 수 있다.
-export type Star = { starId: number; title: string; status: Status; memories: { attemptId: number; requestId?:string; photo?: string; date: string; reflection: string | null; status?: 'dim' | 'bright'; stopReason?: string | null; subQuestId?: number | null; parentAttemptId?: number | null; customTitle?: string | null }[]; description?: string | null; constellationId?: number; constellationName?: string; position?: number; verifyType?: string };
+export type Star = { starId: number; title: string; status: Status; memories: { attemptId: number; requestId?:string; photo?: string; date: string; recordedAt?: string; reflection: string | null; status?: 'dim' | 'bright'; stopReason?: string | null; subQuestId?: number | null; parentAttemptId?: number | null; customTitle?: string | null }[]; description?: string | null; constellationId?: number; constellationName?: string; position?: number; verifyType?: string };
 // GPS(도착 확인) 별인지: 실제 API는 /api/sky의 verifyType으로 판단 (별 ID는 시드마다 바뀜)
 // 예시 모드 저장 데이터에는 verifyType이 없어 예시 목록의 GPS 별(16 편의점, 17 가상 청년센터)로 판단
 const exampleGpsIds = new Set([16, 17]);
 export function isGpsStar(star: Pick<Star, 'starId' | 'verifyType'>): boolean {
   return star.verifyType ? star.verifyType === 'gps' : exampleGpsIds.has(star.starId);
 }
+export type JournalCheckin = { id: number; text: string; weather: string; date: string };
 export type Checkin = { checkinId: number | null; weather: string; help: Help; usedFallback: boolean; pointsEarned?: number | null; totalPoints?: number | null };
 export type Recommendation = { starId: number; title: string; reason: string };
 export const weatherNames: Record<string, string> = { sunny: '맑음', partly_cloudy: '구름 조금', cloudy: '흐림', rainy: '비', foggy: '안개' };
@@ -189,6 +190,12 @@ export function client(mode: Mode) { return {
       if (earned) { rewards.meteors.push(meteorId); rewards.meteorPoints += METEOR_POINTS; write(store); }
       return { pointsEarned: earned ? METEOR_POINTS : 0, totalPoints: exampleTotal(store), meteor: { caughtToday: rewards.meteors.length, dailyLimit: METEOR_DAILY_LIMIT } };
     });
+  },
+  async journalCheckins(): Promise<{ checkins: JournalCheckin[] }> {
+    if (mode === 'api') return request('checkin');
+    return { checkins: Object.entries(read().checkins).map(([id, entry]) => ({
+      id: Number(id), text: entry.text, weather: entry.weather, date: new Date(Number(id)).toISOString(),
+    })) };
   },
   async checkin(text: string, todayChoice: string): Promise<Checkin> {
     if (mode === 'api') return request('checkin', 'POST', { text, todayChoice });

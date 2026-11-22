@@ -45,7 +45,7 @@ export function NextStepCard({ mode, attemptId, busy, run, onHelp }: {
   </section>;
 }
 
-export function PendingNextLink({ mode }: { mode: Mode }) {
+export function PendingNextLink({ mode, inQuest = false }: { mode: Mode; inQuest?: boolean }) {
   const [plan, setPlan] = useState<NextPlan | null>(null);
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -56,5 +56,8 @@ export function PendingNextLink({ mode }: { mode: Mode }) {
     return () => { active = false; };
   }, [mode, retry]);
   if (error) return <button className="sky-pill small-pill" type="button" onClick={() => setRetry(r => r + 1)}>이어볼 별 다시 확인</button>;
+  if (inQuest && plan) return <a className="secondary quest-pending-link" href={`/stars/${plan.starId}`}>
+    <strong>지난번에 고른 별 이어보기</strong><small>{plan.title}</small>
+  </a>;
   return plan ? <a className="sky-pill gold" href={`/stars/${plan.starId}`} aria-label={`이어볼 별: ${plan.title}`}>✧ 이어볼 별</a> : null;
 }

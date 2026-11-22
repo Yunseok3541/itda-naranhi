@@ -146,10 +146,8 @@ export default function ApplyHelper({ policyId, title, mode, examplePolicy, onCl
         <button type="button" className="apply-helper-close" onClick={() => dialog.current?.close()} aria-label="닫기">✕</button>
       </div>
     </header>
-    <details className="apply-helper-privacy">
-      <summary>대화 보관 안내</summary>
-      <p>대화는 서버에 보관하지 않아요. 이 탭을 닫거나 ‘대화 지우기’를 누르면 이 기기에서도 사라져요.</p>
-    </details>
+    {/* 한 번 알면 되는 안내라 접지 않고 짧은 한 줄로 늘 보이게 */}
+    <p className="apply-helper-privacy"><span aria-hidden="true">🔒</span> 서버에 저장하지 않아요 · 탭을 닫거나 ‘대화 지우기’를 누르면 사라져요</p>
     {inputMode === 'chat' && <nav className="apply-helper-menu" aria-label="빠른 질문">
       <div className="apply-helper-quick">
         {QUICK_QUESTIONS.map(([intent, label]) => <button key={intent} type="button" disabled={busy}

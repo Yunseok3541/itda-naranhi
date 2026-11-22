@@ -6,7 +6,7 @@
 import { preparePhoto } from './memory-album';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { client, isGpsStar, weatherNames, type Help, type Mode, type Star } from '@/lib/mobile-data';
 import { WEATHER_STAR_ID } from '@/lib/quest-catalog';
 import { getActivityConstellation, getStarConstellationId } from '@/lib/constellations';
@@ -40,6 +40,7 @@ export default function StarScreen({ mode, star, fromToday, dailyLimitReached, b
   const back = fromToday ? '/sky?resume=today' : '/sky';
   const backLabel = fromToday ? '추천 별 목록으로 돌아가기' : '내 밤하늘로';
   // 처음엔 둘 다 고르지 않은 상태: 고르지 않고 저장해서 "딴 별"로 남는 일이 없게 직접 고름 (원칙 "사용자가 고른다", 기능발견성 다시 점검 #9)
+  const choices = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<'dim' | 'bright' | null>(null);
   const [reason, setReason] = useState('');
   const [reflection, setReflection] = useState('');
@@ -127,9 +128,16 @@ export default function StarScreen({ mode, star, fromToday, dailyLimitReached, b
           {/* ① 먼저 하나만 고르기 → ② 남기고 싶으면 한 줄·사진 → ③ 고른 것에 맞춘 저장 버튼 */}
           <h2 id="record-question">오늘 이 별, 어땠나요?</h2>
           <p className="record-hint">어느 쪽이든 내 하늘에 남아요.</p>
-          <div className="record-choices" role="radiogroup" aria-labelledby="record-question">
+          <div ref={choices} className="record-choices" role="radiogroup" aria-labelledby="record-question"
+            onKeyDown={event => {
+              if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key) || busy) return;
+              const next = event.target === choices.current?.firstElementChild ? 'dim' : 'bright';
+              event.preventDefault();
+              setStatus(next);
+              choices.current?.querySelector<HTMLButtonElement>(`.record-choice.${next}`)?.focus();
+            }}>
             {([['bright', '하늘의 별 따기', '해냈어요'], ['dim', '손 뻗어 보기', '시도해 봤어요']] as const).map(([v, l, sub]) =>
-              <button key={v} type="button" role="radio" aria-checked={status === v} className={`secondary record-choice ${v}`} disabled={busy} onClick={() => setStatus(v)}>
+              <button key={v} type="button" role="radio" aria-checked={status === v} tabIndex={(status ?? 'bright') === v ? 0 : -1} className={`secondary record-choice ${v}`} disabled={busy} onClick={() => setStatus(v)}>
                 <span className="record-choice-star" aria-hidden="true"><StatusStar status={v} /></span>
                 <b>{l}</b><small>{sub}</small>
               </button>)}
@@ -152,7 +160,7 @@ export default function StarScreen({ mode, star, fromToday, dailyLimitReached, b
           <label className="record-field"><span className="sr-only">오늘을 기억할 한 줄</span><textarea disabled={busy} maxLength={lineMax} rows={2} value={reflection} onChange={e => setReflection(e.target.value.slice(0, lineMax))} placeholder="오늘을 기억할 한 줄 (비워 두어도 괜찮아요)" /></label>
           {photo && <img className="photo-preview record-photo-preview" src={photo} alt="선택한 사진" />}
           <fieldset className="photo-picker record-photo-picker" disabled={busy || photoBusy}>
-            <legend className="sr-only">사진 남기기</legend>
+            <legend className="sr-only">{photo ? '첨부한 사진' : '사진 남기기'}</legend>
             <label>{photo ? '사진 바꾸기' : '앨범에서 사진'}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={choosePhoto} /></label>
             {photo
               ? <button type="button" className="text-button" onClick={() => { setPhoto(undefined); setPhotoError(''); }}>사진 빼기</button>
@@ -170,7 +178,7 @@ export default function StarScreen({ mode, star, fromToday, dailyLimitReached, b
           </details>}
           {!planLoaded && <p className="small" role="status">지난 기록을 확인하고 있어요. 확인이 끝나면 저장할 수 있어요.</p>}
           {status === null && <p className="small" role="status">해냈는지, 시도해 봤는지 먼저 골라 주세요.</p>}
-          <button className="record-save" disabled={busy || photoBusy || !planLoaded || status === null} onClick={() => run(async () => {
+          <div className="record-actions"><button className="record-save" disabled={busy || photoBusy || !planLoaded || status === null} onClick={() => run(async () => {
             if (status === null) return;
             const text = [weatherText, reflection.trim()].filter(Boolean).join(' · ').slice(0, 300);
             const r = await client(mode).attempt({ photo, requestId, starId: star.starId, status, reflection: text, verifyMethod: 'self',
@@ -186,7 +194,7 @@ export default function StarScreen({ mode, star, fromToday, dailyLimitReached, b
             } else {
               setSavedAttemptId(r.attemptId);
             }
-          })}>{busy ? '기록을 담는 중…' : status === 'bright' ? '별 따서 담기' : status === 'dim' ? '손 뻗은 별로 담기' : '이 순간 담기'}</button>
+          })}>{busy ? '기록을 담는 중…' : status === 'bright' ? '별 따서 담기' : status === 'dim' ? '손 뻗은 별로 담기' : '이 순간 담기'}</button></div>
         </section>}
 
     {savedAttemptId !== null && <NextStepCard key={savedAttemptId} mode={mode} attemptId={savedAttemptId} busy={busy} run={run} onHelp={onHelp} />}

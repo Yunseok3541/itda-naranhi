@@ -62,3 +62,14 @@
 .record-reasons { margin: 16px 0 0; padding: 12px 14px 10px; border: 1px solid rgba(255, 255, 255, .12); border-radius: 16px; background: rgba(255, 255, 255, .03); }
 .record-reasons .glass-select { margin: 0; }
 .record-reasons-hint { margin: 6px 2px 0; font-size: .8125rem; color: var(--starlight-dim); }
+
+@media (max-width: 600px) {
+  .record-actions {
+    position: sticky;
+    z-index: 2;
+    bottom: 0;
+    padding-block: 8px max(8px, env(safe-area-inset-bottom));
+    background: #26203a;
+  }
+  .night-ui .record-actions .record-save { margin: 0; }
+}
