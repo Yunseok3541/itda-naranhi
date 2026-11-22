@@ -236,7 +236,7 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
       <Link className="secondary" href="/policies/criteria">추천 기준 바꾸기</Link>
       <Link className="secondary" href="/centers">청년센터 살펴보기</Link>
     </nav>
-    {favorites && saved.ids.length === 0 && <p className="card">찜한 정책이 없어요. 정책 카드의 하트를 누르면 여기에 담겨요.</p>}
+    {favorites && saved.ids.length === 0 && <p className="card">찜한 정책이 없어요. 정책 카드의 별(☆)을 누르면 여기에 담겨요.</p>}
     {unavailable.map(id => <section className="card" key={id}>
       <p>지금 상세 정보를 불러올 수 없는 찜한 정책이에요.</p>
       <button type="button" className="secondary" onClick={() => toggleSavedPolicy(id)}>이 정책 찜 해제</button>
@@ -280,7 +280,8 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
         </div>
         <button type="button" className="policy-save" aria-pressed={isSaved}
           aria-label={`${policy.title} 찜`} onClick={() => toggleSavedPolicy(policy.policyId, policy)}>
-          <span className="policy-save-heart" aria-hidden="true">{isSaved ? '♥︎' : '♡'}</span>
+          {/* 찜은 별 (하트는 위쪽 "도움받을 곳" 아이콘이라 겹치지 않게). 찜하면 금빛으로 채움 */}
+          <svg className="policy-save-star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.6 6 6.4.6-4.9 4.2 1.5 6.3L12 16.6l-5.6 3.3 1.5-6.3L3 9.4l6.4-.6z" /></svg>
         </button>
       </div>
       <p>{policy.summary}</p>

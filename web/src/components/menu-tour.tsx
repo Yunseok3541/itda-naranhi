@@ -11,11 +11,11 @@ import { useCloseDialogOnHide } from './use-close-dialog-on-hide';
 const TARGETS: readonly { selector: string; name: string; text: string }[] = [
   { selector: '.sky-top .sky-help-button', name: '도움받을 곳', text: '힘들 때 연락할 곳을 언제든 볼 수 있어요' },
   { selector: '.sky-top .sky-resource-button', name: '청년센터·정책', text: '가까운 청년센터와 나에게 맞는 정책을 찾아요' },
-  { selector: '.night-list-trigger', name: '모든 별 보기', text: '내 별을 목록으로 한눈에 볼 수 있어요' },
+  { selector: '.night-list-trigger', name: '별 목록', text: '별자리마다 해 볼 일을 목록으로 볼 수 있어요' },
   { selector: '.sky-minimap', name: '하늘 지도', text: '다른 별자리로 하늘을 옮겨 가요' },
   { selector: '.sky-quest-character', name: '오늘의 별', text: '캐릭터를 누르면 한 줄을 남기고 오늘 해 볼 별을 찾을 수 있어요' },
   { selector: '.sky-actions a[href="/profile"]', name: '프로필', text: '내 기록과 배지, 별빛 상점이 있어요' },
-  { selector: '.sky-actions a[href="/catalog"]', name: '도감', text: '별자리를 완성하면 만나는 친구들이에요' },
+  { selector: '.sky-actions a[href="/catalog"]', name: '친구 도감', text: '별자리를 완성하면 만나는 친구들이에요' },
 ];
 const PAD = 6, GAP = 14, EDGE = 16, CARD_MAX = 320;
 

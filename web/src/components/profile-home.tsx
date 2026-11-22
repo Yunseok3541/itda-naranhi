@@ -108,7 +108,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
   </>;
 
   return <div className="profile-home">
-    <ScreenBar title="나의 프로필" right={<button type="button" className="screen-icon" aria-label="설정 (시작 질문·정책 신청 정보)" onClick={() => setSettings(true)}><span aria-hidden="true">⚙</span><small aria-hidden="true">설정</small></button>} />
+    <ScreenBar title="나의 프로필" right={<button type="button" className="screen-icon" aria-label="설정 (시작 질문·정책 신청 정보)" onClick={() => setSettings(true)}><SkyControlIcon name="settings" /><small aria-hidden="true">설정</small></button>} />
 
     <Hero
       visual={<button type="button" className="avatar-button" aria-label="프로필 그림 바꾸기" aria-haspopup="dialog" onClick={() => {
@@ -209,7 +209,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
 
     <section aria-labelledby="profile-catalog">
       <div className="profile-catalog-header">
-        <h2 id="profile-catalog" className="screen-section">나의 별자리 도감</h2>
+        <h2 id="profile-catalog" className="screen-section">나의 친구 도감</h2>
         {avatarChoices?.constellations && <span className="profile-catalog-count">완성 {acquiredCharacters.length}/{characters.length}</span>}
       </div>
       {avatarChoices?.constellations ? <>
@@ -232,7 +232,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
             onClick={() => setCatalogExpanded(expanded => !expanded)}>
             {catalogExpanded ? '미리보기 접기' : '친구 더 보기'}
           </button>}
-          <Link href="/catalog?from=profile">별자리 도감으로 이동</Link>
+          <Link href="/catalog?from=profile">친구 도감으로 이동</Link>
         </div>
       </> : avatarError || avatarChoices
         ? <p className="small" role="alert">획득한 별자리를 불러오지 못했어요.</p>

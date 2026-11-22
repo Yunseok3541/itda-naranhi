@@ -33,7 +33,7 @@ import './night-sky.css';
 // 정책추천·청년센터는 메인 오른쪽 위, 도움받을 곳은 메인 왼쪽 위, 홈(내 밤하늘)은 다른 화면 머리글의 "나란히"
 const navigation = [
   { href: '/profile', label: '프로필', icon: 'person' },
-  { href: '/catalog', label: '도감', icon: 'book' },
+  { href: '/catalog', label: '친구 도감', icon: 'book' },
 ] as const;
 
 /** 시작 질문 3개 (별 순서 표시의 화면 읽기용 이름, profile-form.tsx answerFields와 같은 말) */
@@ -275,7 +275,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
          <span className="sky-utility-symbol"><SkyControlIcon name="help" /></span><span>도움받을 곳</span>
        </button>
        <Link className="sky-pill sky-utility sky-catalog-button" href="/catalog">
-         <span className="sky-utility-symbol"><SkyControlIcon name="book" /></span><span>별자리 도감</span>
+         <span className="sky-utility-symbol"><SkyControlIcon name="book" /></span><span>친구 도감</span>
        </Link>
        <BgmToggle />
      </header>}

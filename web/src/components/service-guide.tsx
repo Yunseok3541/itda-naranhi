@@ -89,7 +89,7 @@ export default function ServiceGuide({ mode, replay = false, onDone, onHelp }: {
 
     {!hasAries && step === 2 && <>
       <h2 ref={heading} tabIndex={-1}>별자리를 완성하면 친구를 만나요</h2>
-      <p>별자리마다 친구가 한 명씩 기다리고 있어요. 내 밤하늘의 별자리 별을 모두 따면 그 친구를 <b>도감</b>에서 만나요.</p>
+      <p>별자리마다 친구가 한 명씩 기다리고 있어요. 내 밤하늘의 별자리 별을 모두 따면 그 친구를 <b>친구 도감</b>에서 만나요.</p>
       <ul className="guide-friends" aria-label="별자리 친구들">
         {characters.slice(0, 4).map(c => <li key={c.id}>
           <span className="avatar avatar-silhouette guide-friend-art"><CatalogStardust id={c.id} /></span>
