@@ -37,8 +37,7 @@ export function NextStepCard({ mode, attemptId, busy, run, onHelp }: {
       {selection.plan ? <>
         <h3>{selection.plan.title}</h3><p>다음으로 이어볼 별로 골라 뒀어요. 지금 하지 않아도 괜찮아요.</p>
         {selection.plan.preparationHref && <Link className="secondary" href={selection.plan.preparationHref}>센터에서 문의 문장 준비하기</Link>}
-        {/* A fresh visit also resets a same-star retry's completed form. */}
-        <a className="primary" href={`/stars/${selection.plan.starId}`}>이 별과 만나 보기 →</a>
+        <Link className="primary" href={`/stars/${selection.plan.starId}`}>이 별과 만나 보기 →</Link>
         <button type="button" className="text-button" disabled={busy} onClick={() => setSelection(null)}>다시 고르기</button>
       </> : <p>오늘의 기록은 그대로 남아요. 다음 별은 정하지 않고 마쳤어요.</p>}
     </div>}
@@ -56,8 +55,8 @@ export function PendingNextLink({ mode, inQuest = false }: { mode: Mode; inQuest
     return () => { active = false; };
   }, [mode, retry]);
   if (error) return <button className="sky-pill small-pill" type="button" onClick={() => setRetry(r => r + 1)}>이어볼 별 다시 확인</button>;
-  if (inQuest && plan) return <a className="secondary quest-pending-link" href={`/stars/${plan.starId}`}>
+  if (inQuest && plan) return <Link className="secondary quest-pending-link" href={`/stars/${plan.starId}`}>
     <strong>지난번에 고른 별 이어보기</strong><small>{plan.title}</small>
-  </a>;
-  return plan ? <a className="sky-pill gold" href={`/stars/${plan.starId}`} aria-label={`이어볼 별: ${plan.title}`}>✧ 이어볼 별</a> : null;
+  </Link>;
+  return plan ? <Link className="sky-pill gold" href={`/stars/${plan.starId}`} aria-label={`이어볼 별: ${plan.title}`}>✧ 이어볼 별</Link> : null;
 }
