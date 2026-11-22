@@ -8,7 +8,8 @@ const idleTime = 3000;
 /** 초당 천구 위 이동 거리. 기존 8.5초에 7.5° 구간의 평균 속도. */
 const driftSpeed = 7.5 * RAD / 8.5;
 const zoomOutRate = 1.08;
-const overlaySelector = 'dialog[open], .night :is(.sheet, .night-list[open], .nstar-label), .sky-locked > .help';
+// 시작 안내 직후 밤하늘 연출(.sky-reveal) 중에도 시작하지 않음 (곧 메뉴 안내가 열려서 잠깐 돌다 멈추며 버벅이던 것)
+const overlaySelector = 'dialog[open], .night :is(.sheet, .night-list[open], .nstar-label), .sky-locked > .help, .sky-reveal';
 
 function subscribeMotion(listener: () => void) {
   const media = window.matchMedia(reducedMotion);

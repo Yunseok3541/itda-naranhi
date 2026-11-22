@@ -84,8 +84,8 @@ INSERT INTO stars (id, constellation_id, position, title, description, verify_ty
   (23, 2, 3, '무료 온라인 강의 하나 들어 보기', '관심 있는 무료 강의 하나를 들어 봐요. 나눠서 들어도 괜찮아요.', 'self', NULL, 'daily', false, 'work', ARRAY['learning']::text[]),
   (4, 2, 4, '관심사 커뮤니티에 댓글 하나 남기기', '좋아하는 주제의 글에 짧은 댓글을 남겨 봐요. 한 단어여도 괜찮아요.', 'self', NULL, 'daily', false, 'relation', ARRAY['social']::text[]),
   (25, 2, 5, '가족이나 친구에게 안부 문자 보내기', '"잘 지내?" 한마디면 충분해요. 답장을 기다리지 않아도 괜찮아요.', 'self', NULL, 'daily', false, 'relation', ARRAY['social']::text[]),
-  (67, 11, 1, '숨 한 번 편하게 고르기', '내 속도로 한 번 숨을 고르고 있던 자리에 잠깐 머물러 봐요.', 'self', NULL, 'daily', false, 'daily', ARRAY['rest']::text[]),
-  (68, 11, 2, '지금 마음에 가까운 날씨 고르기', '지금 마음을 날씨로 빗대어 봐요. 떠오르는 날씨가 없어도 괜찮아요.', 'self', NULL, 'daily', false, 'daily', ARRAY['rest']::text[]),
+  (67, 11, 1, '숨 한 번 편하게 고르기', '편한 자세로 숨을 한 번 천천히 쉬어 봐요.', 'self', NULL, 'daily', false, 'daily', ARRAY['rest']::text[]),
+  (68, 11, 2, '고개 들어 위를 한 번 올려다보기', '창밖 하늘이든 천장이든 괜찮아요. 잠깐 시선을 위로 올려 봐요.', 'self', NULL, 'daily', false, 'daily', ARRAY['rest']::text[]),
   (69, 11, 3, '오늘의 작은 기억 한 줄 남기기', '지금 눈에 들어온 것이나 오늘 남기고 싶은 일을 한 줄로 적어 봐요.', 'self', NULL, 'daily', false, 'daily', ARRAY['rest']::text[]),
   (70, 11, 4, '지금 해 본 작은 일 인정해 주기', '여기까지 와 본 나에게 조용히 한마디 해 주세요. 수고했어요.', 'self', NULL, 'daily', false, 'daily', ARRAY['rest']::text[]),
   -- 2단계 · 집 근처 (혼자 외출)
@@ -229,7 +229,7 @@ INSERT INTO sub_quests (id, star_id, position, title) VALUES
   (65, 65, 1, '지도에서 장소 한 곳에 표시 남기기'),
   (66, 66, 1, '배운 점을 한 단어로 적기'),
   (67, 67, 1, '어깨 힘을 잠깐 빼 보기'),
-  (68, 68, 1, '떠오르는 날씨 하나 생각해 보기'),
+  (68, 68, 1, '눈길만 살짝 위로 올려 보기'),
   (69, 69, 1, '오늘 떠오른 단어 하나 적기'),
   (70, 70, 1, '속으로 수고했다고 말해 보기')
 ON CONFLICT (id) DO UPDATE SET position = EXCLUDED.position, title = EXCLUDED.title;

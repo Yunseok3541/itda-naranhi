@@ -37,7 +37,9 @@ export function isGpsStar(star: Pick<Star, 'starId' | 'verifyType'>): boolean {
   return star.verifyType ? star.verifyType === 'gps' : exampleGpsIds.has(star.starId);
 }
 export type JournalCheckin = { id: number; text: string; weather: string; date: string };
-export type Checkin = { checkinId: number | null; weather: string; help: Help; usedFallback: boolean; pointsEarned?: number | null; totalPoints?: number | null };
+export type Checkin = { checkinId: number | null; weather: string; help: Help; usedFallback: boolean; pointsEarned?: number | null; totalPoints?: number | null;
+  /** 화면에서만 기억: 체크인 직후 처음 받은 날씨(AI·예시·기본). weather는 고친 뒤 날씨 (마음 날씨 게이지의 "AI" 표시·되돌리기) */
+  aiWeather?: string };
 export type Recommendation = { starId: number; title: string; reason: string };
 export const weatherNames: Record<string, string> = { sunny: '맑음', partly_cloudy: '구름 조금', cloudy: '흐림', rainy: '비', foggy: '안개' };
 // New IDs mean old example records cannot be relabelled safely. Leave v1 untouched.

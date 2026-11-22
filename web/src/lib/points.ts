@@ -3,8 +3,8 @@
 
 /** 유성 하나를 터치하면 받는 포인트 */
 export const METEOR_POINTS = 1;
-/** 데일리 체크인을 하루 처음 마치면 받는 포인트 (한국 날짜 기준 하루 한 번) */
-export const CHECKIN_POINTS = 100;
+/** 데일리 체크인을 하루 처음 마치면 받는 포인트 (한국 날짜 기준 하루 한 번). 2026-11-22 100 → 30: 별 하나(10~40)와 비슷한 크기로 */
+export const CHECKIN_POINTS = 30;
 
 /**
  * 유성은 서버 시각 기준으로 이 간격마다 1개씩 떨어진다. 유성 번호 = floor(유닉스 초 / 간격)
@@ -15,7 +15,7 @@ export const METEOR_INTERVAL_SECONDS = 16;
 export const METEOR_GRACE_SECONDS = 60;
 /**
  * 하루(한국 날짜)에 유성으로 받을 수 있는 최대 횟수.
- * 화면을 켜 두기만 해도 시간당 225개까지 쌓일 수 있어서, 하루 체크인(100)·별 하나(10~40)보다 커지지 않게 막는다
+ * 화면을 켜 두기만 해도 시간당 225개까지 쌓일 수 있어서, 하루 체크인(30)보다 커지지 않게 막는다
  */
 export const METEOR_DAILY_LIMIT = 20;
 

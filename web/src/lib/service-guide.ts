@@ -39,14 +39,81 @@ export function peekSkyFocus() { return skyFocus; }
 /** 메인이 그 별자리를 비춘 뒤 비움 */
 export function clearSkyFocus() { skyFocus = null; }
 
-/** 시작 안내를 끝냈거나 건너뜀 → 다음에 메인에 들어가면 메뉴 안내를 한 번 보여 줌 (첫 친구를 만났으면 양자리를 비춘 채) */
+/** 시작 안내를 끝냈거나 건너뜀 → 다음에 메인에 들어가면 밤하늘이 반짝이며 생기는 연출 뒤 메뉴 안내를 한 번 보여 줌 (첫 친구를 만났으면 양자리를 비춘 채) */
 export function finishGuide() {
   skyFocus = hasFirstFriend() ? FIRST_FRIEND_CONSTELLATION : null;
   memory.guide = true;
   write(GUIDE_KEY, 'done');
   memory.tour = 'pending';
   write(TOUR_KEY, 'pending');
+  queueSkyReveal();
   listeners.forEach(listener => listener());
+}
+
+/* ── 밤하늘이 반짝이며 생기는 연출 (시작 안내 직후 메인에 처음 들어갈 때 한 번, 이번 방문 동안만) ──
+   배경 별이 하나씩 켜지고(sky-panorama.tsx) 퀘스트 별·별자리 선·버튼이 차례로 나타난 뒤(night-sky.css .sky-reveal) 잠깐 쉬고 메뉴 안내.
+   - 움직임 줄이기 설정이면 연출 없이 바로 메뉴 안내
+   - 가벼운 연출(lite): 저사양으로 보이거나 연출 초반에 버벅이면 시점 이동 없이, 배경은 이미 켜진 별을 모아 두고 새로 켜지는 별만 그림
+   - 버튼이 나타나기 전(hidden)에는 눌리지 않게 (mobile-flow.tsx가 inert) */
+/** 연출 시작부터 메뉴 안내까지 (마지막 요소가 나타나고 0.4초 쉼) */
+export const SKY_REVEAL_MS = 3600;
+/** 이때까지는 버튼·별이 아직 숨어 있음 (마지막으로 캐릭터가 나타나기 시작하는 때, night-sky.css) */
+const SKY_REVEAL_HIDDEN_MS = 2500;
+let reveal: 'queued' | 'hidden' | 'showing' | null = null;
+let revealStart = 0;
+let revealLite = false;
+const revealTimers: number[] = [];
+function emitReveal() { listeners.forEach(listener => listener()); }
+/** 저사양 기기로 보이는지 (메모리 2GB 이하·데이터 절약 모드, 지원하는 브라우저만). 나머지는 연출 초반 프레임으로 판단 */
+function lowPowerDevice() {
+  const nav = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
+  return (nav.deviceMemory ?? 8) <= 2 || !!nav.connection?.saveData;
+}
+function queueSkyReveal() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  reveal = 'queued';
+  revealLite = lowPowerDevice();
+}
+/** 메인이 처음 그려졌을 때 부름 → 연출 시작 (예약이 없으면 아무 일 없음) */
+export function startSkyReveal() {
+  if (reveal !== 'queued') return;
+  reveal = 'hidden';
+  revealStart = performance.now();
+  emitReveal();
+  revealTimers.splice(0).forEach(timer => window.clearTimeout(timer));
+  revealTimers.push(
+    window.setTimeout(() => { reveal = 'showing'; emitReveal(); }, SKY_REVEAL_HIDDEN_MS),
+    window.setTimeout(() => { reveal = null; emitReveal(); }, SKY_REVEAL_MS),
+  );
+}
+/** 연출이 예약만 되고 아직 시작 전인지 (메인이 첫 시점을 정할 때: 살짝 아래에서 올려다보며 시작) */
+export function skyRevealQueued() { return reveal === 'queued'; }
+/** 가벼운 연출인지 (시점 이동 없음, 배경을 나눠 그림) */
+export function skyRevealLite() { return revealLite; }
+/** 연출 초반에 버벅이면 가벼운 연출로 바꿈 (배경이 프레임을 재서 부름). 처음 바꿀 때만 true */
+export function lightenSkyReveal() {
+  if (revealLite || reveal === null) return false;
+  revealLite = true;
+  emitReveal();
+  return true;
+}
+/** 연출이 시작되고 지난 시간(ms). 예약만 됐으면 0(별을 숨겨 둠), 연출이 없으면 null */
+export function skyRevealElapsed() {
+  return reveal === 'hidden' || reveal === 'showing' ? performance.now() - revealStart : reveal === 'queued' ? 0 : null;
+}
+/** 연출 상태가 바뀔 때 (배경이 별을 다시 그리도록) */
+export function subscribeSkyReveal(listener: () => void) { return subscribe(listener); }
+/** 연출 중(예약 포함)이면 true: 메뉴 안내를 미루고 메인에 .sky-reveal */
+export function useSkyRevealing() {
+  return useSyncExternalStore(subscribe, () => reveal !== null, () => false);
+}
+/** 연출 중이고 가벼운 연출이면 true (main의 data-reveal-lite: 개발자 도구·측정에서 확인용) */
+export function useSkyRevealLite() {
+  return useSyncExternalStore(subscribe, () => reveal !== null && revealLite, () => false);
+}
+/** 버튼·별이 아직 숨어 있는 동안 true: 눌리거나 초점이 가지 않게 inert */
+export function useSkyRevealHidden() {
+  return useSyncExternalStore(subscribe, () => reveal === 'queued' || reveal === 'hidden', () => false);
 }
 
 /** 메뉴 안내만 다시 띄움 (/sky?tour=1, 확인·시연용) */

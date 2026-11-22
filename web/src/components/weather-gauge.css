@@ -1,0 +1,56 @@
+/* 마음 날씨 게이지 (weather-gauge.tsx). 오늘의 별 창(quest-screen.tsx)의 "내 마음과 다르면 옮겨 보세요" 상자 */
+.quest-weather-adjust {
+  margin: 0 0 16px; padding: 14px 14px 12px;
+  border: 1px solid rgba(255, 255, 255, .16); border-radius: 18px; background: rgba(255, 255, 255, .05);
+}
+.quest-weather-adjust-title { margin: 0 0 10px; font-size: .8125rem; color: #cfc6e8; }
+.night-ui .quest-weather-adjust-hint { margin: 10px 0 0; font-size: .75rem; line-height: 1.45; }
+/* "되돌리기": 글자 단추 (금색 밑줄) */
+.night-ui button.weather-gauge-undo {
+  display: inline; width: auto; min-height: 0; margin: 0 0 0 8px; padding: 2px; border: 0; border-radius: 4px;
+  background: none; box-shadow: none; color: var(--star-gold); font-size: inherit; font-weight: 700;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.night-ui button.weather-gauge-undo:focus-visible { outline: 2px solid var(--star-gold); outline-offset: 2px; }
+
+.weather-gauge {
+  position: relative; border-radius: 14px; cursor: pointer;
+  /* 세로 스크롤은 그대로, 가로로 끄는 건 게이지가 받음 */
+  touch-action: pan-y; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+}
+.weather-gauge:focus-visible { outline: 2px solid var(--star-gold); outline-offset: 4px; }
+.weather-gauge[aria-disabled="true"] { cursor: default; }
+.weather-gauge-icons, .weather-gauge-labels { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); text-align: center; }
+.weather-gauge-icons span { position: relative; display: grid; place-items: center; height: 30px; color: rgba(238, 233, 255, .38); }
+.weather-gauge-icons span[data-on] { color: var(--weather-tint); filter: drop-shadow(0 0 6px var(--weather-tint)); }
+/* 처음 고른 날씨 표시 (AI·예시·기본) */
+.weather-gauge-icons em {
+  position: absolute; top: -7px; left: calc(50% + 7px); padding: 1px 4px; border-radius: 6px;
+  background: rgba(255, 255, 255, .14); color: #e9e2ff; font-size: .5625rem; font-style: normal; font-weight: 800; line-height: 1.3; white-space: nowrap;
+}
+/* 선: 첫 칸 가운데 ~ 마지막 칸 가운데 (손잡이가 이름 바로 위에 오게) */
+.weather-gauge-rail { position: relative; height: 34px; margin: 2px 10%; }
+.weather-gauge-rail::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 11px; height: 12px; border-radius: 999px;
+  background: rgba(10, 6, 30, .55); box-shadow: inset 0 1px 3px #0008, 0 0 0 1.5px rgba(246, 207, 125, .55);
+}
+.weather-gauge-tick { position: absolute; top: 14px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: rgba(238, 233, 255, .35); }
+.weather-gauge-fill {
+  position: absolute; left: 0; top: 11px; height: 12px; border-radius: 999px;
+  background: linear-gradient(90deg, #ffe7a8, var(--weather-tint)); box-shadow: 0 0 12px var(--weather-tint);
+}
+.weather-gauge-fill::after { content: ""; position: absolute; left: 6px; right: 6px; top: 2px; height: 3px; border-radius: 999px; background: rgba(255, 255, 255, .55); }
+.weather-gauge-thumb {
+  position: absolute; top: 0; width: 34px; height: 34px; margin-left: -17px; border-radius: 50%;
+  display: grid; place-items: center; color: #2a1d48;
+  background: radial-gradient(circle at 35% 30%, #fff8dd, var(--weather-tint) 70%);
+  box-shadow: 0 0 0 3px rgba(246, 207, 125, .9), 0 0 18px var(--weather-tint), 0 3px 8px #0009;
+}
+.weather-gauge-labels span { padding-top: 6px; font-size: .75rem; line-height: 1.3; color: rgba(238, 233, 255, .6); word-break: keep-all; }
+.weather-gauge-labels span[data-on] { color: #fff3d0; font-weight: 800; }
+@media (prefers-reduced-motion: no-preference) {
+  .weather-gauge-fill { transition: width .18s ease-out; }
+  .weather-gauge-thumb { transition: left .18s ease-out; animation: weather-gauge-nudge .9s ease-in-out .6s 1; }
+  /* 처음 한 번 손잡이가 살짝 흔들림: "움직일 수 있다"는 단서 (기능발견성 E) */
+  @keyframes weather-gauge-nudge { 30% { translate: 7px 0; } 60% { translate: -4px 0; } }
+}

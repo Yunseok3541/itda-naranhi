@@ -85,7 +85,7 @@ export async function POST(request: Request) {
     }
   }
 
-  // 데일리 체크인 포인트 (+100, 한국 날짜 기준 하루 한 번, 고민기록 #32). 체크인이 저장됐을 때만 준다
+  // 데일리 체크인 포인트 (+30 = lib/points.ts CHECKIN_POINTS, 한국 날짜 기준 하루 한 번, 고민기록 #32). 체크인이 저장됐을 때만 준다
   // 체크인과 따로 저장하므로 포인트 저장이 실패해도(예: 변경 SQL 적용 전) 체크인 응답은 그대로 나간다 → 이때 null
   let points: { pointsEarned: number; totalPoints: number } | null = null;
   if (userId !== null && checkinId !== null) {
@@ -103,7 +103,7 @@ export async function POST(request: Request) {
     risk,
     // 오늘 필요한 것 (정책 추천에 참고, 고민기록 #47). 위험하면 빈 배열
     needs: needs.map((n) => ({ key: n, label: NEED_LABEL[n] })),
-    pointsEarned: points?.pointsEarned ?? null,  // 오늘 첫 체크인이면 100, 이미 받았으면 0, 저장 실패면 null
+    pointsEarned: points?.pointsEarned ?? null,  // 오늘 첫 체크인이면 30, 이미 받았으면 0, 저장 실패면 null
     totalPoints: points?.totalPoints ?? null,    // 이 체크인까지 포함한 총 포인트 (별 + 유성 + 체크인), 저장 실패면 null
     help: risk === "normal" ? null : HELP_MESSAGE,
     usedFallback,

@@ -22,7 +22,7 @@ import StarList from './star-list';
 import DressedSkyPerson from './dressed-sky-person';
 import { useCloseDialogOnHide } from './use-close-dialog-on-hide';
 import { finishHint, useSkyHints } from '@/lib/sky-hints';
-import { clearSkyFocus, peekSkyFocus } from '@/lib/service-guide';
+import { clearSkyFocus, peekSkyFocus, skyRevealLite, skyRevealQueued, useSkyRevealHidden } from '@/lib/service-guide';
 import { DAILY_STAR_LIMIT_MESSAGE, hasReachedDailyStarLimit, isTutorialStar } from '@/lib/star-limit';
 import { starDisplayDescription, starDisplayTitle } from '@/lib/star-display';
 
@@ -179,6 +179,14 @@ const CROWDED_SPACING = 40;
 // 목록에서 별을 고르고 도착한 뒤, 이름표가 눈에 들어올 만큼만 두고 바로 할 일 창
 const SHEET_DELAY_MS = 350;
 const HINT_DURATION_MS = { drag: 5500, star: 8000 };
+// 시작 안내 직후 밤하늘 연출(lib/service-guide.ts): 살짝 아래·옆에서 시작해 별이 켜지는 동안 천천히 올려다봄 (가벼운 연출이면 시점 이동 없음)
+const REVEAL_CAMERA_MS = 2600;
+const REVEAL_LIFT = 14 * RAD;
+const REVEAL_TURN = 8 * RAD;
+/** 연출 때 퀘스트 별이 나타나는 시각(ms): 지금 별자리(양자리)부터 하나씩, 다른 별자리는 그 뒤에 흩어져 (night-sky.css .sky-reveal) */
+function revealDelay(groupIndex: number, starIndex: number, isCurrent: boolean) {
+  return isCurrent ? 1000 + starIndex * 120 : 1350 + ((groupIndex * 7 + starIndex * 3) % 10) * 70;
+}
 
 export default function NightSky({ stars, selected, onSelect, busy, onReload, footer, nextLink, completedId, mode, totalPoints, onOpenQuest, questTrigger, questOpen, checkedInToday, hintsPaused = false }: {
   stars: Star[];
@@ -305,6 +313,11 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     const center = toLonLat(centers[safeIndex]);
     const initial = openFocused.current ? fitView(sky.points, frame.width, frame.height, freeBand())
       : { lon: center.lon, lat: Math.min(22 * RAD, center.lat), fov: FOV_MAX };
+    if (skyRevealQueued() && !skyRevealLite() && !openFocused.current) {
+      skyView.flyTo({ lon: initial.lon - REVEAL_TURN, lat: Math.max(0, initial.lat - REVEAL_LIFT), fov: initial.fov }, 0);
+      skyView.flyTo({ ...initial, lat: Math.max(0, initial.lat) }, REVEAL_CAMERA_MS);
+      return;
+    }
     skyView.flyTo({ ...initial, lat: Math.max(0, initial.lat) }, 0,
       { onArrival: openFocused.current ? () => finishFocus(safeIndex) : undefined });
   }, [centers, finishFocus, frame, safeIndex, skies]);
@@ -582,7 +595,9 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   const subtitle = detailed
     ? complete && current ? `${current.name}를 이었어요` : current?.theme
     : overviewSubtitle;
-  return <section className={`night${hint === 'star' ? ' hint-star' : ''}`} aria-label="내 밤하늘">
+  // 밤하늘 연출로 별·버튼이 아직 숨어 있는 동안은 눌리거나 초점이 가지 않게
+  const revealHidden = useSkyRevealHidden();
+  return <section className={`night${hint === 'star' ? ' hint-star' : ''}`} aria-label="내 밤하늘" inert={revealHidden || undefined}>
     <MeteorRewards key={mode} mode={mode} skyTotal={totalPoints} hintPaused={hintsPaused} />
 
     {current ? <>
@@ -705,7 +720,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
         const emphasis = isCurrent && detailed ? ' current' : isCurrent ? ' current far' : ' other';
         return <button key={s.starId} type="button"
           className={`nstar ${s.status}${emphasis}${selected?.starId === s.starId ? ' active' : ''}`}
-          style={{ '--star-x': `${p.x}px`, '--star-y': `${p.y}px`, animationDelay: `${(i * 0.7) % 3}s`,
+          style={{ '--star-x': `${p.x}px`, '--star-y': `${p.y}px`, animationDelay: `${(i * 0.7) % 3}s`, '--reveal-delay': `${revealDelay(gi, i, isCurrent)}ms`,
             '--star-hit-size': `${hitSize}px`, '--star-core-size': `${Math.min(29, Math.max(12, spacing - 2))}px`,
             '--star-light': (isCurrent ? .55 + .45 * starDetail : .42) * viewportLight(p.x, p.y, frame.width, frame.height),
             // 버튼(누르는 영역)은 그대로, 별 그림·빛만 확대 정도에 따라. 지금 별자리는 다른 별자리보다 조금 크게

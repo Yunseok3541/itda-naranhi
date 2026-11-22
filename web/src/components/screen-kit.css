@@ -324,16 +324,6 @@ html:has(dialog.apply-helper[open]), html:has(dialog.apply-helper[open]) body { 
   background: #f4d695; color: #271b34; box-shadow: none; font-weight: 750;
 }
 .night-ui button.quest-action:focus-visible { outline: 2px solid var(--star-gold); outline-offset: 2px; }
-/* 날씨 고르기: 접지 않고 5개를 한눈에 (quest-screen.tsx) */
-.quest-weather-options .small { margin: 0 0 8px; }
-.quest-weather-row { display: flex; flex-wrap: wrap; gap: 6px; }
-.night-ui .quest-weather-row .secondary {
-  width: auto; min-height: 40px; margin: 0; padding: 6px 14px; border-radius: 999px; font-size: .875rem;
-  border-color: #5e5080; background: #251d39; color: #e8defa;
-}
-.night-ui .quest-weather-row .secondary[aria-checked="true"] { border-color: var(--star-gold); background: rgba(246, 207, 125, .16); color: #ffe4a0; }
-.night-ui .quest-weather-row .secondary:focus-visible { outline: 2px solid var(--star-gold); outline-offset: 2px; }
-.quest-weather-options + button { margin-top: 12px; }
 
 /* 별 순서 표시 (StarProgress): 처음 시작 안내의 점(.guide-progress)과 같은 크기·간격, 켜진 단계만 별 */
 .star-progress { display: flex; align-items: center; gap: 7px; margin: 0; padding: 0; list-style: none; }
@@ -378,8 +368,3 @@ html:has(dialog.apply-helper[open]), html:has(dialog.apply-helper[open]) body { 
 .center-call-dialog .secondary { margin-top: 8px; }
 .night-ui .center-call-cancel { display: block; width: 100%; min-height: 44px; margin-top: 4px; }
 
-/* 별 기록: 날씨 별의 마음 날씨 고르기 (star-screen.tsx, 시작 안내의 .guide-weather와 같은 다섯 날씨) */
-.star-weather { margin-block: 14px 4px; }
-.star-weather .small { margin: 2px 0 8px; }
-.star-weather-options { display: flex; flex-wrap: wrap; gap: 8px; }
-.night-ui .star-weather-options .secondary { width: auto; min-height: 44px; margin: 0; padding: 8px 16px; border-radius: 999px; }
