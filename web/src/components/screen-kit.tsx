@@ -8,7 +8,7 @@
 // - 아이콘 단추에는 짧은 글자를 함께 붙인다. 근거: docs/기능발견성-조사.md
 // - 하단: 메인 이동 탭 없음 (mobile-flow.tsx)
 import Link from 'next/link';
-import { createContext, useContext, useId, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useId, useRef, type ReactNode } from 'react';
 import type { AccessoryId } from '@/lib/shop';
 import SkyPerson from './sky-person';
 import SkyControlIcon from './sky-control-icon';
@@ -30,6 +30,11 @@ export function ScreenBar({ title, back = '/sky', backLabel = '내 밤하늘로'
   const help = useContext(HelpContext);
   const localHelp = useRef<HTMLDialogElement>(null);
   const helpTitle = useId();
+  // 창을 연 채 뒤로 가기 등으로 화면을 떠나면 숨겨진 화면에 열린 채 남아 돌아올 때 다시 보임 → 떠날 때 닫음
+  useEffect(() => {
+    const dialog = localHelp.current;
+    return () => dialog?.close();
+  }, []);
   return <div className="screen-bar">
     {onBack
       ? <button type="button" className="screen-icon" aria-label={backLabel} onClick={onBack}>‹</button>
