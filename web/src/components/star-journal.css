@@ -85,3 +85,11 @@
   .journal-entry-day.focused .journal-entries { animation: journal-focus 1.6s ease-out; }
   @keyframes journal-focus { 0% { box-shadow: 0 0 0 rgba(246, 207, 125, 0); } 25% { box-shadow: 0 0 26px rgba(246, 207, 125, .4); } }
 }
+
+.journal-entry-star .sky-control-icon, .journal-mark .sky-control-icon,
+.journal-legend .sky-control-icon, .journal-recall-kind .sky-control-icon {
+  width: 1em;
+  height: 1em;
+  color: #d8bcff;
+  flex: none;
+}

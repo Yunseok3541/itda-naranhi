@@ -15,6 +15,24 @@ import { todayKst } from "../_lib/http";
 const TODAY_CHOICES = ["rest", "home", "near", "out"] as const;
 type TodayChoice = (typeof TODAY_CHOICES)[number];
 
+export async function GET() {
+  const session = await lookupDemoSession();
+  if (session.status === "none") return demoSessionRequired();
+  const headers = { "Cache-Control": "private, no-store" };
+  const unavailable = () => Response.json({ error: "한 줄 기록을 불러오지 못했어요." }, { status: 503, headers });
+  if (session.status === "error") return unavailable();
+  try {
+    const { rows } = await db.query(
+      `SELECT id, text, COALESCE(user_weather, weather) AS weather, created_at AS date
+       FROM checkins WHERE user_id = $1 ORDER BY created_at DESC, id DESC`,
+      [session.userId],
+    );
+    return Response.json({ checkins: rows }, { headers });
+  } catch {
+    return unavailable();
+  }
+}
+
 export async function POST(request: Request) {
   // 사용자는 요청 본문이 아니라 데모 세션 쿠키로 정한다.
   // 예전 클라이언트가 userId를 보내도 무시한다 (다른 사람 이름으로 저장할 수 없음)

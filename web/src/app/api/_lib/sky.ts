@@ -36,7 +36,7 @@ export async function getSky(userId: number, db: Db = pool): Promise<ApiResult> 
 
     const attempts = (
       await db.query<Memory & { star_id: number }>(
-        `SELECT id AS "attemptId", star_id, ${KST_DATE("created_at")} AS date, status, reflection,
+        `SELECT id AS "attemptId", star_id, ${KST_DATE("created_at")} AS date, created_at AS "recordedAt", status, reflection,
           parent_attempt_id AS "parentAttemptId", sub_quest_id AS "subQuestId", custom_title AS "customTitle"
          FROM star_attempts WHERE user_id = $1
          ORDER BY created_at DESC, id DESC`,
