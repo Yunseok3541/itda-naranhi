@@ -10,9 +10,10 @@
 // - [신청 도와줘]: 신청 도우미 창 (apply-helper.tsx, 고민기록 #39)
 // - [나랑 안 맞아요]: 이유를 고르면 그 정책은 다시 추천하지 않음. 지역·조건 이유는 피드백 루프로 (고민기록 #38)
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { client, policyCriteriaVersion, request, type Help, type Mode } from '@/lib/mobile-data';
-import type { StartAnswers } from '@/lib/profile';
+import { hasRecommendationCriteria, type StartAnswers } from '@/lib/profile';
 import type { HelperPolicy } from '@/lib/apply-helper';
 import ApplyHelper from './apply-helper';
 import GlassSelect from './glass-select';
@@ -98,6 +99,7 @@ const exampleHelperPolicy: HelperPolicy = {
 };
 
 export default function PoliciesScreen({ mode, onError, onClearError }: { mode: Mode; onError: (error: unknown) => void; onClearError: () => void }) {
+  useFirstVisitSetup(mode);
   const [view, setView] = useState<View>('recommended');
   const [filters, setFilters] = useState(emptyFilters);
   const [visibleCount, setVisibleCount] = useState(pageSize);
@@ -372,4 +374,22 @@ function NotForMe({ policyId, mode, onSent }: { policyId: number; mode: Mode; on
       <button type="button" onClick={() => void send()} disabled={!reason || busy}>{busy ? '보내는 중…' : '알려 주기'}</button>
     </div>
   </fieldset>;
+}
+
+/** 정책 화면 첫 방문: 추천 기준이 하나도 없으면 추천 기준 정하기(/policies/setup)로 한 번 안내.
+ *  한 번 안내했거나 이미 기준이 있으면 기억해서 다시 보내지 않음 (나가도 다시 끌려가지 않게, 브라우저·체험 방식별) */
+function useFirstVisitSetup(mode: Mode) {
+  const router = useRouter();
+  useEffect(() => {
+    const key = `naranhi-policy-setup-offered-${mode}`;
+    try { if (localStorage.getItem(key)) return; } catch { return; }
+    let active = true;
+    client(mode).profile().then(profile => {
+      if (!active) return;
+      const has = hasRecommendationCriteria(profile);
+      try { localStorage.setItem(key, has ? 'has-criteria' : 'offered'); } catch { /* 이번 방문만 */ }
+      if (!has) router.replace('/policies/setup');
+    }).catch(() => { /* 못 불러오면 안내하지 않고 정책 화면 그대로 */ });
+    return () => { active = false; };
+  }, [mode, router]);
 }
