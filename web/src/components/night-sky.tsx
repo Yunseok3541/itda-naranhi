@@ -161,6 +161,19 @@ function starView(points: Vec3[], index: number, width: number, height: number):
 // 별자리로 옮겨 가는 시간 (목록·하늘의 별자리·미니맵·최근 별자리·수평선 모두 같게).
 // 어디로 가는지 따라볼 수 있게 천천히: 1.6초 + 거리에 따라 최대 0.45초 (sky-view.ts flyTo)
 const FLIGHT_MS = 1600;
+/** 확대 정도에 따른 별 그림 크기 (누르는 영역은 그대로): 하늘 전체 0.55배 → 별자리 하나 볼 때 약 1배 → 끝까지 확대 1.3배.
+ *  별똥별(meteorScale)과 같은 로그 비율이라 당기고 밀 때 하늘이 다가오고 멀어지는 느낌 */
+const STAR_VISUAL_MIN = 0.55, STAR_VISUAL_MAX = 1.3;
+/** 별자리 하나를 가까이 볼 때(별을 눌러 다가간 기본 화면)의 확대 정도. 여기서 지금 크기(1배)가 되게 맞춤 */
+const STAR_VISUAL_BASE_ZOOM = 0.32;
+function starVisualScale(fov: number) {
+  const zoom = Math.log(FOV_MAX / Math.min(FOV_MAX, Math.max(FOV_MIN, fov))) / Math.log(FOV_MAX / FOV_MIN);
+  return zoom <= STAR_VISUAL_BASE_ZOOM
+    ? STAR_VISUAL_MIN + (1 - STAR_VISUAL_MIN) * (zoom / STAR_VISUAL_BASE_ZOOM)
+    : 1 + (STAR_VISUAL_MAX - 1) * ((zoom - STAR_VISUAL_BASE_ZOOM) / (1 - STAR_VISUAL_BASE_ZOOM));
+}
+/** 크게 본 별자리에서 이웃 별이 이만큼(px)보다 가까우면 바로 열지 않고 그 별 쪽으로 한 번 더 다가감 */
+const CROWDED_SPACING = 40;
 // 목록에서 별을 고르고 도착한 뒤, 이름표가 눈에 들어올 만큼만 두고 바로 할 일 창
 const SHEET_DELAY_MS = 350;
 const HINT_DURATION_MS = { drag: 5500, star: 8000 };
@@ -338,6 +351,14 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     skyView.flyTo(starView(sky.points, si, width, height), FLIGHT_MS, { onArrival: () => { finishFocus(gi, star.starId); onArrival?.(); } });
     return true;
   }
+  /** 별이 붙어 있어 고르기 어려울 때: 그 별을 가운데에 두고 한 번 더 확대 (도착하면 그 별 이름표) */
+  function zoomCloser(gi: number, si: number) {
+    const sky = skies[gi], star = groups[gi]?.stars[si];
+    if (!sky?.points[si] || !star) return false;
+    const fov = Math.max(FOV_MIN, skyView.get().fov * 0.55);
+    skyView.flyTo({ ...toLonLat(sky.points[si]), fov }, FLIGHT_MS * 0.7, { onArrival: () => finishFocus(gi, star.starId) });
+    return true;
+  }
   /** 목록에서 고름: 목록을 닫고 이동부터. 별을 골랐으면 도착해서 이름표를 보여 준 뒤 상세를 연다 */
   function revealFromList(i: number, star: Star | null) {
     closeList();
@@ -442,6 +463,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   // 시야가 가까워질수록 별이 선명해지고, 선은 그보다 늦게 드러난다.
   const overview = 1 - fadeBetween(FOV_MAX - 18 * RAD, FOV_MAX, view.fov);
   const starDetail = fadeBetween(38, 116, span) * overview;
+  const starVisual = starVisualScale(view.fov);
   const lineDetail = fadeBetween(64, 144, span) * overview;
 
   // 지금 별자리 별 이름표 자리 (겹치면 숨김)
@@ -564,13 +586,16 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
           style={{ '--star-x': `${p.x}px`, '--star-y': `${p.y}px`, animationDelay: `${(i * 0.7) % 3}s`,
             '--star-hit-size': `${hitSize}px`, '--star-core-size': `${Math.min(29, Math.max(12, spacing - 2))}px`,
             '--star-light': (isCurrent ? .55 + .45 * starDetail : .42) * viewportLight(p.x, p.y, frame.width, frame.height),
-            '--star-scale': isCurrent ? .72 + .28 * starDetail : .75,
+            // 버튼(누르는 영역)은 그대로, 별 그림·빛만 확대 정도에 따라. 지금 별자리는 다른 별자리보다 조금 크게
+            '--star-visual': starVisual * (isCurrent ? .9 + .1 * starDetail : .82),
           } as CSSProperties}
           aria-label={`${s.title}, ${labels[s.status]}${namedStar === s.starId ? (s.status === 'untried' ? ', 해 볼 일 열기' : ', 이 별의 기억 열기') : ''}`}
           onClick={() => {
             finishHint('star');
             // 멀리서 보고 있으면(축소했거나 다른 별자리) 먼저 그 별자리로 이동·확대, 크게 보고 있는 별자리면 기억 창
             if ((!isCurrent || !detailed) && namedStar !== s.starId) { jump(gi, s.starId); return; }
+            // 크게 본 별자리라도 이웃 별이 너무 가까우면(더 확대할 수 있을 때) 그 별 쪽으로 한 번 더 다가감
+            if (spacing < CROWDED_SPACING && view.fov > FOV_MIN * 1.15 && namedStar !== s.starId && zoomCloser(gi, i)) return;
             tap(s, p.x, p.y);
           }}>
           <span className="glow" aria-hidden="true" />
