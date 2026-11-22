@@ -89,9 +89,18 @@
 .badge small { font-size: .72rem; line-height: 1.35; color: var(--starlight-dim); word-break: keep-all; }
 .badge.earned { background: rgba(37, 32, 57, .88); border: 1px solid var(--star-gold-soft); }
 .badge.earned .badge-icon { background: radial-gradient(circle at 50% 35%, #fff1c9, var(--star-gold) 65%, #c9933e); color: #24183f; box-shadow: 0 0 14px rgba(246, 207, 125, .45); }
-.badge-waiting { margin-top: 10px; }
-.badge-waiting summary { color: var(--starlight-dim); font-weight: 650; padding-block: 8px; }
-.badge-waiting .badge { opacity: .75; }
+/* 앞으로 만날 배지: 옆으로 넘겨 보는 흐린 카드 줄 (토글 없음) */
+.badge-waiting { margin-top: 14px; }
+.badge-waiting h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: .9rem; color: var(--starlight-dim); }
+.badge-waiting h3 span { padding: 0 7px; border-radius: 999px; font-size: .72rem; background: rgba(255, 255, 255, .08); color: var(--starlight); }
+.badge-strip {
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(112px, 30%); gap: 8px;
+  margin: 0 -16px; padding: 2px 16px 10px; list-style: none; overflow-x: auto; overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity; scrollbar-width: none;
+}
+.badge-strip::-webkit-scrollbar { display: none; }
+.badge-strip .badge { scroll-snap-align: start; opacity: .78; }
+.badge-strip .badge-icon { filter: grayscale(.6); }
 
 .profile-log { list-style: none; margin: 0; padding: 4px 14px; border-radius: 16px; background: rgba(37, 32, 57, .82); border: 1px solid rgba(255, 255, 255, .12); }
 .profile-log li { display: grid; grid-template-columns: 22px 1fr auto; align-items: start; gap: 10px; padding: 12px 0; border-top: 1px solid rgba(255, 255, 255, .1); }
