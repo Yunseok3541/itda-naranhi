@@ -6,7 +6,7 @@
 // - 요즘의 나를 마치면 한 번 쉬어 감: 신청 정보는 더 민감하니 이어서 알려 줄지 고르게 하고, 여기까지만 저장할 수도 있게
 // - 모두 선택. 안 고르면 다음 버튼이 "건너뛰기". 이전·다음 버튼은 질문마다 카드 길이가 달라도 화면 아래 같은 자리
 // - 저장하면 정책 화면이 새 기준으로 다시 불러오게 표시하고(markPoliciesStale) 정책 추천으로 돌아감
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import {
   EMPTY_POLICY_INFO, EMPTY_START, INCOME, JOB, LIVING, MARRIED, NEEDS, SCHOOL, SPECIAL, SUPPORT, parseBirthYear,
   type PolicyInfo, type StartAnswers,
@@ -117,23 +117,12 @@ export default function PolicySetup({ mode, onExit, onSaved }: {
         options={LIVING} value={start.living} onChange={setS('living')} disabled={busy} />;
       case 'needs': return <Choices legend="요즘 가장 도움이 필요한 건?" hint="고른 분야의 정책을 먼저 보여 드려요. 여러 개 골라도 돼요."
         options={NEEDS} multiple value={start.needs} onChange={setS('needs')} disabled={busy} />;
-      case 'birth': {
-        const typed = birth.length === 4;
-        return <div className="policy-setup-birth">
-          <label htmlFor="policy-setup-year" className="policy-setup-legend">태어난 해를 알려 주세요</label>
-          <p className="choice-hint">나이 조건이 맞지 않는 정책을 미리 빼 드려요.</p>
-          <div className="policy-setup-year">
-            <input id="policy-setup-year" inputMode="numeric" autoComplete="off" maxLength={4} placeholder="예: 2001"
-              aria-describedby="policy-setup-year-range" disabled={busy} value={birth}
-              onChange={e => setBirth(e.target.value.replace(/\D/g, '').slice(0, 4))}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); next(); } }} />
-            <span aria-hidden="true">년</span>
-          </div>
-          <p id="policy-setup-year-range" className="policy-setup-range" data-warn={typed && birthValue === undefined || undefined} aria-live="polite">
-            {typed && birthValue === undefined ? `${year - 45}~${year - 15}년 사이로 적어 주세요.` : `${year - 45}~${year - 15}년생까지 적을 수 있어요.`}
-          </p>
-        </div>;
-      }
+      case 'birth': return <div className="policy-setup-birth">
+        <p id="policy-setup-year-label" className="policy-setup-legend">태어난 해를 알려 주세요</p>
+        <p className="choice-hint">나이 조건이 맞지 않는 정책을 미리 빼 드려요. 위아래로 끌어서 맞춰 주세요.</p>
+        <BirthWheel from={year - 45} to={year - 15} value={birthValue ?? null} disabled={busy}
+          onChange={y => setBirth(y === null ? '' : String(y))} labelledBy="policy-setup-year-label" />
+      </div>;
       case 'job': return <Choices legend="지금 일하고 있나요?" options={JOB} value={info.job} onChange={setI('job')} disabled={busy} />;
       case 'school': return <Choices legend="학력은 어떻게 되나요?" hint="가장 최근 기준으로 골라 주세요."
         options={SCHOOL} value={info.school} onChange={setI('school')} disabled={busy} />;
@@ -194,5 +183,65 @@ export default function PolicySetup({ mode, onExit, onSaved }: {
       <button type="button" className="secondary" disabled={busy} onClick={() => pos === 0 ? onExit() : go(pos - 1)}>이전</button>
       <button type="button" disabled={busy || blocked} onClick={next}>{label}</button>
     </nav>
+  </div>;
+}
+
+/** 태어난 해 휠: 위아래로 끌어서 가운데 칸에 맞추면 그 해 (숫자를 눌러도, ↑↓ 키로도).
+ *  처음엔 안 고른 상태 — 가운데 연도가 흐리게 보이고, 사용자가 직접 움직이기 전에는 값으로 치지 않음 (그대로 "건너뛰기" 가능) */
+const ROW = 44, VISIBLE = 5;
+function BirthWheel({ from, to, value, onChange, disabled, labelledBy }: {
+  from: number; to: number; value: number | null; onChange: (year: number | null) => void; disabled?: boolean; labelledBy: string;
+}) {
+  const years = Array.from({ length: to - from + 1 }, (_, i) => from + i);
+  const wheel = useRef<HTMLDivElement>(null);
+  const touched = useRef(false);
+  const settle = useRef<number | undefined>(undefined);
+  const [centered, setCentered] = useState(() => years.indexOf(value ?? to - 10));
+  const index = (y: number) => Math.max(0, Math.min(years.length - 1, years.indexOf(y)));
+  // 처음 그릴 때: 고른 해(없으면 기본 위치)를 가운데로, 사용자가 움직인 것으로 치지 않음
+  useLayoutEffect(() => {
+    const el = wheel.current;
+    if (el) el.scrollTop = index(value ?? to - 10) * ROW;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  function scrollTo(i: number, smooth = true) {
+    wheel.current?.scrollTo({ top: i * ROW, behavior: smooth && !matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'auto' });
+  }
+  function onScroll() {
+    const el = wheel.current;
+    if (!el) return;
+    const i = Math.max(0, Math.min(years.length - 1, Math.round(el.scrollTop / ROW)));
+    setCentered(i);
+    window.clearTimeout(settle.current);
+    // 멈추면 가운데 해를 고름 (사용자가 직접 움직였을 때만)
+    settle.current = window.setTimeout(() => { if (touched.current) onChange(years[i]); }, 120);
+  }
+  function onKey(event: KeyboardEvent<HTMLDivElement>) {
+    const step = event.key === 'ArrowUp' ? -1 : event.key === 'ArrowDown' ? 1 : event.key === 'PageUp' ? -5 : event.key === 'PageDown' ? 5 : 0;
+    if (!step) return;
+    event.preventDefault();
+    touched.current = true;
+    const i = Math.max(0, Math.min(years.length - 1, centered + step));
+    scrollTo(i); onChange(years[i]);
+  }
+  const shown = years[centered];
+  return <div className="birth-wheel-wrap" data-empty={value === null || undefined}>
+    <div className="birth-wheel-frame">
+      <div ref={wheel} className="birth-wheel" role="listbox" tabIndex={disabled ? -1 : 0} aria-labelledby={labelledBy}
+        aria-activedescendant={value !== null ? `birth-${value}` : undefined}
+        onScroll={onScroll} onKeyDown={onKey}
+        onPointerDown={() => { touched.current = true; }} onWheel={() => { touched.current = true; }} onTouchStart={() => { touched.current = true; }}
+        style={{ height: ROW * VISIBLE, paddingBlock: ROW * (VISIBLE - 1) / 2 }}>
+        {years.map((y, i) => <div key={y} id={`birth-${y}`} role="option" aria-selected={value === y}
+          className={`birth-wheel-item${i === centered ? ' centered' : ''}`} style={{ height: ROW }}
+          onClick={() => { if (disabled) return; touched.current = true; scrollTo(i); onChange(y); }}>{y}</div>)}
+      </div>
+      <span className="birth-wheel-band" aria-hidden="true"><span>년</span></span>
+    </div>
+    <p className="birth-wheel-state" aria-live="polite">
+      {value !== null ? <><b>{value}년생</b>으로 골랐어요</> : <>아직 고르지 않았어요 · 끌어서 맞춰 주세요 <span className="sr-only">(가운데 {shown}년)</span></>}
+    </p>
+    {value !== null && <button type="button" className="text-button birth-wheel-clear" disabled={disabled}
+      onClick={() => { touched.current = false; onChange(null); }}>선택 지우기</button>}
   </div>;
 }
