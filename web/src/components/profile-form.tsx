@@ -209,16 +209,20 @@ export function ProfileScreen({ mode, onSaved }: { mode: Mode; onSaved?: () => v
         </button>
       </div>
     </section>}
-    <details className="card">
-      <summary>정책 신청 정보 (선택)</summary>
-      <p className="small">알려 주시면 신청 조건이 맞지 않는 정책을 추천에서 미리 빼 드려요. 이 정보는 AI에 보내지 않고, 자격은 원문에서 꼭 다시 확인해 주세요.</p>
-      <PolicyInfoQuestions value={info} birthYear={birth} onChange={setInfo} onBirthYear={setBirth} disabled={busy} />
-      {!onSaved && <button disabled={busy || (birth !== '' && birth.length !== 4)} onClick={() => save({ policyInfo: info, birthYear }, '정책 신청 정보를 저장했어요.')}>{state === 'saving' ? '저장 중…' : '정책 신청 정보 저장'}</button>}
-      <button className="secondary" disabled={busy} onClick={() => {
-        if (onSaved) { setInfo(EMPTY_POLICY_INFO); setBirth(''); }
-        else void save({ policyInfo: null, birthYear: null }, '정책 신청 정보를 모두 지웠어요.');
-      }}>{onSaved ? '입력값 비우기' : '정책 신청 정보 모두 지우기'}</button>
-    </details>
+    {/* 접기 대신 위 질문들과 같은 한 줄 목록 → 누르면 입력 창 */}
+    <section className="card criteria-policy-info">
+      <ul className="criteria-rows">
+        <CriteriaRow label="정책 신청 정보 (선택)" summary={policyInfoFilled(info, birth) ? '입력함' : '입력 안 함'} disabled={busy} done={onSaved ? '다 입력했어요' : '닫기'}>
+          <p className="small">알려 주시면 신청 조건이 맞지 않는 정책을 추천에서 미리 빼 드려요. 이 정보는 AI에 보내지 않고, 자격은 원문에서 꼭 다시 확인해 주세요.</p>
+          <PolicyInfoQuestions value={info} birthYear={birth} onChange={setInfo} onBirthYear={setBirth} disabled={busy} />
+          {!onSaved && <button disabled={busy || (birth !== '' && birth.length !== 4)} onClick={() => save({ policyInfo: info, birthYear }, '정책 신청 정보를 저장했어요.')}>{state === 'saving' ? '저장 중…' : '정책 신청 정보 저장'}</button>}
+          <button className="secondary" disabled={busy} onClick={() => {
+            if (onSaved) { setInfo(EMPTY_POLICY_INFO); setBirth(''); }
+            else void save({ policyInfo: null, birthYear: null }, '정책 신청 정보를 모두 지웠어요.');
+          }}>{onSaved ? '입력값 비우기' : '정책 신청 정보 모두 지우기'}</button>
+        </CriteriaRow>
+      </ul>
+    </section>
     {onSaved && <button disabled={busy || (birth !== '' && birth.length !== 4)} onClick={() => save({ startAnswers: start, policyInfo: info, birthYear }, '')}>
       {state === 'saving' ? '저장 중…' : '저장하고 추천 보기'}
     </button>}
@@ -256,4 +260,9 @@ export function CriteriaRow({ label, summary, disabled, children, done = '다 �
       <button type="button" className="criteria-sheet-done" onClick={close}>{done}</button>
     </dialog>
   </li>;
+}
+
+/** 정책 신청 정보를 하나라도 입력했는지 (목록 오른쪽 "입력함 / 입력 안 함") */
+function policyInfoFilled(info: PolicyInfo, birth: string) {
+  return birth !== '' || Object.values(info).some(v => Array.isArray(v) ? v.length > 0 : v !== null);
 }

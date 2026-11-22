@@ -29,3 +29,6 @@ html:has(dialog.criteria-sheet[open]) { overflow: hidden; }
   .criteria-sheet[open] { animation: criteria-sheet-up .24s cubic-bezier(.2, .8, .2, 1); }
   @keyframes criteria-sheet-up { from { translate: 0 30px; opacity: .4; } }
 }
+.night-ui .criteria-policy-info { padding-block: 6px; }
+.criteria-sheet-body > .small:first-child { margin-top: 0; }
+.criteria-sheet-body .glass-select { margin-block: 10px 0; }
