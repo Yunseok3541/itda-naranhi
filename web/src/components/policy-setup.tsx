@@ -28,6 +28,10 @@ const NAMES: Record<Key, string> = {
   birth: '태어난 해', job: '일', school: '학력', married: '결혼', income: '연소득', special: '해당 상황',
 };
 
+/** "그 밖에"의 뜻: 답하지 않음과 같게 정책을 빼지 않고 '확인할 조건'으로 보여 줌 (lib/policy-eligibility.ts).
+ *  자유롭게 적는 칸은 두지 않음 — 정해진 자격 코드로만 비교하고, 신청 정보는 AI에 보내지 않기로 해서 적어도 쓸 곳이 없음 */
+const OTHER_SUB = { other: "목록에 없으면 골라 주세요. 정책을 빼지 않고 '확인할 조건'으로 알려 드려요" } as const;
+
 /** 서버와 같은 기준(한국 날짜)의 올해. 출생연도는 만 15~45세쯤만 받음 (lib/profile.ts parseBirthYear) */
 const thisYear = () => Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric' }).format(new Date()));
 
@@ -123,9 +127,9 @@ export default function PolicySetup({ mode, onExit, onSaved }: {
         <BirthWheel from={year - 45} to={year - 15} value={birthValue ?? null} disabled={busy}
           onChange={y => setBirth(y === null ? '' : String(y))} labelledBy="policy-setup-year-label" />
       </div>;
-      case 'job': return <Choices legend="지금 일하고 있나요?" options={JOB} value={info.job} onChange={setI('job')} disabled={busy} />;
+      case 'job': return <Choices legend="지금 일하고 있나요?" options={JOB} subs={OTHER_SUB} value={info.job} onChange={setI('job')} disabled={busy} />;
       case 'school': return <Choices legend="학력은 어떻게 되나요?" hint="가장 최근 기준으로 골라 주세요."
-        options={SCHOOL} value={info.school} onChange={setI('school')} disabled={busy} />;
+        options={SCHOOL} subs={OTHER_SUB} value={info.school} onChange={setI('school')} disabled={busy} />;
       case 'married': return <Choices legend="결혼했나요?" hint="미혼·신혼부부처럼 결혼 여부를 보는 정책이 있어서 물어요."
         options={MARRIED} value={info.married} onChange={setI('married')} disabled={busy} />;
       case 'income': return <Choices legend="본인 연소득은 어느 정도예요?" hint="가족 소득 말고 나의 1년 소득이에요."

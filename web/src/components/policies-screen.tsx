@@ -99,7 +99,8 @@ const exampleHelperPolicy: HelperPolicy = {
 };
 
 export default function PoliciesScreen({ mode, onError, onClearError }: { mode: Mode; onError: (error: unknown) => void; onClearError: () => void }) {
-  useFirstVisitSetup(mode);
+  // 추천 기준이 아직 없으면 위쪽 버튼을 "추천 기준 정하기"(질문 하나씩)로, 있으면 "추천 기준 바꾸기"
+  const hasCriteria = useFirstVisitSetup(mode);
   const [view, setView] = useState<View>('recommended');
   const [filters, setFilters] = useState(emptyFilters);
   const [visibleCount, setVisibleCount] = useState(pageSize);
@@ -236,7 +237,9 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
         </button>)}
     </div>
     <nav className="policy-quick-links" aria-label="정책과 센터 바로가기">
-      <Link className="policy-quick-link" href="/policies/criteria"><SkyControlIcon name="policy" />추천 기준 바꾸기<span aria-hidden="true">›</span></Link>
+      {hasCriteria === false
+        ? <Link className="policy-quick-link" href="/policies/setup"><SkyControlIcon name="policy" />추천 기준 정하기<span aria-hidden="true">›</span></Link>
+        : <Link className="policy-quick-link" href="/policies/criteria"><SkyControlIcon name="policy" />추천 기준 바꾸기<span aria-hidden="true">›</span></Link>}
       <Link className="policy-quick-link" href="/centers?from=policies"><SkyControlIcon name="center" />청년센터 살펴보기<span aria-hidden="true">›</span></Link>
     </nav>
     {favorites && saved.ids.length === 0 && <p className="card">찜한 정책이 없어요. 정책 카드의 별(☆)을 누르면 여기에 담겨요.</p>}
@@ -380,16 +383,22 @@ function NotForMe({ policyId, mode, onSent }: { policyId: number; mode: Mode; on
  *  한 번 안내했거나 이미 기준이 있으면 기억해서 다시 보내지 않음 (나가도 다시 끌려가지 않게, 브라우저·체험 방식별) */
 function useFirstVisitSetup(mode: Mode) {
   const router = useRouter();
+  // null = 아직 모름(불러오는 중·실패) → 버튼은 기존 "추천 기준 바꾸기"
+  const [has, setHas] = useState<boolean | null>(null);
   useEffect(() => {
     const key = `naranhi-policy-setup-offered-${mode}`;
-    try { if (localStorage.getItem(key)) return; } catch { return; }
+    let offered = true;
+    try { offered = !!localStorage.getItem(key); } catch { /* 저장소를 못 쓰면 안내하지 않음 */ }
     let active = true;
     client(mode).profile().then(profile => {
       if (!active) return;
-      const has = hasRecommendationCriteria(profile);
-      try { localStorage.setItem(key, has ? 'has-criteria' : 'offered'); } catch { /* 이번 방문만 */ }
-      if (!has) router.replace('/policies/setup');
+      const found = hasRecommendationCriteria(profile);
+      setHas(found);
+      if (offered) return;
+      try { localStorage.setItem(key, found ? 'has-criteria' : 'offered'); } catch { /* 이번 방문만 */ }
+      if (!found) router.replace('/policies/setup');
     }).catch(() => { /* 못 불러오면 안내하지 않고 정책 화면 그대로 */ });
     return () => { active = false; };
   }, [mode, router]);
+  return has;
 }
