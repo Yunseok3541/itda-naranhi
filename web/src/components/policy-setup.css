@@ -40,9 +40,11 @@
 }
 .policy-setup-promises span { color: var(--star-gold); font-weight: 800; }
 .night-ui .policy-setup-break .small { margin: 10px 0 0; }
-.night-ui .policy-setup-break .secondary { margin: 16px 0 0; }
 
 /* 이전 · 다음: 시작 질문처럼 카드 안, 선택지 바로 아래 */
 .policy-setup-nav { display: grid; grid-template-columns: minmax(5.5em, 2fr) 3fr; gap: 10px; margin-top: 18px; }
 .policy-setup-card > .error { margin: 12px 0 0; }
 .night-ui .policy-setup-nav button { margin: 0; min-height: 52px; border-radius: 16px; }
+
+/* 쉬어 가는 화면의 "여기까지만 저장하고 추천 보기": 버튼 줄 아래 작은 글자 (숨기지 않음) */
+.night-ui .policy-setup-stop { display: block; width: 100%; min-height: 44px; margin: 8px 0 0; padding: 0; color: var(--starlight-dim); font-size: .875rem; text-decoration: underline; text-underline-offset: 3px; }

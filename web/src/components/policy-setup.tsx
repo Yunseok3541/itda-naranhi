@@ -47,6 +47,8 @@ export default function PolicySetup({ mode, onExit, onSaved }: {
   const [dir, setDir] = useState<'fwd' | 'back'>('fwd');
   const step = useRef<HTMLDivElement>(null);
   const shownPos = useRef(pos);
+  // 쉬어 가는 화면에서도 이전·다음 줄이 앞 질문과 같은 높이에 오게, 넘어가기 전 질문 칸의 높이를 기억
+  const lastStepHeight = useRef<number | null>(null);
 
   // 다른 화면으로 갔다 돌아오면 첫 질문부터 (cacheComponents로 숨겨진 화면도 상태가 남음, 마음 짚기와 같은 방식)
   // 다시 보일 때 아래 불러오기도 다시 돌아 저장된 답을 새로 읽음
@@ -84,6 +86,7 @@ export default function PolicySetup({ mode, onExit, onSaved }: {
   const blocked = current === 'birth' && birthValue === undefined;
 
   function go(next: number) {
+    lastStepHeight.current = step.current?.offsetHeight ?? null;
     setDir(next > pos ? 'fwd' : 'back');
     setPos(next);
     setError('');
@@ -172,7 +175,8 @@ export default function PolicySetup({ mode, onExit, onSaved }: {
         <h2 className="policy-setup-topic">{topic}</h2>
         <p className="small">모두 선택이에요. 고르지 않고 넘어가도 괜찮아요.</p>
       </div>
-      <div key={pos} ref={step} tabIndex={-1} className="policy-setup-step step-slide" data-dir={dir}>
+      <div key={pos} ref={step} tabIndex={-1} className="policy-setup-step step-slide" data-dir={dir}
+        style={current === 'break' && lastStepHeight.current ? { minHeight: lastStepHeight.current } : undefined}>
         {current === 'break' ? <div className="policy-setup-break">
           <h2 className="policy-setup-legend">신청 정보도 알려 줄래요?</h2>
           <p>나이·일·학력·결혼·소득·해당 상황, 6가지를 물어요. 알려 주면 신청 조건이 맞지 않는 정책을 추천에서 미리 빼 드려요.</p>
@@ -182,9 +186,6 @@ export default function PolicySetup({ mode, onExit, onSaved }: {
             <li><span aria-hidden="true">✓</span>언제든 지울 수 있어요</li>
           </ul>
           <p className="small">자격은 정책 원문에서 꼭 다시 확인해 주세요.</p>
-          <button type="button" className="secondary" disabled={busy} onClick={() => void save({ startAnswers: start })}>
-            여기까지만 저장하고 추천 보기
-          </button>
         </div> : question(current)}
       </div>
       {/* 시작 질문처럼 이전·다음은 카드 안, 선택지 바로 아래 */}
@@ -193,6 +194,9 @@ export default function PolicySetup({ mode, onExit, onSaved }: {
         <button type="button" className="secondary" disabled={busy} onClick={() => pos === 0 ? onExit() : go(pos - 1)}>이전</button>
         <button type="button" disabled={busy || blocked} onClick={next}>{label}</button>
       </nav>
+      {/* 쉬어 가는 화면: 습관대로 누르던 자리는 "이어서 알려 주기", 여기서 마치는 길은 숨기지 않고 버튼 줄 아래 작은 글자로 */}
+      {current === 'break' && <button type="button" className="text-button policy-setup-stop" disabled={busy}
+        onClick={() => void save({ startAnswers: start })}>여기까지만 저장하고 추천 보기</button>}
     </section>
   </div>;
 }
