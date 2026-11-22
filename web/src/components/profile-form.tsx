@@ -42,7 +42,7 @@ type ChoiceProps<K extends string> = {
   { multiple: true; value: K[] | null; onChange: (v: K[] | null) => void; none?: string }
   | { multiple?: false; value: K | null; onChange: (v: K | null) => void; none?: undefined }
 );
-function Choices<K extends string>(props: ChoiceProps<K>) {
+export function Choices<K extends string>(props: ChoiceProps<K>) {
   const { legend, hint, options, subs, disabled } = props;
   const name = useId();
   const picked = (k: K) => props.multiple ? !!props.value?.includes(k) : props.value === k;
