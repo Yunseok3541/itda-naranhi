@@ -118,9 +118,12 @@
 .night-ui .shop-product .shop-product-status[data-state="unavailable"] { color: #ddd2e7; }
 .night-ui .shop-product .shop-product-shortfall { color: #dfc0d3; font-size: .7rem; white-space: nowrap; }
 .shop-product:has([data-state="unavailable"]) .shop-product-art { filter: saturate(.68); }
-.shop-earn { margin-block: 12px; padding-inline: 10px; border-bottom: 1px solid #c6acd94d; }
-.shop-earn summary { min-height: 44px; padding-block: 9px; color: #ffe7b8; }
-.shop-earn ul { margin: 0 0 12px; padding-inline-start: 1.2em; }
+/* 포인트 모으는 방법: 접지 않고 칩 3개로 늘 보이게 */
+.shop-earn { margin-block: 14px 6px; }
+.shop-earn h2 { margin: 0 0 8px; font-size: .875rem; font-weight: 650; color: #ffe7b8; }
+.shop-earn ul { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.shop-earn li { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: .8125rem; color: rgba(238, 233, 255, .86); background: rgba(255, 255, 255, .06); border: 1px solid #c6acd94d; }
+.shop-earn li b { color: #ffe4a0; font-weight: 700; }
 .shop-selection-mark {
   position: absolute;
   top: 4px;

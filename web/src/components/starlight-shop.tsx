@@ -70,14 +70,15 @@ export default function StarlightShop({ mode }: { mode: Mode }) {
           animate={arrival > 0 && !!notice && !choice} /></div>
         <p className="shop-preview-name" aria-live="polite">{item?.name ?? '장식을 눌러 미리 써 볼 수 있어요'}</p>
       </div>
-      <details className="shop-earn">
-        <summary>포인트 모으는 방법</summary>
+      {/* 짧고 자주 궁금한 정보라 접지 않고 늘 보이게 */}
+      <section className="shop-earn" aria-labelledby="shop-earn-title">
+        <h2 id="shop-earn-title">포인트 모으는 방법</h2>
         <ul>
-          <li>하루 첫 한 줄 기록 +{CHECKIN_POINTS}P</li>
-          <li>별을 처음 따면 난이도에 따라 +10~40P</li>
-          <li>별똥별을 잡으면 +{METEOR_POINTS}P</li>
+          <li><span>하루 첫 한 줄 기록</span><b>+{CHECKIN_POINTS}P</b></li>
+          <li><span>별을 처음 따면</span><b>+10~40P</b></li>
+          <li><span>별똥별 잡기</span><b>+{METEOR_POINTS}P</b></li>
         </ul>
-      </details>
+      </section>
       <h2 className="shop-heading" id="shop-accessories">머리 장식</h2>
       <div className="shop-stock" role="group" aria-labelledby="shop-accessories">
         {accessories.map(product => {
