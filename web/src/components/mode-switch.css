@@ -1,0 +1,19 @@
+/* 첫 화면 체험 방식 (mode-switch.tsx) */
+.mode-switch-line { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px 8px; margin: 10px 0 0; font-size: .8125rem; color: var(--starlight-dim); }
+.sky-mode .mode-switch-open { width: auto; min-height: 36px; padding: 0 12px; margin: 0; font-size: .8125rem; color: var(--starlight); }
+.mode-switch-dialog {
+  position: fixed; inset: 0; width: min(340px, calc(100% - 40px)); margin: auto; padding: 20px 18px 12px;
+  border-radius: 20px; border: 1px solid var(--glass-line); background: #15123a; color: var(--starlight);
+}
+.mode-switch-dialog::backdrop { background: rgba(8, 5, 22, .6); }
+.mode-switch-dialog h2 { margin: 0 0 4px; font-size: 1.1rem; }
+.mode-switch-dialog .small { margin: 0 0 12px; color: var(--starlight-dim); }
+.mode-options { display: grid; gap: 8px; }
+.mode-switch-dialog button.mode-option {
+  display: grid; gap: 2px; justify-items: start; width: 100%; min-height: 60px; margin: 0; padding: 10px 14px; border-radius: 14px;
+  text-align: left; background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .16); color: var(--starlight);
+}
+.mode-switch-dialog button.mode-option small { font-size: .78rem; color: var(--starlight-dim); }
+.mode-switch-dialog button.mode-option[aria-checked="true"] { border-color: var(--star-gold); background: rgba(246, 207, 125, .12); }
+.mode-switch-dialog button.mode-option[aria-checked="true"] b { color: #ffe4a0; }
+.mode-switch-dialog .mode-switch-close { display: block; width: 100%; min-height: 44px; margin-top: 6px; border: 0; color: var(--starlight-dim); }

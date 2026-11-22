@@ -8,9 +8,9 @@ import PoliciesScreen from './policies-screen';
 import CentersScreen from './centers-screen';
 import SkyPanorama from '@/app/sky-preview/sky-panorama';
 import { ProfileScreen, StartQuestions, startStepAnswered } from './profile-form';
-import GlassSelect from './glass-select';
 import StarlightShop from './starlight-shop';
 import StarJournal from './star-journal';
+import ModeSwitch from './mode-switch';
 import ProfileHome from './profile-home';
 import { PendingNextLink } from './next-step-card';
 import QuestScreen from './quest-screen';
@@ -299,13 +299,9 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  : !ready ? startStep === null ? <>
    <div className="intro"><span className="welcome-icon" aria-hidden="true">✦<sup>✧</sup></span><h1>오늘의 작은 시도가<br/>별이 되는 곳</h1><p>다 해내지 않아도 괜찮아요.<br/>손을 뻗은 순간도 하늘에 남아요.</p>
      <button type="button" onClick={() => { setStartDir('fwd'); setStartStep(0); }}>데모 시작</button>
-     <p className="small">{mode === 'example' ? '예시 모드 · 이 브라우저에 기록해요' : '실제 API 모드 · 서버 세션에 기록해요'}</p>
+     {/* 체험 방식: 접기 대신 지금 방식 한 줄 + [바꾸기] → 작은 창 */}
+     <ModeSwitch mode={mode} onChange={M} />
    </div>
-   <details className="onboarding"><summary>체험 방식</summary><section className="card">
-     <p>가상 내용으로 체험해 주세요. 실제 개인정보는 입력하지 마세요.</p>
-     <GlassSelect<Mode> label="체험 방식" value={mode} onChange={M}
-       options={[{ value: 'example', label: '예시 모드 · 브라우저 저장' }, { value: 'api', label: '실제 API · 서버 세션' }]} />
-   </section></details>
  </> : <section className="card onboarding-step start-survey" aria-label={`시작 질문 ${startStep + 1}/3`}>
    {/* 순서는 숫자(1/3) 대신 별이 하나씩 켜짐 (처음 시작 안내의 점과 같은 모양, 마음 짚기 질문과 같이 가운데) */}
    <div className="onboarding-step-top">
