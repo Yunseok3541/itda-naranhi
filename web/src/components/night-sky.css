@@ -678,7 +678,12 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .shell.night-ui { padding-bottom: calc(32px + env(safe-area-inset-bottom)); }
 
 
-:is(.sky-locked, .sky-intro) .sky-top { display: grid; grid-template-columns: repeat(2, minmax(0, clamp(120px, 38vw, 146px))); align-items: center; }
+:is(.sky-locked, .sky-intro) .sky-top {
+  display: grid;
+  grid-template-columns: minmax(min-content, 1fr) 40px minmax(min-content, 1fr);
+  align-items: center;
+  gap: 6px;
+}
 :is(.sky-locked, .sky-intro) .sky-top .sky-pill {
   min-height: 32px;
   padding-inline: 9px;
@@ -816,7 +821,7 @@ html.sky-locked-page { --sky-dock-height: 96px; --person-height: clamp(77px, 16d
   box-shadow: 0 3px 13px #08041546;
 }
 /* 오른쪽 버튼은 줄 오른쪽 끝에 붙여 아래 도움받을 곳 창의 오른쪽 끝과 맞춤 */
-:is(.sky-locked, .sky-intro) .sky-top .sky-pill.sky-utility:nth-child(2) { justify-self: end; }
+:is(.sky-locked, .sky-intro) .sky-top .sky-pill:is(.sky-resource-button, .sky-catalog-button) { justify-self: end; }
 :is(.sky-locked, .sky-intro) .sky-top .sky-utility:is(:hover, :focus-visible, [aria-expanded="true"]) { border-color: var(--sky-utility-ink); }
 .sky-help-button {
   --sky-utility-border: #bfaed760;
@@ -1010,7 +1015,6 @@ html.sky-locked-page { --sky-dock-height: 96px; --person-height: clamp(77px, 16d
 
 /* 배경음악 켜기/끄기 (bgm.tsx). 메인·첫 화면 위쪽 두 버튼 사이 가운데 */
 .sky-top .bgm-toggle {
-  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
   display: grid; place-items: center; align-content: center; gap: 1px; width: 40px; height: 44px; min-height: 0; padding: 1px 0;
   border-radius: 50%; color: #f0e6ff;
   border: 1px solid #b9a6e07a; background: #2a1f3dcc; box-shadow: 0 3px 13px #08041546;

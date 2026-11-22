@@ -262,6 +262,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
        <button type="button" className="sky-pill sky-utility sky-help-button" aria-expanded={help?.title===HELP.title} onClick={()=>H(h=>h?.title===HELP.title?null:HELP)}>
          <span className="sky-utility-symbol"><SkyControlIcon name="help" /></span><span>도움받을 곳</span>
        </button>
+       <BgmToggle />
        <button type="button" className="sky-pill sky-utility sky-resource-button" aria-haspopup="dialog" onClick={() => resources.current?.showModal()}>
          <span className="sky-utility-symbol"><SkyControlIcon name="center" /></span><span>청년센터·정책</span>
        </button>
@@ -275,7 +276,6 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
          </Link>
          <form method="dialog"><button className="ghost sky-icon-action"><SkyControlIcon name="close" /> 닫기</button></form>
        </dialog>
-       <BgmToggle />
      </header>
    : ready&&!guiding
    // 다른 화면은 ScreenBar에 뒤로가기, 제목, 도움받을 곳을 표시한다.
@@ -285,10 +285,10 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
        <button type="button" className="sky-pill sky-utility sky-help-button" aria-expanded={help?.title===HELP.title} onClick={()=>H(h=>h?.title===HELP.title?null:HELP)}>
          <span className="sky-utility-symbol"><SkyControlIcon name="help" /></span><span>도움받을 곳</span>
        </button>
+       <BgmToggle />
        <Link className="sky-pill sky-utility sky-catalog-button" href="/catalog">
          <span className="sky-utility-symbol"><SkyControlIcon name="book" /></span><span>친구 도감</span>
        </Link>
-       <BgmToggle />
      </header>}
  {!questOpen && feedback}
  {guiding ? <ServiceGuide mode={mode} replay={ready} onDone={finishServiceGuide} onHelp={H} />
