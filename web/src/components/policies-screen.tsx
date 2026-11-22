@@ -195,11 +195,10 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
     setVisibleCount(pageSize);
   }
 
-  // 보기를 바꾸면 필터를 비우고 맨 위로
+  // 다른 보기를 둘러봐도 모든 정책의 검색 조건과 펼친 개수는 유지한다.
   function selectView(next: View) {
     if (next === view) return;
     setView(next);
-    updateFilters(emptyFilters);
     window.scrollTo(0, 0);
   }
 
