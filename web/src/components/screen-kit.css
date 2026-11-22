@@ -145,13 +145,6 @@ button.help-panel-close:is(:hover, :focus-visible) { border-color: #cdb8ed; back
 @media (max-width: 359px) { .night-ui .policy-quick-links .policy-quick-link { gap: 3px; padding: 0; font-size: .8rem; } .policy-quick-links svg { width: 16px; height: 16px; } }
 .policy-quick-links svg { width: 18px; height: 18px; color: var(--star-gold); }
 .policy-quick-links .policy-quick-link span { color: var(--starlight-dim); font-size: 1.05rem; }
-.criteria-questions summary { display: flex; justify-content: space-between; align-items: center; min-height: 44px; padding: 8px; gap: 8px; }
-.criteria-questions summary::before { content: '›'; }
-.criteria-questions details[open] > summary::before { transform: rotate(90deg); }
-.criteria-questions summary small { margin-inline-start: auto; }
-.criteria-questions details + details { border-top: 1px solid var(--glass-line); }
-.criteria-questions .choice-cards { margin: 0 0 8px; }
-.criteria-questions .choice-cards legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .night-ui .center-saved-draft { margin-bottom: 12px; }
 
 /* 정책 카드의 추천 이유 */
@@ -253,8 +246,17 @@ html:has(dialog.apply-helper[open]), html:has(dialog.apply-helper[open]) body { 
 /* 신청 도우미 자유 대화 (고민기록 #43): 아래 칩 + 입력창을 한 묶음으로 */
 .apply-helper-foot { padding: 8px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid rgba(255, 255, 255, .1); }
 .apply-helper-foot .apply-helper-input { padding: 0; border-top: 0; }
-.apply-helper .apply-helper-more { margin-top: 8px; }
-.apply-helper .apply-helper-more summary { min-height: 40px; display: flex; align-items: center; color: var(--star-gold, #f6cf7d); font-size: .875rem; font-weight: 650; cursor: pointer; }
+/* 원문 목록 접기: 브라우저 ▶ 대신 앱 공통 모양 (테두리 한 줄 + 오른쪽 화살표가 돌아감) */
+.apply-helper .apply-helper-more { margin-top: 8px; border: 1px solid rgba(246, 207, 125, .28); border-radius: 12px; background: rgba(255, 255, 255, .03); }
+.apply-helper .apply-helper-more summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; padding: 0 12px;
+  list-style: none; cursor: pointer; color: var(--star-gold, #f6cf7d); font-size: .875rem; font-weight: 650;
+}
+.apply-helper .apply-helper-more summary::-webkit-details-marker { display: none; }
+.apply-helper-more-go { font-size: 1.1rem; line-height: 1; transition: transform .18s ease; }
+.apply-helper .apply-helper-more[open] .apply-helper-more-go { transform: rotate(90deg); }
+.apply-helper .apply-helper-more summary:focus-visible { outline: 2px solid var(--star-gold, #f6cf7d); outline-offset: 2px; border-radius: 12px; }
+.apply-helper .apply-helper-more ol { margin: 0; padding: 0 12px 10px 30px; }
 
 /* 신청 도우미 대화 이어 보기·지우기 (고민기록 #44) */
 .apply-helper-head-actions { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }

@@ -41,7 +41,12 @@ export function ScreenBar({ title, back = '/sky', backLabel = '내 밤하늘로'
         aria-expanded={help?.open} aria-haspopup={help ? undefined : 'dialog'}
         onClick={help ? help.toggle : () => localHelp.current?.showModal()}><SkyControlIcon name="help" /><small aria-hidden="true">도움</small></button>
     </span>
-    {!help && <dialog className="screen-help-dialog support-surface" ref={localHelp} aria-labelledby={helpTitle}>
+    {!help && <dialog className="screen-help-dialog support-surface" ref={localHelp} aria-labelledby={helpTitle}
+      onClick={e => {
+        // 창 바깥(어두운 배경)을 누르면 닫힘. 창 안쪽 여백을 누른 것과 구분하려고 위치로 판단
+        const r = e.currentTarget.getBoundingClientRect();
+        if (e.target === e.currentTarget && (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom)) e.currentTarget.close();
+      }}>
       <HelpPanelContent titleId={helpTitle} title={HELP.title} lines={HELP.lines} onClose={() => localHelp.current?.close()} />
     </dialog>}
   </div>;

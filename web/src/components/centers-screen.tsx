@@ -166,7 +166,7 @@ export default function CentersScreen({ mode, centerId, from = 'sky', onError, o
 
 /** 센터 전화: 누르면 바로 걸지 않고 확인 창을 한 번 띄움.
  *  전화를 부담스러워하는 사용자를 생각한 앱이라 실수로 걸리지 않게 하고, 문의 문장을 먼저 준비하는 길도 같이 보여 줌.
- *  (109·1577-0199 같은 위기 상담 번호는 망설이지 않게 확인 없이 바로 걸림 — help-lines.tsx) */
+ *  (109·1577-0199 같은 상담 번호도 같은 확인 창을 띄움 — help-lines.tsx, 고민기록 #61) */
 function CenterPhone({ name, phone, onPrepare }: { name: string; phone: string; onPrepare: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
