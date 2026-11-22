@@ -120,15 +120,31 @@ button.help-panel-close:is(:hover, :focus-visible) { border-color: #cdb8ed; back
 .memory-list time { font-size: .8125rem; color: var(--star-gold); }
 .memory-list p { margin: 2px 0 0; white-space: pre-wrap; }
 
-/* 정책 화면 상단 보기 전환 [맞춤 추천] / [모든 정책] (고민기록 #41)
-   선택 표시는 밤하늘 테마의 .secondary[aria-pressed="true"] (금빛 테두리) + ✓ + 굵은 글자 */
-.policy-view-switch { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 4px 0 8px; }
-.policy-view-switch button { display: inline-flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 3px; min-height: 48px; margin: 0; padding: 4px; font-size: .8125rem; font-weight: 600; }
-.policy-view-switch button[aria-pressed="true"] { font-weight: 800; }
+/* 정책 화면 상단 보기 전환 [맞춤 추천] / [모든 정책] / [찜한 정책] (고민기록 #41)
+   탭 모양: 하나로 붙은 칸 안에서 고른 칸만 금빛으로 채움. 아래 화면 이동 링크(추천 기준·청년센터)와 모양을 다르게 (기능발견성 B·②, 다시 점검 #8) */
+.policy-view-switch {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; margin: 4px 0 6px; padding: 4px;
+  border-radius: 16px; background: rgba(10, 8, 30, .55); border: 1px solid rgba(190, 160, 255, .28);
+}
+/* .secondary를 붙여 앱 공통 금빛 버튼 규칙을 피하고, 그 위에 탭 모양을 덮어씀 */
+.night-ui .policy-view-switch .secondary.policy-view-tab {
+  display: inline-flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px; min-height: 44px; margin: 0; padding: 4px;
+  border: 0; border-radius: 12px; background: transparent; box-shadow: none; color: var(--starlight-dim); font-size: .8125rem; font-weight: 650;
+}
+.night-ui .policy-view-switch .secondary.policy-view-tab[aria-pressed="true"] {
+  background: linear-gradient(180deg, #ffe3a3, var(--star-gold)); color: #24183f; font-weight: 800; box-shadow: 0 2px 10px rgba(246, 207, 125, .25);
+}
 .policy-view-count { min-width: 1.6em; padding: 1px 4px; border-radius: 999px; font-size: .7rem; font-weight: 700; background: rgba(255, 255, 255, .1); }
-.policy-view-switch button[aria-pressed="true"] .policy-view-count { background: rgba(246, 207, 125, .22); }
-.policy-quick-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 16px; }
-.night-ui .policy-quick-links a { min-height: 44px; margin: 0; padding: 4px; text-align: center; font-size: .8125rem; }
+.policy-view-tab[aria-pressed="true"] .policy-view-count { background: rgba(36, 24, 63, .16); }
+@media (hover: hover) { .night-ui .policy-view-switch .secondary.policy-view-tab:not([aria-pressed="true"]):hover { color: var(--starlight); background: rgba(255, 255, 255, .06); } }
+/* 화면 이동: 테두리 없는 글자 링크 + 아이콘 + › */
+.policy-quick-links { display: flex; justify-content: space-between; gap: 8px; margin: 0 2px 14px; }
+.night-ui .policy-quick-links .policy-quick-link {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 44px; padding: 0 4px; color: #e3d4ff; font-size: .875rem; font-weight: 650; text-decoration: none; white-space: nowrap;
+}
+@media (max-width: 359px) { .night-ui .policy-quick-links .policy-quick-link { gap: 3px; padding: 0; font-size: .8rem; } .policy-quick-links svg { width: 16px; height: 16px; } }
+.policy-quick-links svg { width: 18px; height: 18px; color: var(--star-gold); }
+.policy-quick-links .policy-quick-link span { color: var(--starlight-dim); font-size: 1.05rem; }
 .criteria-questions summary { display: flex; justify-content: space-between; align-items: center; min-height: 44px; padding: 8px; gap: 8px; }
 .criteria-questions summary::before { content: '›'; }
 .criteria-questions details[open] > summary::before { transform: rotate(90deg); }
