@@ -148,10 +148,11 @@ export function client(mode: Mode) { return {
     }
     if (rememberMode) localStorage.setItem('naranhi-mode', mode);
   },
-  async sky(): Promise<{ stars: Star[]; totalPoints?: number }> {
+  async sky(): Promise<{ stars: Star[]; totalPoints?: number; checkedInToday?: boolean }> {
     if (mode === 'api') return request('sky');
     const store = read();
-    return { stars: store.stars, totalPoints: exampleTotal(store) };
+    return { stars: store.stars, totalPoints: exampleTotal(store),
+      checkedInToday: store.rewards?.checkinDay === kstDay.format(new Date()) };
   },
   async shop(): Promise<ShopState> { return mode === 'api' ? request('shop') : exampleShop(); },
   async changeAccessory(action: ShopAction, id: AccessoryId): Promise<ShopState> {

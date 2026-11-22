@@ -466,23 +466,29 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
   position: fixed; z-index: 2; left: 50%; bottom: calc(44px + env(safe-area-inset-bottom));
   transform: translateX(-50%); width: max(100px, calc(var(--person-height) * .85));
   display: grid; justify-items: center; pointer-events: auto; cursor: pointer;
-  margin: 0; padding: calc(var(--person-height) * .25) 0 0; min-height: 44px;
+  margin: 0; padding: 0; min-height: 44px;
   border: 0; border-radius: 24px; background: transparent; color: #fff0ce; box-shadow: none;
 }
 .sky-quest-character-art { position: relative; display: block; height: var(--person-height); pointer-events: none; }
-.sky-quest-character-art::before {
+.sky-quest-character-art[data-companion] { --quest-avatar-scale: 1.21; }
+.sky-quest-figure { position: relative; display: block; height: 100%; opacity: var(--quest-character-opacity, 1); }
+.sky-quest-figure::before {
   content: ""; position: absolute; left: 50%; bottom: 2%; width: 86%; height: 11%;
   transform: translateX(-50%); border-radius: 50%;
   background: radial-gradient(ellipse, #080511c9, #10091d00 71%);
 }
 .sky-quest-character-art .sky-person { position: relative; animation: none; filter: drop-shadow(0 2px 5px #b68ee541); }
+.sky-quest-character-art .sky-person { scale: var(--quest-avatar-scale, 1); transform-origin: center bottom; }
 .sky-quest-character:focus-visible { outline: 2px solid var(--star-gold); outline-offset: 2px; }
+.sky-mode .sky-quest-character[data-airborne] { pointer-events: none; outline: none; }
+.sky-quest-character[data-airborne]:focus-visible .sky-quest-bubble { outline: 2px solid var(--star-gold); outline-offset: 2px; }
 .sky-quest-bubble {
   --bubble-border: #ded0eb32;
   position: absolute;
-  inset-inline-start: calc(50% - clamp(44px, 7vw, 56px));
-  inset-block-end: calc(100% - var(--person-height) * .05);
+  inset-inline-start: 50%;
+  inset-block-end: calc(8px + var(--quest-art-rise) * var(--quest-avatar-scale, 1) * var(--quest-bubble-lift, 1));
   translate: -50% 0;
+  pointer-events: auto;
   display: inline-flex;
   justify-content: center;
   align-items: center;
@@ -523,9 +529,10 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
   color: #f6e2be;
 }
 .sky-quest-character:focus-visible .sky-quest-bubble { --bubble-border: var(--star-gold); }
+.sky-quest-character[data-airborne] .sky-quest-bubble::after { display: none; }
 @media (prefers-reduced-motion: no-preference) {
   .sky-quest-bubble { animation: quest-bubble-in .24s ease-out both; }
-  @keyframes quest-bubble-in { from { opacity: 0; transform: translateY(3px); } }
+  @keyframes quest-bubble-in { from { opacity: 0; } }
 }
 
 /* 세로가 짧은 화면: 안내 한 줄을 숨겨 별자리 자리를 넓힘 (하늘 끌기 안내는 캐릭터·목록으로도 알 수 있음) */

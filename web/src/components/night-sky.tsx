@@ -30,6 +30,7 @@ const labels = { untried: '아직 만나기 전', dim: '손을 뻗은 별', brig
 /** 지금 별자리가 화면에서 이만큼(px, 대각선) 이상일 때만 퀘스트 이름표·큰 별 표시 */
 const DETAIL_SPAN = 90;
 const CHARACTER_ART_SIZE = 128;
+const COMPANION_SCALE = 1.1;
 
 function fadeBetween(start: number, end: number, value: number) {
   const t = Math.max(0, Math.min(1, (value - start) / (end - start)));
@@ -165,7 +166,7 @@ const FLIGHT_MS = 1600;
 const SHEET_DELAY_MS = 350;
 const HINT_DURATION_MS = { drag: 5500, star: 8000 };
 
-export default function NightSky({ stars, selected, onSelect, busy, onReload, footer, nextLink, completedId, mode, totalPoints, onOpenQuest, questTrigger, questOpen, hintsPaused = false }: {
+export default function NightSky({ stars, selected, onSelect, busy, onReload, footer, nextLink, completedId, mode, totalPoints, onOpenQuest, questTrigger, questOpen, checkedInToday, hintsPaused = false }: {
   stars: Star[];
   selected: Star | null;
   onSelect: (star: Star | null) => void;
@@ -180,6 +181,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   onOpenQuest: () => void;
   questTrigger: RefObject<HTMLButtonElement | null>;
   questOpen: boolean;
+  checkedInToday: boolean;
   /** 메뉴 한 장 안내(menu-tour.tsx)가 떠 있는 동안은 첫 안내 카드·별똥별 안내를 미룸 */
   hintsPaused?: boolean;
 }) {
@@ -431,8 +433,11 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
       const ex = bottom.x - top.x, ey = bottom.y - top.y;
       const halfWidth = (Math.abs(dx) + Math.abs(ex)) / 2;
       const halfHeight = (Math.abs(dy) + Math.abs(ey)) / 2;
-      if (center.x < -halfWidth || center.x > frame.width + halfWidth || center.y < -halfHeight || center.y > frame.height + halfHeight) return null;
-      const transform = [dx, dy, ex, ey].map(component => component / CHARACTER_ART_SIZE);
+      const scaledHalfWidth = halfWidth * COMPANION_SCALE;
+      const scaledHalfHeight = halfHeight * COMPANION_SCALE;
+      if (center.x < -scaledHalfWidth || center.x > frame.width + scaledHalfWidth ||
+          center.y < -scaledHalfHeight || center.y > frame.height + scaledHalfHeight) return null;
+      const transform = [dx, dy, ex, ey].map(component => component * COMPANION_SCALE / CHARACTER_ART_SIZE);
       const coverage = Math.max(2 * halfWidth / frame.width, 2 * halfHeight / frame.height);
       const opacity = 0.42 * reveal * Math.max(0.38, 1 - Math.max(0, coverage - 0.8) * 0.62);
       return { character: companion.character, center, transform, opacity };
@@ -509,7 +514,13 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   }, [hint]);
   const questBlocked = selected && selected.status !== 'bright' && !isTutorialStar(selected.starId) && hasReachedDailyStarLimit(stars);
   const horizon = frame && projector(view, frame.width, frame.height)(unit(view.lon / RAD, 0));
-  const showQuestBubble = !!(frame && horizon && horizon.y < frame.height * 0.88) && !questOpen;
+  const ground = frame && horizon ? horizon.y / frame.height : view.lat > 0 ? 1 : 0;
+  const characterFadeEnd = 0.88;
+  const characterOpacity = 1 - fadeBetween(0.76, characterFadeEnd, ground);
+  // Move the bubble between its two positions only while the character is fully hidden.
+  const bubbleLift = 1 - fadeBetween(characterFadeEnd, 1, ground);
+  const characterVisible = characterOpacity > 0;
+  const showQuestBubble = !checkedInToday && !questOpen;
   const firstQuest = hints.pending('quest');
   const subtitle = detailed
     ? complete && current ? `${current.name}를 이었어요` : current?.theme
@@ -568,14 +579,17 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
     </div>
 
     <button ref={questTrigger} type="button" className="sky-quest-character"
+      data-airborne={!characterVisible || undefined} disabled={!characterVisible && !showQuestBubble}
+      style={{ '--quest-character-opacity': characterOpacity, '--quest-bubble-lift': bubbleLift } as CSSProperties}
       aria-label="오늘의 별" aria-haspopup="dialog" aria-expanded={questOpen} onClick={() => {
         onOpenQuest();
         finishHint('quest');
       }}>
-      <span className="sky-quest-character-art"><DressedSkyPerson mode={mode} /></span>
-      {showQuestBubble && <span className="sky-quest-bubble" data-intro={firstQuest || undefined} aria-hidden="true">
-        오늘의 별
-      </span>}
+      <DressedSkyPerson mode={mode}>
+        {showQuestBubble && <span className="sky-quest-bubble" data-intro={firstQuest || undefined} aria-hidden="true">
+          오늘의 별
+        </span>}
+      </DressedSkyPerson>
     </button>
 
     {frame && <div className="sky-anchors" style={{ left: frame.left, top: frame.top, width: frame.width, height: frame.height }}>

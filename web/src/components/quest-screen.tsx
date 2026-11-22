@@ -48,7 +48,7 @@ function saveReturnVisit(visit: RecommendationReturn) {
   } catch { /* In-memory navigation remains available. */ }
 }
 
-export default function QuestScreen({ restoreRecommendations = false, mode, busy, run, onHelp, onError, dialog, onTotalPoints }: {
+export default function QuestScreen({ restoreRecommendations = false, mode, busy, run, onHelp, onError, dialog, onTotalPoints, onSaved }: {
   restoreRecommendations?: boolean;
   mode: Mode;
   busy: boolean;
@@ -57,6 +57,7 @@ export default function QuestScreen({ restoreRecommendations = false, mode, busy
   onError: (message: string) => void;
   dialog: { titleId: string; onClose: () => void; feedback: ReactNode };
   onTotalPoints?: (points: number) => void;
+  onSaved: () => void;
 }) {
   const [restored] = useState(() => restoreRecommendations ? readReturnVisit(mode) : null);
   const [text, setText] = useState(restored?.text ?? '');
@@ -102,6 +103,7 @@ export default function QuestScreen({ restoreRecommendations = false, mode, busy
         return;
       }
       savedInput.current = { text: value, choice };
+      onSaved();
       setStep(1);
     });
   }
