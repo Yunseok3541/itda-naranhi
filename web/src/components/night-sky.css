@@ -380,8 +380,10 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
   top: 0;
   pointer-events: auto;
   opacity: var(--star-light, 1);
-  transform: translate(var(--star-x), var(--star-y)) translate(-50%, -50%) scale(var(--star-scale, 1));
+  transform: translate(var(--star-x), var(--star-y)) translate(-50%, -50%);
 }
+/* 별 그림·빛만 확대 정도에 따라 크기 (--star-visual, night-sky.tsx starVisualScale). 누르는 영역(버튼)은 그대로 */
+.sky-anchors .nstar > .glow, .sky-anchors .nstar > svg.core { scale: var(--star-visual, 1); transition: scale .12s linear; }
 .sky-anchors .sky-constellation-edge { opacity: var(--edge-light, 1); }
 .sky-anchors .nstar .glow { width: 30px; height: 30px; border: 1.5px solid rgba(238, 233, 255, .6); }
 .sky-anchors .nstar.dim .glow { width: 34px; height: 34px; border: 1.5px solid rgba(246, 207, 125, .55); background: radial-gradient(circle, rgba(246, 207, 125, .22), transparent 70%); }
