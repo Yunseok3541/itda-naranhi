@@ -589,17 +589,20 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .star-limit-error { text-align: center; white-space: pre-line; }
 .night-ui > p[role="status"] { color: var(--starlight); }
 
+/* 오늘의 별: 화면 가운데 모달 (예전에는 아래에서 올라오는 시트).
+   키보드가 올라오면 키보드 위 남은 화면(--quest-keyboard-inset, mobile-flow.tsx) 안에서 가운데 */
 .quest-dialog {
-  position: fixed; inset: auto 0 var(--quest-keyboard-inset, 0px);
-  width: min(100%, 520px); max-width: 100%;
-  height: min(74dvh, calc(var(--quest-viewport-height, 100dvh) - 16px), 488px);
-  padding: 0; margin: 0 auto; overflow: hidden;
-  border: 1px solid #ac92db6b; border-bottom: 0; border-radius: 24px 24px 0 0;
-  background: #1a142d; box-shadow: 0 -12px 45px #0a061a9c;
+  position: fixed; inset: 0 0 var(--quest-keyboard-inset, 0px);
+  width: min(calc(100% - 24px), 480px); max-width: 100%;
+  /* 내용만큼 높이, 화면보다 길면 창 안에서 스크롤 (단계마다 내용 길이가 달라도 버튼이 잘리지 않게) */
+  height: fit-content; max-height: min(88dvh, calc(var(--quest-viewport-height, 100dvh) - 24px));
+  padding: 0; margin: auto; overflow: hidden;
+  border: 1px solid #ac92db6b; border-radius: 24px;
+  background: #1a142d; box-shadow: 0 18px 50px #0a061ab3;
 }
 .quest-dialog[open] { display: grid; grid-template-rows: auto minmax(0, 1fr); }
 @media (max-height: 600px) {
-  .quest-dialog { height: min(86dvh, calc(var(--quest-viewport-height, 100dvh) - 16px), 488px); }
+  .quest-dialog { max-height: calc(var(--quest-viewport-height, 100dvh) - 16px); }
 }
 .quest-dialog::backdrop { background: #09061775; }
 .quest-dialog-header {
@@ -618,7 +621,7 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .quest-dialog-header .text-button:focus-visible { outline: 2px solid var(--star-gold); outline-offset: 2px; }
 .quest-dialog-body {
   min-height: 0; overflow-y: auto; overscroll-behavior: contain;
-  padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
+  padding: 12px 16px 16px;
 }
 .quest-dialog-body .screen-steps { margin: 0 0 12px; }
 .quest-dialog-body textarea { min-height: 68px; font-size: 1rem; }
@@ -656,7 +659,7 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 @media (prefers-reduced-motion: no-preference) {
   .quest-dialog[open] { animation: quest-dialog-rise .22s ease-out; }
   .quest-dialog[open]::backdrop { animation: backdrop-in .22s ease-out; }
-  @keyframes quest-dialog-rise { from { transform: translateY(22px); opacity: .55; } }
+  @keyframes quest-dialog-rise { from { transform: translateY(10px) scale(.97); opacity: 0; } }
 }
 
 /* 멀리서 볼 때 별자리 선을 눌러도 확대되도록 보이지 않는 굵은 선 (night-sky.tsx edge-hit) */
@@ -1116,3 +1119,17 @@ html.sky-locked-page { --sky-dock-height: 96px; --person-height: clamp(77px, 16d
 /* night-row의 "마지막 칸 늘리기"(위 .night-row > span:last-child)가 줄 끝 화살표에 걸리지 않게 */
 .night-list .night-row > span.night-row-go, .night-list .night-row > span.star-group-chevron { flex: none; }
 .star-list-head .star-list-title { display: flex; width: 100%; }
+
+/* 별 목록 보기 전환 (star-list.tsx): 별자리별 / 난이도별 */
+.star-list-views { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 10px; padding: 3px; border-radius: 14px; background: rgba(255, 255, 255, .06); border: 1px solid var(--glass-line); }
+.sky-mode .star-list-views .text-button { width: 100%; min-height: 40px; margin: 0; padding: 0 8px; border-radius: 11px; font-size: .875rem; font-weight: 650; color: var(--starlight-dim); text-decoration: none; }
+.sky-mode .star-list-views .text-button[aria-pressed="true"] { background: rgba(246, 207, 125, .16); color: #ffe4a0; box-shadow: inset 0 0 0 1px rgba(246, 207, 125, .4); }
+/* 난이도별: 빛의 세기 점 4개 (숫자·점수 대신) */
+.star-level-mark { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; background: radial-gradient(circle at 50% 45%, rgba(246, 207, 125, calc(.06 * var(--glow, 1))), rgba(16, 15, 48, .2)); }
+.star-level.level-1 { --glow: 1; } .star-level.level-2 { --glow: 2; } .star-level.level-3 { --glow: 3; } .star-level.level-4 { --glow: 4; }
+.level-glow { display: inline-flex; align-items: flex-end; gap: 3px; height: 18px; }
+.level-glow i { width: 5px; border-radius: 3px; background: rgba(238, 233, 255, .22); }
+.level-glow i:nth-child(1) { height: 6px; } .level-glow i:nth-child(2) { height: 10px; } .level-glow i:nth-child(3) { height: 14px; } .level-glow i:nth-child(4) { height: 18px; }
+.level-glow i[data-on] { background: var(--star-gold); box-shadow: 0 0 6px rgba(246, 207, 125, .55); }
+.star-level .star-group-text small { white-space: normal; }
+.star-row-where { color: var(--starlight-dim); font-weight: 500; }
