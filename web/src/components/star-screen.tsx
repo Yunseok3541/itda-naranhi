@@ -45,7 +45,6 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
   const [place, setPlace] = useState('');
   const [savedAttemptId, setSavedAttemptId] = useState<number | null>(null);
   const [pending, setPending] = useState<NextPlan | null>(null);
-  const [usingPlan, setUsingPlan] = useState(true);
   const [planError, setPlanError] = useState('');
   const [planLoaded, setPlanLoaded] = useState(false);
   const [planRetry, setPlanRetry] = useState(0);
@@ -53,7 +52,7 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
     let active = true;
     client(mode).pendingNext().then(r => {
       if (active) { setPending(r.plan?.starId === star?.starId ? r.plan : null); setPlanError(''); }
-    }).catch(() => { if (active) setPlanError('지난번에 골라 둔 별을 확인하지 못했어요. 다시 확인하거나 원래 별로 기록할 수 있어요.'); })
+    }).catch(() => { if (active) setPlanError('지난번에 골라 둔 별을 확인하지 못했어요. 다시 확인하거나 그냥 기록해도 괜찮아요.'); })
       .finally(() => { if (active) setPlanLoaded(true); });
     return () => { active = false; };
   }, [mode, star?.starId, planRetry]);
@@ -66,7 +65,8 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
     catch(err){setPhotoError(err instanceof Error?err.message:'사진을 읽지 못했어요.');}
     finally{setPhotoBusy(false);}
   }
-  const activePlan = usingPlan ? pending : null;
+  // 골라 둔 별을 기록하면 늘 지난 시도와 이어서 저장 → 밤하늘 "✧ 이어볼 별"이 사라짐 ("이어서 기록하지 않기" 버튼은 뺌, 고민기록 #60)
+  const activePlan = pending;
 
   if (!star) return <>
     <ScreenBar title="별 기록" />
@@ -89,10 +89,8 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
     {!saved && !questBlocked && planError && <section className="card"><p role="alert">{planError}</p>
       <button type="button" onClick={() => setPlanRetry(n => n + 1)}>이어볼 별 다시 확인</button></section>}
     {!saved && !questBlocked && pending && <section className="card next-step-active">
-      <h2>지난번에 골라 둔 이어볼 별</h2><p>{pending.title}</p>
-      <p className="small">{usingPlan ? '지난 시도와 이어서 기록해요.' : '이번엔 이어서 기록하지 않고 이 별만 기록해요.'}</p>
+      <p><span aria-hidden="true">✧</span> 지난번 기록에서 골라 둔 별이에요.</p>
       {pending.preparationHref && <Link className="secondary" href={pending.preparationHref}>문의 문장 준비하기</Link>}
-      <button type="button" className="text-button" disabled={busy} onClick={() => setUsingPlan(v => !v)}>{usingPlan ? '이번엔 이어서 기록하지 않기' : '지난 시도와 이어서 기록하기'}</button>
     </section>}
     {saved
       ? <section className="card saved">

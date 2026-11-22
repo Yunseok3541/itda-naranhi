@@ -228,7 +228,7 @@ export function client(mode: Mode) { return {
     if (mode === 'api') return request('next-steps', 'PATCH', { attemptId, key: optionKey });
     return withExampleStoreLock(() => {
       const s = read();
-      if (s.stars.some(st => st.memories.some(m => m.parentAttemptId === attemptId))) throw new Error('이미 이어서 기록한 행동이에요.');
+      if (s.stars.some(st => st.memories.some(m => m.parentAttemptId === attemptId))) throw new Error('이미 이어서 기록한 별이에요.');
       const option = exampleContext(s, attemptId).options.find(o => o.key === optionKey);
       if (!option) throw new Error('지금 선택할 수 있는 행동이 아니에요.');
       s.nextPlan = option.action === 'stop' ? null : { ...option, attemptId };
