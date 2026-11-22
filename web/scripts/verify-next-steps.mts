@@ -38,6 +38,30 @@ check('home excludes actual outdoor quests, including stage 1 outdoor quest', ()
   assert(opts.filter(o => o.action !== 'stop').every(o => !catalogQuest(o.starId!)!.is_outside));
 });
 check('rest leaves stop only', () => assert.deepEqual(nextOptions(source, quests, 'rest').map(o => o.action), ['stop']));
+// 고를 별이 하나도 없을 때: 빈손 대신 ① 한 단계 위(오늘 범위 안) ② 그래도 없으면 방금 별을 더 작게
+const stage1 = quests.find(q => q.stage === 1 && !q.outside)!;
+const sameStageDone = quests.map(q => q.stage <= stage1.stage && q.id !== stage1.id ? { ...q, status: 'bright' } : q);
+const stepUp = nextOptions({ ...source, starId: stage1.id, stopReason: null }, sameStageDone, 'out');
+check('no same-stage star left → one stage up, labelled', () => {
+  const swaps = stepUp.filter(o => o.action === 'swap');
+  assert(swaps.length > 0 && swaps.length <= 2);
+  assert(swaps.every(o => catalogQuest(o.starId!)!.stage === stage1.stage + 1));
+  assert(swaps.every(o => o.reason.includes('한 단계만 올려 본')));
+  assert.equal(stepUp.at(-1)!.action, 'stop');
+});
+check('step-up stays inside today scope (home: no outdoor)', () => {
+  const opts = nextOptions({ ...source, starId: stage1.id, stopReason: null }, sameStageDone, 'home');
+  assert(opts.filter(o => o.action === 'swap').every(o => !quests.find(q => q.id === o.starId)!.outside));
+});
+const allDone = quests.map(q => q.id !== stage1.id ? { ...q, status: 'bright' } : q);
+const smallerOnly = nextOptions({ ...source, starId: stage1.id, stopReason: null }, allDone, 'out');
+check('nothing else left → smaller step of the same star, then stop', () => {
+  assert.deepEqual(smallerOnly.map(o => o.action), ['smaller', 'stop']);
+  assert.equal(smallerOnly[0].starId, stage1.id);
+  assert.equal(smallerOnly[0].subQuestId, stage1.subQuests[0].id);
+  assert.equal(defaultNextKey(smallerOnly), smallerOnly[0].key);
+});
+check('normal case still never offers smaller', () => assert(!small.some(o => o.action === 'smaller')));
 check('cost does not suggest buying again or paid smaller versions', () => {
   const opts = nextOptions({ ...source, starId: 10, stopReason: 'cost' }, quests, 'out');
   assert(opts.every(o => o.action === 'swap' || o.action === 'stop'));
