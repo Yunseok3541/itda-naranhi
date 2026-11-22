@@ -145,13 +145,6 @@ button.help-panel-close:is(:hover, :focus-visible) { border-color: #cdb8ed; back
 @media (max-width: 359px) { .night-ui .policy-quick-links .policy-quick-link { gap: 3px; padding: 0; font-size: .8rem; } .policy-quick-links svg { width: 16px; height: 16px; } }
 .policy-quick-links svg { width: 18px; height: 18px; color: var(--star-gold); }
 .policy-quick-links .policy-quick-link span { color: var(--starlight-dim); font-size: 1.05rem; }
-.criteria-questions summary { display: flex; justify-content: space-between; align-items: center; min-height: 44px; padding: 8px; gap: 8px; }
-.criteria-questions summary::before { content: '›'; }
-.criteria-questions details[open] > summary::before { transform: rotate(90deg); }
-.criteria-questions summary small { margin-inline-start: auto; }
-.criteria-questions details + details { border-top: 1px solid var(--glass-line); }
-.criteria-questions .choice-cards { margin: 0 0 8px; }
-.criteria-questions .choice-cards legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .night-ui .center-saved-draft { margin-bottom: 12px; }
 
 /* 정책 카드의 추천 이유 */

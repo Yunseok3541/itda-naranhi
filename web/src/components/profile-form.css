@@ -1,0 +1,31 @@
+/* 추천 기준·설정: 접기 대신 한 줄 목록 → 아래에서 올라오는 창 (profile-form.tsx CriteriaRow) */
+.criteria-rows { margin: 0; padding: 0; list-style: none; }
+.criteria-rows li + li { border-top: 1px solid var(--glass-line); }
+.night-ui button.text-button.criteria-row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  width: 100%; min-height: 52px; margin: 0; padding: 8px 4px; border: 0; border-radius: 0; box-shadow: none;
+  background: transparent; color: var(--starlight); text-align: left; font-weight: 600; text-decoration: none;
+}
+.criteria-row-value { justify-self: end; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: .875rem; color: #ffe4a0; }
+.criteria-row-value.empty { color: var(--starlight-dim); font-weight: 500; }
+.criteria-row-go { color: var(--starlight-dim); font-size: 1.2rem; line-height: 1; }
+.night-ui button.text-button.criteria-row:focus-visible { outline: 2px solid var(--star-gold); outline-offset: -2px; border-radius: 10px; }
+
+.criteria-sheet {
+  position: fixed; inset: auto 0 0; width: min(100%, 520px); max-width: 100%; max-height: min(86dvh, 720px); margin: 0 auto; padding: 0;
+  display: none; flex-direction: column; border: 1px solid var(--glass-line); border-bottom: 0; border-radius: 22px 22px 0 0;
+  background: #15123a; color: var(--starlight); box-shadow: 0 -12px 40px rgba(0, 0, 0, .45);
+}
+.criteria-sheet[open] { display: flex; }
+.criteria-sheet::backdrop { background: rgba(8, 5, 22, .6); }
+.criteria-sheet header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px 6px 18px; }
+.criteria-sheet h2 { margin: 0; font-size: 1.05rem; }
+.night-ui .criteria-sheet-close { display: grid; place-items: center; width: 44px; min-height: 44px; padding: 0; margin: 0; color: var(--starlight); text-decoration: none; font-size: 1rem; }
+.criteria-sheet-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 18px 8px; }
+.criteria-sheet-body .choice-cards { margin-top: 0; }
+.night-ui .criteria-sheet-done { margin: 6px 18px calc(16px + env(safe-area-inset-bottom)); width: auto; }
+html:has(dialog.criteria-sheet[open]) { overflow: hidden; }
+@media (prefers-reduced-motion: no-preference) {
+  .criteria-sheet[open] { animation: criteria-sheet-up .24s cubic-bezier(.2, .8, .2, 1); }
+  @keyframes criteria-sheet-up { from { translate: 0 30px; opacity: .4; } }
+}
