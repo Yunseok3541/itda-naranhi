@@ -244,6 +244,11 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   const burstCount = useRef(0);
   const closeList = () => list.current?.close();
   const [listKey, setListKey] = useState(0);
+  useLayoutEffect(() => {
+    if (list.current?.open) {
+      list.current.querySelector<HTMLButtonElement>('.star-list-close')?.focus({ preventScroll: true });
+    }
+  }, [listKey]);
 
   // 처음 한 번 안내 (끌기 → 별 누르기). 직접 해 보면 끝남
   const hints = useSkyHints();
@@ -505,6 +510,67 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   return <section className={`night${hint === 'star' ? ' hint-star' : ''}`} aria-label="내 밤하늘">
     <MeteorRewards key={mode} mode={mode} skyTotal={totalPoints} hintPaused={hintsPaused} />
 
+    {current ? <>
+      <div className="night-title">
+        <h1 className={complete && detailed ? 'complete' : undefined}>{detailed || reveal ? current.name : '내 밤하늘'}</h1>
+        {/* 목록에서 고른 뒤에는 지금 무슨 일이 일어나는지 한 줄로 (화면 읽기 프로그램에도 읽힘) */}
+        <p aria-live="polite">{reveal
+          ? !reveal.arrived ? `${current.name}로 이동하고 있어요`
+            : reveal.star ? `‘${reveal.star.title}’, 바로 이 별이에요` : '별을 눌러 오늘 해 볼 일을 골라 보세요'
+          : complete ? '별자리를 모두 이었어요' : current.theme}</p>
+      </div>
+      {labelSpot && !reveal && !selected && <p className="night-hint">{namedUntried ? '별을 한 번 더 누르면 해 볼 일이 열려요' : '별을 한 번 더 누르면 그날의 기억이 열려요'}</p>}
+    </> : <div className="night-title"><h1>아직 하늘이 비어 있어요</h1><p>밤하늘을 다시 불러와 주세요.</p></div>}
+
+    {/* 모든 별 목록: 안내 문구 아래 작은 버튼 → 아래에서 올라오는 창 (캔버스를 못 쓰는 사람도 모든 별을 고를 수 있게) */}
+      <div className="night-actions">
+        {nextLink && <div className="night-next">{nextLink}</div>}
+        {/* 다른 별자리를 보고 있을 때만: 가장 최근에 기록한 별자리로 돌아가기 */}
+        {recent >= 0 && recent !== safeIndex && <button type="button" className="recent-pill" onClick={() => jump(recent)}>
+          <SkyControlIcon name="refresh" /> 최근 별자리
+        </button>}
+        <button type="button" className="night-list-trigger" aria-haspopup="dialog" onClick={event => {
+          event.currentTarget.focus({ preventScroll: true });
+          setListKey(k => k + 1);
+          list.current?.showModal();
+        }}><SkyControlIcon name="starList" /> 별 목록</button>
+        <dialog className="night-list" ref={list} aria-label="별 목록"
+          onClick={event => { if (event.target === event.currentTarget) closeList(); }}>
+          <div className="night-list-body">
+            <div className="sheet-grip" aria-hidden="true" />
+            {/* 열 때마다 새로 그려 지금 별자리·진행 중인 별자리만 펼친 상태로 시작. 고르면 이동 → 이 별 → 할 일 (고민기록 #53) */}
+            <StarList key={listKey} groups={groups} current={safeIndex} completed={completed}
+              onGroup={gi => revealFromList(gi, null)}
+              onStar={(gi, s) => revealFromList(gi, s)}
+              onClose={closeList} onReload={onReload} busy={busy} footer={footer} />
+          </div>
+        </dialog>
+      </div>
+    {hint && <div ref={hintCard} className="sky-hint" role="status">
+      <p>{hint === 'drag'
+        ? <><b>하늘을 끌어서 둘러보세요</b>두 손가락으로 벌리면 크게 볼 수 있어요</>
+        : <><b>반짝이는 별을 눌러 보세요</b>별 하나가 오늘 해 볼 작은 일이에요</>}</p>
+      {/* 멀리서 보면 별이 위쪽 버튼 뒤에 숨을 수 있어서 별자리로 데려다주는 단추 */}
+      {hint === 'star' && !detailed
+        ? <button type="button" className="text-button" onClick={() => { jump(safeIndex); finishHint('star'); }}>가까이 보기</button>
+        : <button type="button" className="text-button" onClick={() => finishHint(hint)}>알겠어요</button>}
+    </div>}
+    <div className="night-space">
+      {current && (<SkyMinimap groups={groups} centers={centers} skies={skies} view={view} frame={frame}
+        active={safeIndex} revealed={skyView.isPanVisible()} onJump={jump} onHorizon={lookAtHorizon} />)}
+    </div>
+
+    <button ref={questTrigger} type="button" className="sky-quest-character"
+      aria-label="오늘의 별" aria-haspopup="dialog" aria-expanded={questOpen} onClick={() => {
+        onOpenQuest();
+        finishHint('quest');
+      }}>
+      <span className="sky-quest-character-art"><DressedSkyPerson mode={mode} /></span>
+      {showQuestBubble && <span className="sky-quest-bubble" data-intro={firstQuest || undefined} aria-hidden="true">
+        오늘의 별
+      </span>}
+    </button>
+
     {frame && <div className="sky-anchors" style={{ left: frame.left, top: frame.top, width: frame.width, height: frame.height }}>
       <div className="sky-companion-layer">
         {companionPositions.map(placement => {
@@ -585,67 +651,6 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
         {Array.from({ length: 8 }, (_, i) => <i key={i} style={{ '--a': `${i * 45}deg` } as CSSProperties} />)}
       </span>}
     </div>}
-
-    {current ? <>
-      <div className="night-title">
-        <h1 className={complete && detailed ? 'complete' : undefined}>{detailed || reveal ? current.name : '내 밤하늘'}</h1>
-        {/* 목록에서 고른 뒤에는 지금 무슨 일이 일어나는지 한 줄로 (화면 읽기 프로그램에도 읽힘) */}
-        <p aria-live="polite">{reveal
-          ? !reveal.arrived ? `${current.name}로 이동하고 있어요`
-            : reveal.star ? `‘${reveal.star.title}’, 바로 이 별이에요` : '별을 눌러 오늘 해 볼 일을 골라 보세요'
-          : complete ? '별자리를 모두 이었어요' : current.theme}</p>
-      </div>
-      {labelSpot && !reveal && !selected && <p className="night-hint">{namedUntried ? '별을 한 번 더 누르면 해 볼 일이 열려요' : '별을 한 번 더 누르면 그날의 기억이 열려요'}</p>}
-    </> : <div className="night-title"><h1>아직 하늘이 비어 있어요</h1><p>밤하늘을 다시 불러와 주세요.</p></div>}
-
-    {/* 모든 별 목록: 안내 문구 아래 작은 버튼 → 아래에서 올라오는 창 (캔버스를 못 쓰는 사람도 모든 별을 고를 수 있게) */}
-      <div className="night-actions">
-        {nextLink && <div className="night-next">{nextLink}</div>}
-        {/* 다른 별자리를 보고 있을 때만: 가장 최근에 기록한 별자리로 돌아가기 */}
-        {recent >= 0 && recent !== safeIndex && <button type="button" className="recent-pill" onClick={() => jump(recent)}>
-          <SkyControlIcon name="refresh" /> 최근 별자리
-        </button>}
-        <button type="button" className="night-list-trigger" aria-haspopup="dialog" onClick={event => {
-          event.currentTarget.focus({ preventScroll: true });
-          setListKey(k => k + 1);
-          list.current?.showModal();
-        }}><SkyControlIcon name="starList" /> 별 목록</button>
-        <dialog className="night-list" ref={list} aria-label="별 목록"
-          onClick={event => { if (event.target === event.currentTarget) closeList(); }}>
-          <div className="night-list-body">
-            <div className="sheet-grip" aria-hidden="true" />
-            {/* 열 때마다 새로 그려 지금 별자리·진행 중인 별자리만 펼친 상태로 시작. 고르면 이동 → 이 별 → 할 일 (고민기록 #53) */}
-            <StarList key={listKey} groups={groups} current={safeIndex} completed={completed}
-              onGroup={gi => revealFromList(gi, null)}
-              onStar={(gi, s) => revealFromList(gi, s)}
-              onClose={closeList} onReload={onReload} busy={busy} footer={footer} />
-          </div>
-        </dialog>
-      </div>
-    {hint && <div ref={hintCard} className="sky-hint" role="status">
-      <p>{hint === 'drag'
-        ? <><b>하늘을 끌어서 둘러보세요</b>두 손가락으로 벌리면 크게 볼 수 있어요</>
-        : <><b>반짝이는 별을 눌러 보세요</b>별 하나가 오늘 해 볼 작은 일이에요</>}</p>
-      {/* 멀리서 보면 별이 위쪽 버튼 뒤에 숨을 수 있어서 별자리로 데려다주는 단추 */}
-      {hint === 'star' && !detailed
-        ? <button type="button" className="text-button" onClick={() => { jump(safeIndex); finishHint('star'); }}>가까이 보기</button>
-        : <button type="button" className="text-button" onClick={() => finishHint(hint)}>알겠어요</button>}
-    </div>}
-    <div className="night-space">
-      {current && (<SkyMinimap groups={groups} centers={centers} skies={skies} view={view} frame={frame}
-        active={safeIndex} revealed={skyView.isPanVisible()} onJump={jump} onHorizon={lookAtHorizon} />)}
-    </div>
-
-    <button ref={questTrigger} type="button" className="sky-quest-character"
-      aria-label="오늘의 별" aria-haspopup="dialog" aria-expanded={questOpen} onClick={() => {
-        onOpenQuest();
-        finishHint('quest');
-      }}>
-      <span className="sky-quest-character-art"><DressedSkyPerson mode={mode} /></span>
-      {showQuestBubble && <span className="sky-quest-bubble" data-intro={firstQuest || undefined} aria-hidden="true">
-        오늘의 별
-      </span>}
-    </button>
 
     {completedGroup && <ConstellationCelebration constellationId={completedGroup.id} name={completedGroup.name} />}
 
