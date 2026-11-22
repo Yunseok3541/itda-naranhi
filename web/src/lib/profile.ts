@@ -13,7 +13,7 @@ const keys = <K extends string>(o: Options<K>) => o.map(([k]) => k);
 export const RANGE = [["home", "집 안"], ["near", "집 근처"], ["out", "바깥 활동"], ["people", "사람 있는 곳"]] as const;
 export const TODAY_RANGE = [["rest", "쉬어 가기"], RANGE[0], RANGE[1], RANGE[2]] as const;
 /** ② 부담되는 상황 (여러 개) */
-export const BURDEN = [["people", "사람 만나기"], ["unfamiliar", "낯선 곳"], ["phone", "전화·대화"], ["morning", "아침에 일어나기"]] as const;
+export const BURDEN = [["people", "사람 만나기"], ["unfamiliar", "처음 가 보는 곳"], ["phone", "전화·대화"], ["morning", "아침에 일어나기"]] as const;
 /** ③ 혼자 / 함께 */
 export const WITH = [["alone", "혼자 하고 싶어요"], ["together", "함께하는 활동도 알아보고 싶어요"]] as const;
 /** ④ 힘들 때 연락할 수 있는 사람 (고립 축) */

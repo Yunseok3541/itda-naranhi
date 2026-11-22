@@ -90,7 +90,7 @@ export type Profile = {
   info: PolicyInfo; // 정책 신청 정보 (자격 규칙에만, AI에 보내지 않음)
 };
 
-const BURDEN_WORDS: Record<string, string> = { people: "사람 만나기", unfamiliar: "낯선 곳 가기", phone: "전화하거나 대화하기", morning: "아침에 일어나기" };
+const BURDEN_WORDS: Record<string, string> = { people: "사람 만나기", unfamiliar: "처음 가 보는 곳에 가기", phone: "전화하거나 대화하기", morning: "아침에 일어나기" };
 
 const POLICY_COLUMNS = `p.id, p.title, p.summary, p.burden, p.stage, p.difficulty_note, p.relevance, p.tags, p.url,
   to_char(p.apply_end, 'YYYY-MM-DD') AS apply_end, p.apply_always, p.apply_unclear, p.region_code, ${CONDITION_COLUMNS},
