@@ -212,7 +212,10 @@ button.policy-save:focus-visible { outline: 2px solid #ffe1a0; outline-offset: 2
 .apply-helper header h2 { margin: 2px 0 0; font-size: 1.05rem; }
 .apply-helper header p { margin: 0; }
 .apply-helper .apply-helper-close { flex: 0 0 auto; width: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 12px; background: rgba(255, 255, 255, .08); color: inherit; box-shadow: none; }
-.apply-helper-log { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+.apply-helper-log { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+/* 신청 도우미가 열려 있는 동안 뒤 정책 화면이 같이 스크롤되지 않게 (대화 끝에서 스크롤이 뒤로 넘어가는 것 방지) */
+.apply-helper { overscroll-behavior: contain; }
+html:has(dialog.apply-helper[open]), html:has(dialog.apply-helper[open]) body { overflow: hidden; }
 .apply-helper .bubble { max-width: 88%; padding: 10px 12px; border-radius: 14px; font-size: .9375rem; line-height: 1.5; }
 .apply-helper .bubble p { margin: 2px 0; }
 .apply-helper .bubble h3 { margin: 8px 0 4px; font-size: .875rem; color: var(--star-gold, #f6cf7d); }
@@ -259,9 +262,7 @@ button.policy-save:focus-visible { outline: 2px solid #ffe1a0; outline-offset: 2
   width: auto; min-height: 44px; margin: 0; padding: 0 10px; border: 0 !important; border-radius: 12px;
   background: none !important; box-shadow: none !important; color: var(--starlight-dim, #b9b0d6) !important; font-size: .8125rem; text-decoration: underline;
 }
-.apply-helper .apply-helper-privacy { margin: 3px 16px 0; color: var(--starlight-dim, #b9b0d6); font-size: .8125rem; }
-.apply-helper-privacy summary { width: fit-content; cursor: pointer; padding-block: 5px; }
-.apply-helper-privacy p { margin: 2px 0 4px; line-height: 1.5; }
+.apply-helper .apply-helper-privacy { display: flex; gap: 6px; margin: 4px 16px 2px; color: var(--starlight-dim, #b9b0d6); font-size: .75rem; line-height: 1.45; }
 .apply-helper-restored { align-self: center; margin: 0; color: var(--starlight-dim, #b9b0d6); }
 
 /* 폰 키보드가 올라오면 --kb(가려진 높이)만큼 창을 올리고 줄임 (apply-helper.tsx가 visualViewport로 계산) */
@@ -321,19 +322,15 @@ button.policy-save:focus-visible { outline: 2px solid #ffe1a0; outline-offset: 2
   background: #f4d695; color: #271b34; box-shadow: none; font-weight: 750;
 }
 .night-ui button.quest-action:focus-visible { outline: 2px solid var(--star-gold); outline-offset: 2px; }
-.night-ui .quest-weather-card .quest-weather-options > summary {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  min-height: 44px; padding: 8px 12px; list-style: none; cursor: pointer;
-  background: #302548; border: 1px solid #806ba8; border-radius: 12px; color: #f3ebff;
+/* 날씨 고르기: 접지 않고 5개를 한눈에 (quest-screen.tsx) */
+.quest-weather-options .small { margin: 0 0 8px; }
+.quest-weather-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.night-ui .quest-weather-row .secondary {
+  width: auto; min-height: 40px; margin: 0; padding: 6px 14px; border-radius: 999px; font-size: .875rem;
+  border-color: #5e5080; background: #251d39; color: #e8defa;
 }
-.quest-weather-options > summary::-webkit-details-marker { display: none; }
-.quest-weather-options > summary::after {
-  content: ""; width: 8px; height: 8px; margin: 0 3px 4px;
-  border: solid #d9c8ff; border-width: 0 2px 2px 0; transform: rotate(45deg);
-}
-.quest-weather-options[open] > summary::after { margin: 4px 3px 0; transform: rotate(225deg); }
-.quest-weather-options > summary:focus-visible { outline: 2px solid var(--star-gold); outline-offset: 2px; }
-.quest-weather-options .glass-select-list { position: static; margin-top: 8px; box-shadow: none; }
+.night-ui .quest-weather-row .secondary[aria-checked="true"] { border-color: var(--star-gold); background: rgba(246, 207, 125, .16); color: #ffe4a0; }
+.night-ui .quest-weather-row .secondary:focus-visible { outline: 2px solid var(--star-gold); outline-offset: 2px; }
 .quest-weather-options + button { margin-top: 12px; }
 
 /* 별 순서 표시 (StarProgress): 처음 시작 안내의 점(.guide-progress)과 같은 크기·간격, 켜진 단계만 별 */

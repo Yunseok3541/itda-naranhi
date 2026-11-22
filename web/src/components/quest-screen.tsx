@@ -7,7 +7,6 @@ import Link from 'next/link';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { client, weatherNames, type Checkin, type Help, type Mode, type Recommendation } from '@/lib/mobile-data';
 import { TODAY_RANGE } from '@/lib/profile';
-import GlassSelect from './glass-select';
 import { Section, Steps } from './screen-kit';
 import SkyControlIcon from './sky-control-icon';
 import MindCheckOffer from './mind-check-offer';
@@ -105,17 +104,21 @@ export default function QuestScreen({ restoreRecommendations = false, open, mode
         <p className="small">오늘의 한 줄을 날씨로 빗대 본 거예요. 진단이 아닌 참고 기록이에요.</p>
       </div>
       {check.checkinId !== null && <>
-        <details className="quest-weather-options">
-          <summary>날씨 바꾸기</summary>
-          <GlassSelect label="내 마음에 가까운 날씨" options={WEATHER_OPTIONS} disabled={busy} value={check.weather}
-            onChange={next => {
-              if (next === check.weather) return;
-              run(async () => {
-                await client(mode).weather(check.checkinId!, next);
-                setCheck({ ...check, weather: next });
-              });
-            }} />
-        </details>
+        {/* 선택지가 5개뿐이라 접지 않고 늘 보이게. AI가 고른 날씨에 표시, 다른 걸 누르면 바로 바뀜 */}
+        <div className="quest-weather-options" role="radiogroup" aria-label="내 마음에 가까운 날씨">
+          <p className="small">다르게 느껴지면 골라 주세요.</p>
+          <div className="quest-weather-row">
+            {WEATHER_OPTIONS.map(option => <button key={option.value} type="button" role="radio" className="secondary"
+              aria-checked={check.weather === option.value} disabled={busy}
+              onClick={() => {
+                if (option.value === check.weather) return;
+                run(async () => {
+                  await client(mode).weather(check.checkinId!, option.value);
+                  setCheck({ ...check, weather: option.value });
+                });
+              }}>{option.label}</button>)}
+          </div>
+        </div>
         <button className="quest-action" disabled={busy} onClick={() => run(async () => {
           const result = await client(mode).recommendations(check.checkinId!);
           saveReturnVisit({ day: recommendationDay(), mode, text, choice, check, items: result.items, fallback: result.usedFallback, needsHelp: hasHelp });
