@@ -11,10 +11,11 @@
 .criteria-row-go { color: var(--starlight-dim); font-size: 1.2rem; line-height: 1; }
 .night-ui button.text-button.criteria-row:focus-visible { outline: 2px solid var(--star-gold); outline-offset: -2px; border-radius: 10px; }
 
+/* 화면 가운데 모달 (사파리에서도 같은 자리에 뜨게 위치를 직접 정함) */
 .criteria-sheet {
-  position: fixed; inset: auto 0 0; width: min(100%, 520px); max-width: 100%; max-height: min(86dvh, 720px); margin: 0 auto; padding: 0;
-  display: none; flex-direction: column; border: 1px solid var(--glass-line); border-bottom: 0; border-radius: 22px 22px 0 0;
-  background: #15123a; color: var(--starlight); box-shadow: 0 -12px 40px rgba(0, 0, 0, .45);
+  position: fixed; inset: 0; width: min(calc(100% - 32px), 440px); max-width: none; height: fit-content; max-height: min(84dvh, 680px); margin: auto; padding: 0;
+  display: none; flex-direction: column; border: 1px solid var(--glass-line); border-radius: 22px;
+  background: #15123a; color: var(--starlight); box-shadow: 0 18px 50px rgba(0, 0, 0, .5);
 }
 .criteria-sheet[open] { display: flex; }
 .criteria-sheet::backdrop { background: rgba(8, 5, 22, .6); }
@@ -23,11 +24,11 @@
 .night-ui .criteria-sheet-close { display: grid; place-items: center; width: 44px; min-height: 44px; padding: 0; margin: 0; color: var(--starlight); text-decoration: none; font-size: 1rem; }
 .criteria-sheet-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 18px 8px; }
 .criteria-sheet-body .choice-cards { margin-top: 0; }
-.night-ui .criteria-sheet-done { margin: 6px 18px calc(16px + env(safe-area-inset-bottom)); width: auto; }
+.night-ui .criteria-sheet-done { margin: 6px 18px 16px; width: auto; }
 html:has(dialog.criteria-sheet[open]) { overflow: hidden; }
 @media (prefers-reduced-motion: no-preference) {
   .criteria-sheet[open] { animation: criteria-sheet-up .24s cubic-bezier(.2, .8, .2, 1); }
-  @keyframes criteria-sheet-up { from { translate: 0 30px; opacity: .4; } }
+  @keyframes criteria-sheet-up { from { transform: translateY(10px) scale(.97); opacity: 0; } }
 }
 .night-ui .criteria-policy-info { padding-block: 6px; }
 .criteria-sheet-body > .small:first-child { margin-top: 0; }

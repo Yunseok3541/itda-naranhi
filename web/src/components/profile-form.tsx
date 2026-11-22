@@ -1,6 +1,7 @@
 "use client";
 // 시작 질문 · 정책 신청 정보 입력 (기획: docs/기획/프로필.md). 모든 답은 선택, 기본값은 "답하지 않음"
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import {
   BURDEN, EMPTY_POLICY_INFO, EMPTY_START, INCOME, JOB, LIVING, MARRIED, NEEDS, RANGE, SCHOOL, SPECIAL, SUPPORT, WITH,
   type PolicyInfo, type StartAnswers,
@@ -239,26 +240,33 @@ function answerSummary(value: StartAnswers, index: number) {
   return labels.length ? labels.join(', ') : '선택 안 함';
 }
 
+const noSubscribe = () => () => {};
+
 /** 설정 목록 한 줄: [이름 · 지금 값 ›] → 누르면 아래에서 올라오는 창 */
 export function CriteriaRow({ label, summary, disabled, children, done = '다 골랐어요' }: {
   label: string; summary: string; disabled?: boolean; children: ReactNode; done?: string;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  // 창은 페이지 맨 바깥(body)에 그림: 사파리는 흐림 효과(backdrop-filter)가 걸린 카드 안의 창을 카드 안쪽에 잘못 그릴 수 있음
+  // 서버에서 그릴 때는 body가 없으니 브라우저에서만 (useSyncExternalStore: 서버 false / 브라우저 true)
+  const inBrowser = useSyncExternalStore(noSubscribe, () => true, () => false);
+  const host = inBrowser ? document.body : null;
   const close = () => dialog.current?.close();
+  const sheet = <dialog ref={dialog} className="criteria-sheet night-ui" aria-labelledby={titleId}
+      onClick={event => { if (event.target === event.currentTarget) close(); }}>
+      <header><h2 id={titleId}>{label}</h2>
+        <button type="button" className="text-button criteria-sheet-close" aria-label={`${label} 닫기`} onClick={close}>✕</button></header>
+      <div className="criteria-sheet-body">{children}</div>
+      <button type="button" className="criteria-sheet-done" onClick={close}>{done}</button>
+    </dialog>;
   return <li>
     <button type="button" className="text-button criteria-row" aria-haspopup="dialog" disabled={disabled} onClick={() => dialog.current?.showModal()}>
       <span className="criteria-row-label">{label}</span>
       <span className={`criteria-row-value${summary === '선택 안 함' || summary === '입력 안 함' ? ' empty' : ''}`}>{summary}</span>
       <span className="criteria-row-go" aria-hidden="true">›</span>
     </button>
-    <dialog ref={dialog} className="criteria-sheet night-ui" aria-labelledby={titleId}
-      onClick={event => { if (event.target === event.currentTarget) close(); }}>
-      <header><h2 id={titleId}>{label}</h2>
-        <button type="button" className="text-button criteria-sheet-close" aria-label={`${label} 닫기`} onClick={close}>✕</button></header>
-      <div className="criteria-sheet-body">{children}</div>
-      <button type="button" className="criteria-sheet-done" onClick={close}>{done}</button>
-    </dialog>
+    {host && createPortal(sheet, host)}
   </li>;
 }
 
