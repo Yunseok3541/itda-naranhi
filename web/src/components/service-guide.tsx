@@ -1,6 +1,7 @@
 "use client";
 // 처음 시작 안내 (시작 질문을 마친 뒤 한 번, docs/온보딩.md)
-// - 3장: 환영 → 양자리 별 4개 따기(첫 친구 별마중) → 하루 한 줄과 포인트
+// - 3장: 환영 → 양자리 별 4개 따기(첫 친구 별마중) → 준비됐나요? (짧게 기대감을 주고 바로 내 밤하늘로)
+//   하루 한 줄·포인트 설명은 여기서 미리 하지 않고, 메인에서 오늘의 별을 실제로 따라가며 안내
 // - 둘째 장부터 아래에 "이전 / 다음" 줄. 양자리 네 일은 같은 크기 상자에 겹쳐 두고 지금 일만 보여 줘서 상자와 단추가 제자리 (시작 질문과 같은 방식)
 // - 양자리 별은 실제 기록에 남고 하루 별 따기 한도에서 제외한다.
 //   (자기 보고·앱 밖 활동 아님 → 1순위 지표에 섞이지 않음, 2026-11-22 결정)
@@ -10,7 +11,6 @@ import { characters } from '@/app/catalog/characters';
 import CatalogStardust from '@/app/catalog/catalog-stardust';
 import { getStarConstellationId } from '@/lib/constellations';
 import { client, type Help, type Mode } from '@/lib/mobile-data';
-import { CHECKIN_POINTS, METEOR_POINTS } from '@/lib/points';
 import { catalogQuest, FIRST_FRIEND_CONSTELLATION, TUTORIAL_STAR_IDS } from '@/lib/quest-catalog';
 import { giveFirstFriend } from '@/lib/service-guide';
 import ConstellationCelebration from './constellation-celebration';
@@ -37,8 +37,8 @@ export default function ServiceGuide({ mode, replay = false, onDone, onHelp }: {
   const hasAries = mode === 'example' || apiHasAries === true;
   const checking = mode === 'api' && apiHasAries === null;
   const steps = hasAries
-    ? ['환영', '양자리', '하루 한 줄']
-    : ['환영', '연습 별자리', '별자리 친구', '하루 한 줄'];
+    ? ['환영', '양자리', '내 밤하늘']
+    : ['환영', '연습 별자리', '별자리 친구', '내 밤하늘'];
   const heading = useRef<HTMLHeadingElement>(null);
   const first = useRef(true);
   useEffect(() => {
@@ -79,7 +79,7 @@ export default function ServiceGuide({ mode, replay = false, onDone, onHelp }: {
       <ul className="guide-preview" aria-label="이렇게 둘러봐요">
         <li><span aria-hidden="true">✦</span>{hasAries ? '양자리 별 네 개 따 보기' : '연습 별 세 개 따 보기'}</li>
         <li><span aria-hidden="true">◎</span>{hasAries ? '첫 별자리 친구 만나기' : '별자리 친구 만나는 법'}</li>
-        <li><span aria-hidden="true">✎</span>하루 한 줄과 포인트</li>
+        <li><span aria-hidden="true">☾</span>내 밤하늘 열어 보기</li>
       </ul>
       <p className="small guide-time">1분이면 끝나요. 언제든 건너뛸 수 있어요.</p>
       <button type="button" className="guide-next" disabled={checking} onClick={next}>
@@ -104,23 +104,39 @@ export default function ServiceGuide({ mode, replay = false, onDone, onHelp }: {
       <GuideNav onBack={back}><button type="button" onClick={next}>다음</button></GuideNav>
     </>}
 
-    {step === steps.length - 1 && <>
-      <h2 ref={heading} tabIndex={-1}>하루 한 줄이면 충분해요</h2>
-      <p>밤하늘 아래쪽의 캐릭터를 누르면 <b>오늘의 별</b>이 열려요.</p>
-      <ol className="guide-daily">
-        <li><span aria-hidden="true">1</span><div><b>한 줄 기록</b><small>오늘을 한 줄로, 오늘 괜찮은 활동 범위도 골라요</small></div></li>
-        <li><span aria-hidden="true">2</span><div><b>마음 날씨</b><small>AI가 한 줄을 날씨로 빗대 봐요. 다르면 바꿀 수 있어요</small></div></li>
-        <li><span aria-hidden="true">3</span><div><b>오늘의 별</b><small>고른 범위 안에서 해 볼 만한 별을 찾아 줘요</small></div></li>
-      </ol>
-      <div className="guide-points">
-        <b><span aria-hidden="true">✦</span> 포인트는 이렇게 쌓여요</b>
-        <p>하루 첫 체크인 +{CHECKIN_POINTS} · 별을 처음 따면 +10~40 · 별똥별 +{METEOR_POINTS}</p>
-        <small>모은 포인트로 프로필의 별빛 상점에서 캐릭터를 꾸밀 수 있어요.</small>
-      </div>
-      <p className="small guide-note">매일 오지 않아도 돼요. 연속 기록도, 감점도 없어요. 오고 싶은 날 오면 돼요.</p>
+    {step === steps.length - 1 && <div className="guide-ready">
+      <SkyWindow saved={hasAries} />
+      <h2 ref={heading} tabIndex={-1}>준비됐나요?</h2>
+      <p>{hasAries ? '방금 이은 양자리가 내 밤하늘에서 기다리고 있어요.' : '이제 내 밤하늘에서 첫 별을 켜 볼 차례예요.'}</p>
       <GuideNav onBack={back}><button type="button" onClick={onDone}>{replay ? '밤하늘로 돌아가기' : '내 밤하늘 열기'}</button></GuideNav>
-    </>}
+    </div>}
   </section>;
+}
+
+/** 둥근 밤하늘 창 속 작은 별들 (x, y, 반지름) */
+const TWINKLES = [[38, 52, 1.1], [62, 150, .8], [86, 28, .9], [150, 24, 1.2], [172, 66, .8], [166, 150, 1], [128, 174, .7],
+  [36, 108, .7], [98, 162, .9], [186, 112, .8], [118, 44, .6], [24, 142, .6], [140, 120, .5], [58, 82, .5]] as const;
+const WINDOW_SCALE = .62;
+
+/** "준비됐나요?" 장: 둥근 밤하늘 창 안에서 방금 이은 별자리가 반짝임 (연습 별자리면 세 별) */
+function SkyWindow({ saved }: { saved: boolean }) {
+  const spots = saved ? SPOTS : PRACTICE_SPOTS;
+  const xs = spots.map(spot => spot.x), ys = spots.map(spot => spot.y);
+  // 별자리 테두리 상자의 가운데를 창 가운데(100, 100)에
+  const x = 100 - (Math.min(...xs) + Math.max(...xs)) / 2 * WINDOW_SCALE;
+  const y = 100 - (Math.min(...ys) + Math.max(...ys)) / 2 * WINDOW_SCALE;
+  return <div className="guide-sky-window" aria-hidden="true">
+    <svg viewBox="0 0 200 200">
+      {TWINKLES.map(([cx, cy, r], i) => <circle key={i} className="guide-twinkle" cx={cx} cy={cy} r={r} style={{ animationDelay: `${(i * .37) % 2.4}s` }} />)}
+      <g transform={`translate(${x} ${y}) scale(${WINDOW_SCALE})`}>
+        {spots.slice(1).map((spot, i) => <line key={i} x1={spots[i].x} y1={spots[i].y} x2={spot.x} y2={spot.y} />)}
+        {spots.map((spot, i) => <g key={i} className="guide-star bright" transform={`translate(${spot.x} ${spot.y})`}>
+          <circle className="guide-star-glow" r="22" />
+          <path d={STAR_PATH} transform="translate(-12 -12)" />
+        </g>)}
+      </g>
+    </svg>
+  </div>;
 }
 
 /** 안내 아래쪽 "이전 / 다음" 줄 (시작 질문의 이전·다음과 같은 자리·모양). children = 오른쪽 주 단추 */

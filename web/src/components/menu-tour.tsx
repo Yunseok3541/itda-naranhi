@@ -12,7 +12,7 @@ import { useCloseDialogOnHide } from './use-close-dialog-on-hide';
  *  - 하늘 지도, 프로필, 친구 도감은 버튼에 글자 이름이 늘 있어 따로 비추지 않음
  *  화면에 없는 버튼은 건너뜀 */
 const TARGETS: readonly { selector: string; name: string; text: string }[] = [
-  { selector: '.sky-quest-character', name: '오늘의 별', text: '캐릭터를 누르면 오늘 해 볼 별을 찾을 수 있어요' },
+  { selector: '.sky-quest-character', name: '오늘의 별', text: '캐릭터를 누르면 오늘 만날 별을 추천받을 수 있어요' },
   { selector: '.sky-top .sky-help-button', name: '도움받을 곳', text: '힘들 때 연락할 곳을 언제든 볼 수 있어요' },
   { selector: '.sky-top .sky-resource-button', name: '청년센터·정책', text: '가까운 청년센터와 나에게 맞는 정책을 찾아요' },
   { selector: '.night-list-trigger', name: '별 목록', text: '별자리마다 해 볼 일을 목록으로 볼 수 있어요' },
