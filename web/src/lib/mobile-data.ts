@@ -221,14 +221,14 @@ export function client(mode: Mode) { return {
   },
   async nextSteps(attemptId: number): Promise<NextRecommendation> {
     if (mode === 'api') return request('next-steps', 'POST', { attemptId });
-    const { source, options, help } = exampleContext(read(), attemptId);
-    return { attemptId, options, recommendedKey: defaultNextKey(source, options), usedFallback: true, help };
+    const { options, help } = exampleContext(read(), attemptId);
+    return { attemptId, options, recommendedKey: defaultNextKey(options), usedFallback: true, help };
   },
   async chooseNext(attemptId: number, optionKey: string): Promise<{ plan: NextPlan | null }> {
     if (mode === 'api') return request('next-steps', 'PATCH', { attemptId, key: optionKey });
     return withExampleStoreLock(() => {
       const s = read();
-      if (s.stars.some(st => st.memories.some(m => m.parentAttemptId === attemptId))) throw new Error('이미 이어서 기록한 행동이에요.');
+      if (s.stars.some(st => st.memories.some(m => m.parentAttemptId === attemptId))) throw new Error('이미 이어서 기록한 별이에요.');
       const option = exampleContext(s, attemptId).options.find(o => o.key === optionKey);
       if (!option) throw new Error('지금 선택할 수 있는 행동이 아니에요.');
       s.nextPlan = option.action === 'stop' ? null : { ...option, attemptId };
@@ -314,7 +314,7 @@ export function client(mode: Mode) { return {
       if (!star) throw new Error('별을 찾을 수 없어요.');
       const existing = body.requestId && star.memories.find(m=>m.requestId===body.requestId);
       if(existing) return {attemptId:existing.attemptId,starId:star.starId,status:existing.status??body.status,cheer:'당신의 하늘에 기록을 남겼어요.',help:ruleHelp(existing.reflection),pointsEarned:0,totalPoints:exampleTotal(s)};
-      if (body.parentAttemptId && (!s.nextPlan || s.nextPlan.attemptId !== body.parentAttemptId || !planMatches(s.nextPlan, body.starId, body.subQuestId ?? null))) throw new Error('이어갈 행동을 다시 확인해 주세요.');
+      if (body.parentAttemptId && (!s.nextPlan || s.nextPlan.attemptId !== body.parentAttemptId || !planMatches(s.nextPlan, body.starId, body.subQuestId ?? null))) throw new Error('이어볼 별을 다시 확인해 주세요.');
       const now = new Date();
       const newlyBright = star.status !== 'bright' && body.status === 'bright';
       if (star.status !== 'bright' && !isTutorialStar(star.starId) && hasReachedDailyStarLimit(s.stars, now)) {

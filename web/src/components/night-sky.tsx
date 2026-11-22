@@ -447,6 +447,8 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
   // 지금 별자리 별 이름표 자리 (겹치면 숨김)
   // 별 상세 창이 열려 있으면 이름표는 숨김 (창 제목이 같은 이름이고, 별 바로 아래 창에 이름표가 가려짐)
   const labelStar = selected ? null : namedStar;
+  // 이름표가 뜬 별이 아직 안 만난 별이면 두 번째 누름에 "해 볼 일", 만난 별이면 "그날의 기억"이 열림 (기능발견성 다시 점검 #6)
+  const namedUntried = namedStar !== null && stars.find(s => s.starId === namedStar)?.status === 'untried';
   const labelSpot = useMemo(() => {
     if (labelStar === null || skyView.isFlying() || !frame) return null;
     const groupIndex = groups.findIndex(group => group.stars.some(star => star.starId === labelStar));
@@ -564,7 +566,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
             '--star-light': (isCurrent ? .55 + .45 * starDetail : .42) * viewportLight(p.x, p.y, frame.width, frame.height),
             '--star-scale': isCurrent ? .72 + .28 * starDetail : .75,
           } as CSSProperties}
-          aria-label={`${s.title}, ${labels[s.status]}${namedStar === s.starId ? ', 이 별의 기억 열기' : ''}`}
+          aria-label={`${s.title}, ${labels[s.status]}${namedStar === s.starId ? (s.status === 'untried' ? ', 해 볼 일 열기' : ', 이 별의 기억 열기') : ''}`}
           onClick={() => {
             finishHint('star');
             // 멀리서 보고 있으면(축소했거나 다른 별자리) 먼저 그 별자리로 이동·확대, 크게 보고 있는 별자리면 기억 창
@@ -593,7 +595,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
             : reveal.star ? `‘${reveal.star.title}’, 바로 이 별이에요` : '별을 눌러 오늘 해 볼 일을 골라 보세요'
           : complete ? '별자리를 모두 이었어요' : current.theme}</p>
       </div>
-      {labelSpot && !reveal && !selected && <p className="night-hint">별을 한 번 더 누르면 그날의 기억이 열려요</p>}
+      {labelSpot && !reveal && !selected && <p className="night-hint">{namedUntried ? '별을 한 번 더 누르면 해 볼 일이 열려요' : '별을 한 번 더 누르면 그날의 기억이 열려요'}</p>}
     </> : <div className="night-title"><h1>아직 하늘이 비어 있어요</h1><p>밤하늘을 다시 불러와 주세요.</p></div>}
 
     {/* 모든 별 목록: 안내 문구 아래 작은 버튼 → 아래에서 올라오는 창 (캔버스를 못 쓰는 사람도 모든 별을 고를 수 있게) */}
@@ -663,7 +665,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
         {questBlocked ? <p className="error star-limit-error">{DAILY_STAR_LIMIT_MESSAGE}</p> :
         <div className="sheet-actions">
           <Link className="primary sky-icon-action" href={`/stars/${selected.starId}`}>
-            <SkyControlIcon name={selected.status === 'untried' ? 'star' : 'memory'} /> {selected.status === 'untried' ? '퀘스트 시작' : '이 별 다시 기록하기'}
+            <SkyControlIcon name={selected.status === 'untried' ? 'star' : 'memory'} /> {/* 같은 일은 같은 이름: 오늘의 별 추천과 같이 "이 별과 만나 보기". "이 별 만나 보기"는 "이별"로 읽혀서 "과"를 붙임 (기능발견성 다시 점검 #5) */}{selected.status === 'untried' ? '이 별과 만나 보기' : '이 별과 다시 만나 보기'}
           </Link>
         </div>}
       </div>
