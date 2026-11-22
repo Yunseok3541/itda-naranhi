@@ -25,7 +25,7 @@ export default function CentersScreen({ mode, centerId, from = 'sky', onError, o
   const [loadError, setLoadError] = useState('');
   const [retry, setRetry] = useState(0);
   const [question, setQuestion] = useState('');
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState<string | null>(null);
   const [draftId, setDraftId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; focusDraft?: boolean } | null>(null);
@@ -142,7 +142,7 @@ export default function CentersScreen({ mode, centerId, from = 'sky', onError, o
         <h2>문의 문장 준비하기</h2><p>궁금한 점을 적으면 초안을 함께 준비해요. 앱에서 실제로 전송하지 않아요.</p>
         <label>궁금한 점<textarea disabled={busy} maxLength={300} value={question} onChange={event => setQuestion(event.target.value)} placeholder="예약 없이 잠깐 둘러봐도 괜찮을까요?" /></label>
         <button disabled={busy || !question.trim()} onClick={() => run(createDraft)}>{busy ? '준비 중…' : '문의 초안 준비하기'}</button>
-        {draft && <>
+        {draft !== null && <>
           <label>보내기 전에 확인할 초안<textarea ref={draftInput} disabled={busy} maxLength={1000} value={draft} onChange={event => setDraft(event.target.value)} /></label>
           <button disabled={busy || !draft.trim()} onClick={() => run(async () => {
             if (mode === 'example') localStorage.setItem(`naranhi-example-inquiry-${centerId}`, draft);
