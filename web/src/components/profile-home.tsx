@@ -99,7 +99,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
   const records = useMemo(() => (stars ?? [])
     .flatMap(s => s.memories.map(m => ({ ...m, title: s.title })))
     .sort((a, b) => `${b.date}|${String(b.attemptId).padStart(16, '0')}`.localeCompare(`${a.date}|${String(a.attemptId).padStart(16, '0')}`))
-    .slice(0, 5), [stars]);
+    .slice(0, 3), [stars]);
 
   if (settings) return <>
     <ScreenBar title="설정" backLabel="프로필로 돌아가기" onBack={() => { setSettings(false); history.replaceState(null, '', '/profile'); }} />
@@ -261,6 +261,8 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
             <time dateTime={r.date}>{formatRecordDate(r.date)}</time>
           </li>)}</ul>
         : <p className="small">별을 기록하면 여기에 그날의 기억이 쌓여요.</p>}
+      {/* 지난 기록 전체는 별 일기(달력 + 하루 카드)에서 */}
+      {records.length > 0 && <Link className="secondary journal-more" href="/journal"><span>별 일기 전체 보기</span><span aria-hidden="true">›</span></Link>}
     </Section>
   </div>;
 }

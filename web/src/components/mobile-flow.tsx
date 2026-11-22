@@ -10,6 +10,7 @@ import SkyPanorama from '@/app/sky-preview/sky-panorama';
 import { ProfileScreen, StartQuestions, startStepAnswered } from './profile-form';
 import GlassSelect from './glass-select';
 import StarlightShop from './starlight-shop';
+import StarJournal from './star-journal';
 import ProfileHome from './profile-home';
 import { PendingNextLink } from './next-step-card';
 import QuestScreen from './quest-screen';
@@ -333,6 +334,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  </dialog>}
  {screen==='star'&&<StarScreen key={starId} mode={mode} star={star} dailyLimitReached={!isTutorialStar(starId) && hasReachedDailyStarLimit(stars)} busy={busy} run={run} onHelp={H} onSaved={reloadSky}/>}
  {screen==='shop'&&<StarlightShop mode={mode}/>}
+ {screen==='journal'&&<StarJournal mode={mode}/>}
  {screen==='profile'&&<ProfileHome mode={mode}/>}
  {screen==='mind-check'&&<MindCheckScreen mode={mode} from={mindCheckFrom}/>}
  {screen==='policy-criteria' && <>

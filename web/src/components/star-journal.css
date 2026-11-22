@@ -1,0 +1,87 @@
+/* 별 일기 (star-journal.tsx). 색·카드는 프로필 숫자 칸(.screen-summary)·별 목록과 같은 결 */
+.star-journal .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* 다시 꺼내 보는 카드 */
+.journal-recall {
+  margin: 4px 0 14px; padding: 14px 16px 6px; border-radius: 18px;
+  border: 1px solid rgba(246, 207, 125, .35);
+  background: radial-gradient(circle at 92% 0%, rgba(246, 207, 125, .16), transparent 55%), rgba(37, 32, 57, .82);
+}
+.journal-recall-kind { display: flex; align-items: center; gap: 6px; margin: 0 0 4px; font-size: .8125rem; font-weight: 650; color: #ffe4a0; }
+.journal-recall-kind .status-star { width: 15px; height: 15px; }
+.journal-recall-title { margin: 0; font-weight: 700; color: var(--starlight); }
+.journal-recall-note { margin: 4px 0 0; color: rgba(238, 233, 255, .82); font-size: .9rem; white-space: pre-wrap; }
+.night-ui .journal-recall .text-button { width: auto; min-height: 44px; padding: 0; color: var(--star-gold); font-size: .875rem; }
+
+/* 달력 */
+.journal-calendar { margin: 0 0 14px; padding: 10px 10px 12px; border-radius: 18px; background: rgba(37, 32, 57, .82); border: 1px solid rgba(255, 255, 255, .12); }
+.journal-month { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; margin: 0 0 6px; }
+.journal-month h2 { margin: 0; text-align: center; font-size: 1.05rem; }
+.night-ui .journal-month-nav { display: grid; place-items: center; width: 44px; min-height: 44px; padding: 0; margin: 0; border-radius: 12px; font-size: 1.4rem; line-height: 1; color: var(--starlight); text-decoration: none; }
+.night-ui .journal-month-nav:disabled { opacity: .28; }
+.journal-week, .journal-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+.journal-week span { padding: 4px 0; text-align: center; font-size: .72rem; color: var(--starlight-dim); }
+.journal-cell {
+  position: relative; display: grid; grid-template-rows: auto 16px; justify-items: center; align-content: center; gap: 1px;
+  aspect-ratio: 1 / 1.05; min-height: 40px; border-radius: 12px; color: rgba(238, 233, 255, .5);
+}
+.journal-cell.blank { visibility: hidden; }
+.journal-num { font-size: .78rem; font-weight: 600; line-height: 1.1; }
+.journal-cell.today { box-shadow: inset 0 0 0 1px var(--star-gold-soft); color: var(--starlight); }
+.night-ui button.text-button.journal-day {
+  width: 100%; min-height: 40px; margin: 0; padding: 4px 0; border: 0; box-shadow: none;
+  background: transparent; color: var(--starlight); text-decoration: none; cursor: pointer;
+}
+.night-ui button.text-button.journal-day.today { box-shadow: inset 0 0 0 1px var(--star-gold-soft); }
+/* 그날 해낸 별이 많을수록 은은한 빛이 조금씩 커짐 (점수·숫자 대신) */
+.night-ui button.text-button.journal-day[data-glow="1"] { background: radial-gradient(circle at 50% 62%, rgba(246, 207, 125, .14), transparent 60%); }
+.night-ui button.text-button.journal-day[data-glow="2"] { background: radial-gradient(circle at 50% 62%, rgba(246, 207, 125, .22), transparent 66%); }
+.night-ui button.text-button.journal-day[data-glow="3"] { background: radial-gradient(circle at 50% 62%, rgba(246, 207, 125, .32), transparent 72%); }
+.night-ui button.text-button.journal-day.selected { background: rgba(246, 207, 125, .2); box-shadow: inset 0 0 0 1px var(--star-gold); }
+.night-ui button.text-button.journal-day:focus-visible { outline: 2px solid var(--star-gold); outline-offset: 1px; }
+.journal-mark { display: grid; place-items: center; height: 16px; }
+.journal-mark .status-star { width: 15px; height: 15px; }
+.journal-photo-dot { position: absolute; right: 22%; top: 18%; width: 5px; height: 5px; border-radius: 50%; background: #c8b6ff; box-shadow: 0 0 4px rgba(200, 182, 255, .8); }
+.journal-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; margin: 8px 0 0; font-size: .72rem; color: var(--starlight-dim); }
+.journal-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.journal-legend .status-star { width: 12px; height: 12px; }
+.journal-legend .journal-photo-dot { position: static; display: inline-block; }
+
+/* 골라 보기 */
+.journal-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 6px; }
+.night-ui .journal-filters .secondary { width: auto; min-height: 40px; margin: 0; padding: 6px 14px; border-radius: 999px; font-size: .85rem; }
+
+/* 하루 카드 */
+.journal-list { list-style: none; margin: 0; padding: 0; }
+.journal-entry-day { scroll-margin-top: 72px; }
+.journal-entry-day h3 { margin: 18px 4px 8px; font-size: .95rem; color: var(--starlight); }
+.journal-entry-day h3 span { color: var(--starlight-dim); font-weight: 500; }
+.night-ui .journal-entries {
+  list-style: none; margin: 0; padding: 4px 14px; border-radius: 16px;
+  background: rgba(37, 32, 57, .82); border: 1px solid rgba(255, 255, 255, .12);
+  transition: border-color .3s ease, box-shadow .3s ease;
+}
+.journal-entry-day.focused .journal-entries { border-color: var(--star-gold); box-shadow: 0 0 18px rgba(246, 207, 125, .22); }
+.journal-entries > li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 12px 0; border-top: 1px solid rgba(255, 255, 255, .1); }
+.journal-entries > li:first-child { border-top: 0; }
+.journal-entry-star { display: flex; align-items: center; height: 1.5em; }
+.journal-entry-star .status-star { width: 18px; height: 18px; }
+.journal-entry-text { min-width: 0; line-height: 1.5; }
+.journal-entry-text b { display: block; font-weight: 600; color: var(--starlight); }
+.journal-entry-text small { display: block; font-size: .8125rem; color: var(--starlight-dim); }
+.journal-entry-status { font-weight: 700; color: #e1d3f5; }
+.journal-entry-status.bright { color: #ffe4a0; }
+.journal-entry-text p { margin: 6px 0 0; color: rgba(238, 233, 255, .86); white-space: pre-wrap; word-break: keep-all; }
+.journal-photo { display: block; width: 100%; max-height: 220px; margin-top: 8px; border-radius: 12px; object-fit: cover; }
+.journal-none { text-align: center; color: var(--starlight-dim); }
+.journal-empty { display: grid; justify-items: center; gap: 6px; text-align: center; }
+.journal-empty .status-star { width: 36px; height: 36px; }
+.journal-empty h2 { margin: 4px 0 0; }
+
+/* 프로필의 "별 일기 전체 보기" */
+.night-ui .journal-more { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; text-decoration: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .journal-entry-day.focused .journal-entries { animation: journal-focus 1.6s ease-out; }
+  @keyframes journal-focus { 0% { box-shadow: 0 0 0 rgba(246, 207, 125, 0); } 25% { box-shadow: 0 0 26px rgba(246, 207, 125, .4); } }
+}
