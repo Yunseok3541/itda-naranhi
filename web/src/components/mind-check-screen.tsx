@@ -215,7 +215,7 @@ export default function MindCheckScreen({ mode, from = 'profile' }: { mode: Mode
         <h2 id="mind-care-title"><SkyControlIcon name="help" /> 요즘 마음이 많이 지쳐 있을 수 있어요</h2>
         <p>혼자 감당하지 않아도 돼요. 이야기를 나눌 수 있는 곳이 있어요.</p>
         <HelpLines lines={HELP_MESSAGE.lines} />
-        {help && <button type="button" className="secondary" onClick={help.toggle} aria-expanded={help.open}>도움받을 곳 열기</button>}
+        {help && <button type="button" className="secondary help-toggle" onClick={help.toggle} aria-expanded={help.open}>도움받을 곳 열기</button>}
       </section>}
       <p className="mind-next"><span>다음 마음 짚기</span><strong>{day(latest.nextAt)}쯤</strong></p>
       <p className="small mind-note">{NOT_DIAGNOSIS}</p>
