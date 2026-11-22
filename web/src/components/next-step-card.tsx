@@ -15,7 +15,7 @@ export function NextStepCard({ mode, attemptId, busy, run, onHelp }: {
   return <section className="card next-step-card" aria-labelledby="next-step-heading">
     {/* 설명 문장은 뺌: 고를 수 있는 것(더 쉽게·다른 날·다른 별·쉬어 가기)은 제안 목록에서 바로 보임 */}
     <h2 id="next-step-heading">다음으로 이어볼 별</h2>
-    {!result && <button type="button" disabled={busy} onClick={() => run(async () => {
+    {!result && <button type="button" className="secondary" disabled={busy} onClick={() => run(async () => {
       const next = await client(mode).nextSteps(attemptId);
       onHelp(next.help); setResult(next);
     })}>{busy ? '이어볼 별을 찾고 있어요…' : '다음으로 이어볼 별 찾아보기'}</button>}

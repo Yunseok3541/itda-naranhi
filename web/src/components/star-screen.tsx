@@ -14,8 +14,10 @@ import { DAILY_STAR_LIMIT_MESSAGE } from '@/lib/star-limit';
 import { starDisplayDescription, starDisplayTitle } from '@/lib/star-display';
 import { Hero, HeroIcon, ScreenBar, Section } from './screen-kit';
 import { NextStepCard } from './next-step-card';
+import GlassSelect from './glass-select';
 import { StatusStar } from './star-list';
 import type { NextPlan } from '@/lib/next-step';
+import './star-screen.css';
 
 const STATUS = { untried: '아직 만나기 전', dim: '손을 뻗은 별', bright: '딴 별' } as const;
 const REASONS = [['crowded', '사람이 많았어요'], ['weather', '날씨·상황이 안 맞았어요'], ['tired', '몸·마음이 힘들었어요'], ['no_time', '시간이 없었어요'], ['not_for_me', '나랑 안 맞았어요'], ['cost', '돈이 들어서요'], ['other', '기타']] as const;
@@ -43,6 +45,8 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
   const [photoBusy,setPhotoBusy]=useState(false);
   const [photoError,setPhotoError]=useState('');
   const [saved, setSaved] = useState('');
+  const [savedStatus, setSavedStatus] = useState<'dim' | 'bright'>('bright');
+  const [savedNote, setSavedNote] = useState('');
   const [completionHref, setCompletionHref] = useState<string>();
   const [place, setPlace] = useState('');
   const [savedAttemptId, setSavedAttemptId] = useState<number | null>(null);
@@ -101,40 +105,55 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
       {pending.preparationHref && <Link className="secondary" href={pending.preparationHref}>문의 문장 준비하기</Link>}
     </section>}
     {saved
-      ? <section className="card saved">
-          <h2>오늘의 순간을 담았어요</h2>
-          <p>{saved}</p>
-          <p className="small">{mode === 'example' ? '가상 기록을 이 브라우저에 저장했어요.' : 'AI가 만든 응원은 틀릴 수 있어요.'}</p>
-          {busy ? <p role="status">밤하늘을 다시 읽고 있어요…</p> : (
+      ? <section className={`record-done ${savedStatus}`} aria-live="polite">
+          {/* 결과를 먼저 크게: 별이 켜짐 + 한 줄 응원. 주 버튼은 하나만 (다음 걸음은 아래 보조 카드) */}
+          <span className="record-done-star" aria-hidden="true"><StatusStar status={savedStatus} /></span>
+          <h2>{savedStatus === 'bright' ? '별을 땄어요' : '손을 뻗은 별로 남았어요'}</h2>
+          <p className="record-done-cheer">{saved}</p>
+          {savedNote && <p className="record-done-note">“{savedNote}”</p>}
+          {busy ? <p role="status" className="small">밤하늘을 다시 읽고 있어요…</p> : (
             <Link className="primary" href={completionHref ?? `/sky?memory=${star.starId}`}>
-              {completionHref ? '별자리 완성 보기' : '내 밤하늘에서 기억 보기'}
+              {completionHref ? '별자리 완성 보기' : '내 밤하늘에서 보기'}
             </Link>
           )}
+          <p className="record-done-meta">{mode === 'example' ? '가상 기록을 이 브라우저에 저장했어요.' : 'AI가 만든 응원은 틀릴 수 있어요.'}</p>
         </section>
       : questBlocked
       ? <p className="error star-limit-error">{DAILY_STAR_LIMIT_MESSAGE}</p>
-      : <section className="card">
-          <h2>오늘의 기록</h2>
-          <p>해낸 만큼, 혹은 손을 뻗은 만큼.<br />어느 쪽이든 소중한 오늘의 기록이에요.</p>
-          <div className="choices">{([['bright', '하늘의 별 따기', '해냈어요'], ['dim', '손 뻗어 보기', '시도해 봤어요']] as const).map(([v, l, sub]) =>
-            <button key={v} type="button" className="secondary choice-with-sub" disabled={busy} aria-pressed={status === v} onClick={() => setStatus(v)}>{l}<small>{sub}</small></button>)}</div>
-          {status === 'dim' && <label>어떤 점이 어려웠나요? (선택)<select value={reason} onChange={e => setReason(e.target.value)}>
-            <option value="">말하지 않아도 괜찮아요</option>
-            {REASONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select></label>}
+      : <section className="card record-form" aria-labelledby="record-question">
+          {/* ① 먼저 하나만 고르기 → ② 남기고 싶으면 한 줄·사진 → ③ 고른 것에 맞춘 저장 버튼 */}
+          <h2 id="record-question">오늘 이 별, 어땠나요?</h2>
+          <p className="record-hint">어느 쪽이든 내 하늘에 남아요.</p>
+          <div className="record-choices" role="radiogroup" aria-labelledby="record-question">
+            {([['bright', '하늘의 별 따기', '해냈어요'], ['dim', '손 뻗어 보기', '시도해 봤어요']] as const).map(([v, l, sub]) =>
+              <button key={v} type="button" role="radio" aria-checked={status === v} className={`secondary record-choice ${v}`} disabled={busy} onClick={() => setStatus(v)}>
+                <span className="record-choice-star" aria-hidden="true"><StatusStar status={v} /></span>
+                <b>{l}</b><small>{sub}</small>
+              </button>)}
+          </div>
+          {status === 'dim' && <div className="record-reasons">
+            {/* 기본 드롭다운 대신 앱 공통 반투명 드롭다운. 안 골라도 되고, 고른 뒤에도 "말하지 않을래요"로 되돌릴 수 있음 */}
+            <GlassSelect<string | null> label="어떤 점이 어려웠나요? (선택)" value={reason || null} disabled={busy}
+              onChange={v => setReason(v ?? '')}
+              options={[{ value: null, label: '말하지 않아도 괜찮아요' }, ...REASONS.map(([v, l]) => ({ value: v, label: l }))]} />
+            <p className="record-reasons-hint">다음 걸음을 고를 때 참고해요.</p>
+          </div>}
+
           {weatherStar && <fieldset className="star-weather" disabled={busy}>
             <legend>지금 마음에 가까운 날씨</legend>
             <p className="small">골라도, 안 골라도 괜찮아요. 같은 날씨를 한 번 더 누르면 풀려요.</p>
             <div className="star-weather-options">{Object.entries(weatherNames).map(([code, name]) => <button key={code} type="button" className="secondary"
               aria-pressed={weather === code} onClick={() => setWeather(w => w === code ? null : code)}>{name}</button>)}</div>
           </fieldset>}
-          <label>오늘을 기억할 한 줄 (선택)<textarea disabled={busy} maxLength={lineMax} value={reflection} onChange={e => setReflection(e.target.value.slice(0, lineMax))} placeholder="짧게 적어도, 비워 두어도 괜찮아요" /></label>
-          <fieldset className="photo-picker" disabled={busy || photoBusy}>
-            <legend>사진 남기기 (선택)</legend>
-            <label>{photo?'사진 바꾸기':'앨범에서 선택'}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={choosePhoto}/></label>
-            <label>카메라로 찍기<input type="file" accept="image/*" capture="environment" onChange={choosePhoto}/></label>
-          </fieldset>
-          {photo && <><img className="photo-preview" src={photo} alt="선택한 사진"/><button type="button" className="secondary" disabled={busy||photoBusy} onClick={()=>setPhoto(undefined)}>사진 빼기</button></>}
+          <h3 className="record-sub">남기고 싶다면 <span className="record-optional">선택</span></h3>
+          <label className="record-field"><span className="sr-only">오늘을 기억할 한 줄</span><textarea disabled={busy} maxLength={lineMax} rows={2} value={reflection} onChange={e => setReflection(e.target.value.slice(0, lineMax))} placeholder="오늘을 기억할 한 줄 (비워 두어도 괜찮아요)" /></label>
+          {photo
+            ? <div className="record-photo"><img className="photo-preview" src={photo} alt="선택한 사진"/><button type="button" className="text-button" disabled={busy||photoBusy} onClick={()=>setPhoto(undefined)}>사진 빼기</button></div>
+            : <fieldset className="photo-picker record-photo-picker" disabled={busy || photoBusy}>
+                <legend className="sr-only">사진 남기기</legend>
+                <label>앨범에서 사진<input type="file" accept="image/jpeg,image/png,image/webp" onChange={choosePhoto}/></label>
+                <label>카메라로 찍기<input type="file" accept="image/*" capture="environment" onChange={choosePhoto}/></label>
+              </fieldset>}
           {photoError && <p role="alert">{photoError}</p>}
           {outside && <details>
             <summary>위치로 도착 확인 (선택)</summary>
@@ -147,13 +166,14 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
           </details>}
           {!planLoaded && <p className="small" role="status">지난 기록을 확인하고 있어요. 확인이 끝나면 저장할 수 있어요.</p>}
           {status === null && <p className="small" role="status">해냈는지, 시도해 봤는지 먼저 골라 주세요.</p>}
-          <button disabled={busy || photoBusy || !planLoaded || status === null} onClick={() => run(async () => {
+          <button className="record-save" disabled={busy || photoBusy || !planLoaded || status === null} onClick={() => run(async () => {
             if (status === null) return;
             const text = [weatherText, reflection.trim()].filter(Boolean).join(' · ').slice(0, 300);
             const r = await client(mode).attempt({ photo, requestId, starId: star.starId, status, reflection: text, verifyMethod: 'self',
               ...(activePlan ? { parentAttemptId: activePlan.attemptId, subQuestId: activePlan.subQuestId } : {}),
               ...(status === 'dim' && reason ? { stopReason: reason } : {}) });
             onHelp(r.help);
+            setSavedStatus(status); setSavedNote(reflection.trim());
             setSaved(r.cheer || '당신의 하늘에 기록을 남겼어요.');
             const href = await onSaved(r);
             if (href) {
@@ -162,7 +182,7 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
             } else {
               setSavedAttemptId(r.attemptId);
             }
-          })}>{busy ? '기록을 담는 중…' : '이 순간 저장하기'}</button>
+          })}>{busy ? '기록을 담는 중…' : status === 'bright' ? '별 따서 담기' : status === 'dim' ? '손 뻗은 별로 담기' : '이 순간 담기'}</button>
         </section>}
 
     {savedAttemptId !== null && <NextStepCard key={savedAttemptId} mode={mode} attemptId={savedAttemptId} busy={busy} run={run} onHelp={onHelp} />}
