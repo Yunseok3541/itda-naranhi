@@ -122,7 +122,12 @@ export default function SkyMinimap({ groups, centers, skies, view, frame, active
         <span className="sky-map-face"><SkyChart {...chart} /></span>
         <span className="sky-map-caption">하늘 지도</span>
       </button>
-      <dialog className="sky-map-dialog sky-dome-dialog" ref={dialog} aria-labelledby={title}>
+      <dialog className="sky-map-dialog sky-dome-dialog" ref={dialog} aria-labelledby={title}
+        onClick={event => {
+          // 창 바깥(어두운 배경)을 누르면 지도를 닫음. 창 안쪽 여백 클릭과 구분하려고 위치로 판단
+          const r = event.currentTarget.getBoundingClientRect();
+          if (event.target === event.currentTarget && (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom)) event.currentTarget.close();
+        }}>
         <h2 id={title}>밤하늘 지도</h2>
         <p className="sky-map-key"><span /> 지금 보는 방향</p>
         <div className="sky-map-overview" onClick={selectNearest}>
