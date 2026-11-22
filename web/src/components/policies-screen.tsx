@@ -10,7 +10,7 @@
 // - [신청 도와줘]: 신청 도우미 창 (apply-helper.tsx, 고민기록 #39)
 // - [나랑 안 맞아요]: 이유를 고르면 그 정책은 다시 추천하지 않음. 지역·조건 이유는 피드백 루프로 (고민기록 #38)
 import Link from 'next/link';
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { client, policyCriteriaVersion, request, type Help, type Mode } from '@/lib/mobile-data';
 import type { StartAnswers } from '@/lib/profile';
 import type { HelperPolicy } from '@/lib/apply-helper';
@@ -298,11 +298,12 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
         {policy.evidence.some(item => item.status !== 'yes') &&
           <small className="policy-evidence-note">‘확인 필요’는 공고에서 찾지 못한 항목이에요.</small>}
       </div>}
-      {(policy.mayNotFit.length > 0 || policy.conditionsToCheck.length > 0) && <details>
-        <summary>신청 조건 확인{policy.mayNotFit.length > 0 && ' · 맞지 않을 수 있어요'}</summary>
-        {policy.mayNotFit.length > 0 && <><h3>맞지 않을 수 있는 조건</h3><ul>{policy.mayNotFit.map(c => <li key={c}>{c}</li>)}</ul></>}
-        {policy.conditionsToCheck.length > 0 && <><h3>원문에서 확인할 조건</h3><ul>{policy.conditionsToCheck.map(c => <li key={c}>{c}</li>)}</ul></>}
-      </details>}
+      {/* 맞지 않을 수 있다는 주의는 접지 않고 늘 보이게, 원문에서 확인할 조건은 [보기] → 작은 창 */}
+      {policy.mayNotFit.length > 0 && <div className="policy-mismatch" role="note">
+        <b><span aria-hidden="true">⚠</span> 맞지 않을 수 있어요</b>
+        <ul>{policy.mayNotFit.map(c => <li key={c}>{c}</li>)}</ul>
+      </div>}
+      {policy.conditionsToCheck.length > 0 && <PolicyConditions title={policy.title} conditions={policy.conditionsToCheck} />}
       {policy.url && /^https?:\/\//i.test(policy.url) && <a className="primary" href={policy.url} target="_blank" rel="noopener noreferrer"
         onClick={() => { if (mode === 'api') void request(`policies/${policy.policyId}/click`, 'POST', {}).catch(() => {}); }}>정책 원문 확인</a>}
       <div className="policy-support-actions">
@@ -373,4 +374,24 @@ function NotForMe({ policyId, mode, onSent }: { policyId: number; mode: Mode; on
       <button type="button" onClick={() => void send()} disabled={!reason || busy}>{busy ? '보내는 중…' : '알려 주기'}</button>
     </div>
   </fieldset>;
+}
+
+/** 원문에서 확인할 자격 조건: 카드를 길게 만들지 않게 버튼 → 작은 창 */
+function PolicyConditions({ title, conditions }: { title: string; conditions: string[] }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  const close = () => dialog.current?.close();
+  return <>
+    <button type="button" className="text-button policy-conditions-open" aria-haspopup="dialog" onClick={() => dialog.current?.showModal()}>
+      원문에서 확인할 조건 {conditions.length}개 보기 <span aria-hidden="true">›</span>
+    </button>
+    <dialog ref={dialog} className="screen-help-dialog policy-conditions-dialog" aria-labelledby={titleId}
+      onClick={event => { if (event.target === event.currentTarget) close(); }}>
+      <h2 id={titleId}>원문에서 확인할 조건</h2>
+      <p className="small">{title}</p>
+      <ul>{conditions.map(c => <li key={c}>{c}</li>)}</ul>
+      <p className="small">자격은 정책 원문이나 담당자에게 꼭 다시 확인해 주세요.</p>
+      <button type="button" className="secondary" onClick={close}>닫기</button>
+    </dialog>
+  </>;
 }
