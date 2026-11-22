@@ -1,4 +1,4 @@
-// 포인트: 유성 터치(+1)·데일리 체크인(+100) 적립과 합계 조회 (docs/API명세.md "9. 포인트", 고민기록 #32)
+// 포인트: 유성 터치(+1)·데일리 체크인(+30) 적립과 합계 조회 (docs/API명세.md "9. 포인트", 고민기록 #32)
 // 별 포인트는 시도 저장(_lib/attempts.ts)이 뷰로 계산하고, 여기서는 적립 기록 point_events만 쓴다
 // 잔액의 기준은 뷰 v_user_balance (별 + 유성 + 체크인 − 구매액). 중복 지급은 UNIQUE (user_id, source, ref_key)가 막는다
 import { db as pool } from "@/lib/db";
@@ -74,7 +74,7 @@ export async function catchMeteor(userId: number, body: unknown, db: Db = pool, 
 }
 
 /**
- * 데일리 체크인 포인트 (+100, 한국 날짜 기준 하루 한 번). POST /api/checkin이 체크인을 저장한 뒤 부른다
+ * 데일리 체크인 포인트 (+30, 한국 날짜 기준 하루 한 번). POST /api/checkin이 체크인을 저장한 뒤 부른다
  * 오늘 이미 받았으면 pointsEarned 0. 실패하면 예외 (체크인 저장과 별개라 체크인 응답은 그대로 나간다)
  */
 export async function awardCheckinPoints(userId: number, db: Db = pool): Promise<{ pointsEarned: number; totalPoints: number }> {

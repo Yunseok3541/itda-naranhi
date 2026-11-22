@@ -192,7 +192,7 @@ CREATE TABLE daily_recommendations (
 );
 
 -- 별 말고 다른 곳에서 받은 포인트 적립 기록 (고민기록 #32)
--- 별 포인트는 지금처럼 뷰(v_star_points)로 계산하고, 여기에는 유성(+1)과 데일리 체크인(+100)만 쌓는다
+-- 별 포인트는 지금처럼 뷰(v_star_points)로 계산하고, 여기에는 유성(+1)과 데일리 체크인(+30, 2026-11-22 전에는 +100)만 쌓는다
 -- 중복 지급 방지는 UNIQUE (user_id, source, ref_key) 하나로 한다
 --   meteor : ref_key = 유성 번호 (서버 시각 기준 METEOR_INTERVAL_SECONDS마다 1개, web/src/lib/points.ts)
 --   checkin: ref_key = 한국 날짜 'YYYY-MM-DD' (하루 한 번)

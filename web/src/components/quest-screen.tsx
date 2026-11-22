@@ -130,7 +130,7 @@ export default function QuestScreen({ restoreRecommendations = false, open, mode
     {check && step !== 2 && (step === 1 || checkinId === null) && <section className="card quest-weather-card">
       <div className="quest-weather-reading">
         <div className="card-tags"><span>{weatherChanged ? '내가 고른 날씨' : weatherSource}</span></div>
-        {check.pointsEarned === 100 && <p className="checkin-reward" role="status">+100 포인트</p>}
+        {!!check.pointsEarned && <p className="checkin-reward" role="status">+{check.pointsEarned} 포인트</p>}
         <h2 ref={weatherHeading} tabIndex={-1}>마음 날씨 · {weather}</h2>
         <p className="small">오늘의 한 줄을 날씨로 빗대 본 거예요. 진단이 아닌 참고 기록이에요.</p>
       </div>

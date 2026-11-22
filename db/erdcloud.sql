@@ -258,7 +258,7 @@ CREATE TABLE point_events (
   user_id      INT          NOT NULL COMMENT '사용자 ID',
   source       VARCHAR(10)  NOT NULL COMMENT '출처(meteor 유성/checkin 데일리 체크인)',
   ref_key      VARCHAR(40)  NOT NULL COMMENT '중복 방지 키(유성 번호 또는 한국 날짜)',
-  points       SMALLINT     NOT NULL COMMENT '받은 포인트(유성 1, 체크인 100)',
+  points       SMALLINT     NOT NULL COMMENT '받은 포인트(유성 1, 체크인 30)',
   earned_date  DATE         NOT NULL COMMENT '받은 날(한국 날짜, 유성 하루 한도 집계)',
   created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '적립 시각',
   PRIMARY KEY (id),

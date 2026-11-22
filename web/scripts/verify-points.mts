@@ -1,4 +1,4 @@
-// 포인트 검증: 유성 터치(+1, 같은 유성 중복 없음, 하루 한도) · 데일리 체크인(+100, 하루 한 번) · 별 포인트와 합산 (고민기록 #32)
+// 포인트 검증: 유성 터치(+1, 같은 유성 중복 없음, 하루 한도) · 데일리 체크인(+30, 하루 한 번) · 별 포인트와 합산 (고민기록 #32)
 // 가상 사용자로 트랜잭션 안에서 실행하고 롤백 → 공용 DB에 남지 않음 (ID 시퀀스 값만 올라감)
 // 사용자 ID는 세션 대신 인자로 넣는다. AI는 부르지 않는다 (가짜 응답)
 // 실행 (web/에서, db/migrations/20261121_reward_points.sql이 적용된 DB):
@@ -33,7 +33,8 @@ check("지금 유성·다음 1개는 받을 수 있음", P.isMeteorCatchable(cur
 check("2개 뒤(아직 안 온 유성)는 받을 수 없음", !P.isMeteorCatchable(cur + 2, NOW));
 const oldest = P.meteorIdAt(NOW - P.METEOR_GRACE_SECONDS * 1000);
 check(`${P.METEOR_GRACE_SECONDS}초 전 유성까지 받고, 그보다 오래된 유성은 못 받음`, P.isMeteorCatchable(oldest, NOW) && !P.isMeteorCatchable(oldest - 1, NOW));
-check("포인트 숫자: 유성 1 · 체크인 100", P.METEOR_POINTS === 1 && P.CHECKIN_POINTS === 100);
+check("포인트 숫자: 유성 1 · 체크인 30", P.METEOR_POINTS === 1 && P.CHECKIN_POINTS === 30);
+const CHECKIN = P.CHECKIN_POINTS;
 const perHour = 3600 / P.METEOR_INTERVAL_SECONDS;
 check(`밸런스: 유성 하루 최대(${P.METEOR_DAILY_LIMIT * P.METEOR_POINTS}) < 체크인 하루(${P.CHECKIN_POINTS}) (한도 없으면 시간당 ${perHour})`,
   P.METEOR_DAILY_LIMIT * P.METEOR_POINTS < P.CHECKIN_POINTS);
@@ -68,21 +69,21 @@ try {
     && g0.meteor.dailyLimit === P.METEOR_DAILY_LIMIT && g0.meteor.currentMeteorId === cur && g0.serverTime === new Date(NOW).toISOString()
     && Date.parse(g0.meteor.nextMeteorAt) === P.meteorStartsAt(cur + 1), g0.meteor);
 
-  // ---------- 데일리 체크인 +100 ----------
+  // ---------- 데일리 체크인 +30 ----------
   const c1 = await awardCheckinPoints(A, client);
   earnedA.push(c1.pointsEarned);
-  check("오늘 첫 체크인 → +100, 총 100", c1.pointsEarned === 100 && c1.totalPoints === 100, c1);
+  check(`오늘 첫 체크인 → +${CHECKIN}, 총 ${CHECKIN}`, c1.pointsEarned === CHECKIN && c1.totalPoints === CHECKIN, c1);
   const c2 = await awardCheckinPoints(A, client);
   earnedA.push(c2.pointsEarned);
-  check("같은 날 두 번째 체크인 → 0, 총 100 그대로", c2.pointsEarned === 0 && c2.totalPoints === 100, c2);
+  check(`같은 날 두 번째 체크인 → 0, 총 ${CHECKIN} 그대로`, c2.pointsEarned === 0 && c2.totalPoints === CHECKIN, c2);
   const g1 = (await getPoints(A, client, NOW)).body as Body;
-  check("조회: 체크인 100, 오늘 체크인 함", g1.checkin.points === 100 && g1.checkin.doneToday === true && g1.totalPoints === 100, g1);
+  check(`조회: 체크인 ${CHECKIN}, 오늘 체크인 함`, g1.checkin.points === CHECKIN && g1.checkin.doneToday === true && g1.totalPoints === CHECKIN, g1);
   // 어제 받은 체크인 포인트가 있어도 오늘은 또 받음
   await client.query(
     `INSERT INTO point_events (user_id, source, ref_key, points, earned_date)
-     VALUES ($1, 'checkin', to_char((now() AT TIME ZONE 'Asia/Seoul')::date - 1, 'YYYY-MM-DD'), 100, (now() AT TIME ZONE 'Asia/Seoul')::date - 1)`, [B]);
+     VALUES ($1, 'checkin', to_char((now() AT TIME ZONE 'Asia/Seoul')::date - 1, 'YYYY-MM-DD'), ${CHECKIN}, (now() AT TIME ZONE 'Asia/Seoul')::date - 1)`, [B]);
   const cB = await awardCheckinPoints(B, client);
-  check("어제 체크인 포인트가 있어도 오늘 첫 체크인 → +100 (B 총 200)", cB.pointsEarned === 100 && cB.totalPoints === 200, cB);
+  check(`어제 체크인 포인트가 있어도 오늘 첫 체크인 → +${CHECKIN} (B 총 ${CHECKIN * 2})`, cB.pointsEarned === CHECKIN && cB.totalPoints === CHECKIN * 2, cB);
 
   // ---------- 유성 +1 ----------
   const m1 = await catchMeteor(A, { meteorId: cur }, client, NOW);
@@ -154,8 +155,8 @@ try {
   console.log("A 포인트:", JSON.stringify({ total: g2.totalPoints, stars: g2.stars, meteor: g2.meteor.points, checkin: g2.checkin.points }));
   check("밸런스: 별 + 유성 + 체크인 = 총점", g2.stars.points + g2.meteor.points + g2.checkin.points === g2.totalPoints, g2);
   check("밸런스: 응답으로 받은 포인트의 합 = 총점", g2.totalPoints === expectedTotal, { got: g2.totalPoints, expectedTotal });
-  check("출처별: 체크인 100 · 유성 = 오늘 한도 + 어제 한도 · 별 = 딴 별 점수",
-    g2.checkin.points === 100 && g2.meteor.points === P.METEOR_DAILY_LIMIT * 2 && g2.stars.points === star.points && g2.stars.brightStars === 1, g2);
+  check(`출처별: 체크인 ${CHECKIN} · 유성 = 오늘 한도 + 어제 한도 · 별 = 딴 별 점수`,
+    g2.checkin.points === CHECKIN && g2.meteor.points === P.METEOR_DAILY_LIMIT * 2 && g2.stars.points === star.points && g2.stars.brightStars === 1, g2);
   check("뷰 v_user_points = 조회 API (총·별·유성·체크인)", view.total_points === g2.totalPoints && view.star_points === g2.stars.points
     && view.meteor_points === g2.meteor.points && view.checkin_points === g2.checkin.points && view.bright_stars === 1, view);
   check("밤하늘 totalPoints = 총점, 별 points 합 = 별 포인트", sky.totalPoints === g2.totalPoints && skyStarSum === g2.stars.points, { sky: sky.totalPoints, skyStarSum });
