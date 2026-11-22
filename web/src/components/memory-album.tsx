@@ -32,7 +32,16 @@ export function Album({photos,mode,group,onClose,onRemove}:{photos:MemoryPhoto[]
   const touch=useRef<number|null>(null);
   const current=Math.min(index,items.length-1);
   const item=items[current];
+  const atEnd = current === items.length - 1;
   function step(by:number){setPlaying(false);setIndex(Math.max(0,Math.min(items.length-1,current+by)));}
+  function togglePlayback() {
+    if (atEnd) {
+      setIndex(0);
+      setPlaying(true);
+    } else {
+      setPlaying(value => !value);
+    }
+  }
   useEffect(()=>{
     const dialog=modal.current!;dialog.showModal();
     const pref=matchMedia('(prefers-reduced-motion: reduce)');
@@ -51,10 +60,14 @@ export function Album({photos,mode,group,onClose,onRemove}:{photos:MemoryPhoto[]
     <div className="photo-window" onTouchStart={e=>{touch.current=e.touches[0].clientX;}} onTouchEnd={e=>{
       if(touch.current!==null && !detail){const delta=e.changedTouches[0].clientX-touch.current;if(Math.abs(delta)>35)step(delta<0?1:-1);}touch.current=null;}}>
       <div className="photo-strip" style={{transform:'translateX(-'+current*100+'%)'}}>
-        {items.map(p=><button key={p.id} tabIndex={p.id===item.id?0:-1} aria-label="사진 크게 보기" onClick={()=>{setPlaying(false);setDetail('photo');}}><img src={p.src} alt={p.title} style={{height:detail==='photo'?'58dvh':undefined}}/></button>)}
+        {items.map(p=><button key={p.id} type="button" className="text-button" tabIndex={p.id===item.id?0:-1} aria-label="사진 크게 보기" onClick={()=>{setPlaying(false);setDetail('photo');}}><img src={p.src} alt={p.title} style={{height:detail==='photo'?'58dvh':undefined}}/></button>)}
       </div></div>
     <small>{formatRecordDate(item.date)} · {current+1} / {items.length}</small><h3>{item.title}</h3>{item.note && <p>{item.note}</p>}
-    {!detail && items.length>1 && <nav><button disabled={!current} onClick={()=>step(-1)}>이전</button><button disabled={current===items.length-1} onClick={()=>setPlaying(!playing)}>{playing && current<items.length-1?'일시정지':'재생'}</button><button disabled={current===items.length-1} onClick={()=>step(1)}>다음</button></nav>}
+    {!detail && items.length > 1 && <nav aria-label="앨범 재생">
+      <button type="button" className="secondary" disabled={!current} onClick={() => step(-1)}>이전</button>
+      <button type="button" onClick={togglePlayback}>{atEnd ? '처음부터 재생' : playing ? '일시정지' : '재생'}</button>
+      <button type="button" className="secondary" disabled={atEnd} onClick={() => step(1)}>다음</button>
+    </nav>}
     {!detail && <button onClick={()=>{setPlaying(false);setDetail('record');}}>기록 자세히 보기</button>}
     {detail==='record' && <p>별 기록 · {item.status==='bright'?'하늘의 별 따기':'손 뻗어 보기'}</p>}
     {detail && <button disabled={busy} onClick={async()=>{if(!confirm('사진을 지울까요? 별 기록과 한 줄은 보관돼요.'))return;
