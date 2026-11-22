@@ -37,7 +37,17 @@ check('home excludes actual outdoor quests, including stage 1 outdoor quest', ()
   const opts = nextOptions(source, quests, 'home');
   assert(opts.filter(o => o.action !== 'stop').every(o => !catalogQuest(o.starId!)!.is_outside));
 });
-check('rest leaves stop only', () => assert.deepEqual(nextOptions(source, quests, 'rest').map(o => o.action), ['stop']));
+const restDay = nextOptions(source, quests, 'rest');
+check('rest day: stop is recommended, light stars only on request', () => {
+  assert.equal(restDay.at(-1)!.action, 'stop');
+  assert.equal(defaultNextKey(restDay), 'stop');
+  const light = restDay.filter(o => o.action !== 'stop');
+  assert(light.length > 0 && light.length <= 2);
+  assert(light.every(o => o.onRequest === true && o.action === 'swap'));
+  assert(light.every(o => !quests.find(q => q.id === o.starId)!.outside), 'home only');
+  assert(light.every(o => catalogQuest(o.starId!)!.stage <= catalogQuest(source.starId)!.stage), 'never harder');
+});
+check('normal day has no on-request options', () => assert(!small.some(o => o.onRequest)));
 // 고를 별이 하나도 없을 때: 빈손 대신 ① 한 단계 위(오늘 범위 안) ② 그래도 없으면 방금 별을 더 작게
 const stage1 = quests.find(q => q.stage === 1 && !q.outside)!;
 const sameStageDone = quests.map(q => q.stage <= stage1.stage && q.id !== stage1.id ? { ...q, status: 'bright' } : q);

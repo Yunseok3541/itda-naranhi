@@ -14,6 +14,9 @@ export function NextStepCard({ mode, attemptId, busy, run, onHelp }: {
   const [result, setResult] = useState<NextRecommendation | null>(null);
   const [selection, setSelection] = useState<{ plan: NextPlan | null } | null>(null);
   const stop = result?.options.find(option => option.action === 'stop');
+  // 오늘 '쉬어 가기'를 고른 날: 가벼운 별은 사용자가 원할 때만 펼침
+  const [showLight, setShowLight] = useState(false);
+  const hasLight = !!result?.options.some(option => option.onRequest);
   const choose = (key: string) => run(async () => {
     const chosen = await client(mode).chooseNext(attemptId, key); setSelection(chosen);
   });
@@ -28,7 +31,13 @@ export function NextStepCard({ mode, attemptId, busy, run, onHelp }: {
       <p className="small">{mode === 'example' ? '예시 모드 · 목록과 선택한 이유를 바탕으로 고른 기본 제안이에요.'
         : result.usedFallback ? '기본 규칙으로 고른 제안이에요.' : 'AI의 제안이에요. 다른 선택을 해도 괜찮아요.'}</p>
       {/* 별 제안은 카드, "오늘은 여기서 마치기"는 다른 종류의 선택이라 목록에서 떼어 "또는" 아래 조용한 한 줄로 */}
-      <ul className="next-step-options">{result.options.filter(option => option.action !== 'stop').map(option => <li key={option.key}>
+      {hasLight && !showLight && <div className="next-step-rest-day" role="note">
+        <p>오늘 한 줄 기록에서 <b>‘쉬어 가기’</b>를 골라서 다음 별은 따로 권하지 않았어요.</p>
+        <p className="small">괜찮으면 집 안에서 할 수 있는 가벼운 별을 보여 드릴까요?</p>
+        <button type="button" className="secondary" disabled={busy} onClick={() => setShowLight(true)}>괜찮으면 가벼운 별 보기</button>
+      </div>}
+      {hasLight && showLight && <p className="small next-step-light-note">원할 때만 해 보세요. 쉬어 가도 괜찮아요.</p>}
+      <ul className="next-step-options">{result.options.filter(option => option.action !== 'stop' && (!option.onRequest || showLight)).map(option => <li key={option.key}>
         {/* 종류 대신 그 별의 별자리 이름 (같은 별자리가 먼저인 게 보이게) */}
         {(option.constellationName || option.key === result.recommendedKey) && <div className="card-tags">
           {option.constellationName && <span>{option.constellationName}</span>}

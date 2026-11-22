@@ -26,3 +26,11 @@
 .next-step-rest-text b { font-size: .95rem; font-weight: 650; }
 .next-step-rest-text small { font-size: .8125rem; font-weight: 500; color: var(--starlight-dim, #b9b0d6); line-height: 1.4; }
 .next-step-rest-go { font-size: 1.2rem; color: var(--starlight-dim, #b9b0d6); }
+
+/* 오늘 '쉬어 가기'를 고른 날: 다음 별을 권하지 않은 이유 + 원할 때만 가벼운 별 보기 */
+.next-step-rest-day { margin: 12px 0 0; padding: 14px; border-radius: 14px; border: 1px solid rgba(190, 170, 255, .3); background: rgba(190, 170, 255, .07); }
+.next-step-rest-day p { margin: 0; line-height: 1.55; }
+.next-step-rest-day p b { color: #e6dcff; }
+.next-step-rest-day .small { margin-top: 4px; color: var(--starlight-dim, #b9b0d6); }
+.next-step-rest-day .secondary { margin-top: 10px; }
+.next-step-light-note { margin: 10px 0 0; color: var(--starlight-dim, #b9b0d6); }

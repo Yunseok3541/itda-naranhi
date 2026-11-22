@@ -13,6 +13,8 @@ export type NextOption = {
   preparationHref?: string;
   /** 그 별의 별자리 이름 (제안 카드에 표시) */
   constellationName?: string;
+  /** 오늘 '쉬어 가기'를 고른 날의 가벼운 별: 사용자가 [가벼운 별 보기]를 눌렀을 때만 보여 주고, 먼저 권하지 않음 */
+  onRequest?: boolean;
 };
 export type NextPlan = NextOption & { attemptId: number };
 export type NextRecommendation = {
@@ -61,13 +63,13 @@ export function inActivityScope(q: AvailableQuest, scope: ActivityScope) {
  *  - 단계를 올리지 않고(지금 별보다 어려운 별 제외), 오늘 고른 활동 범위 안에서만, 최대 3개 + 쉬어 가기 */
 export function nextOptions(source: NextSource, quests: AvailableQuest[], scope: ActivityScope): NextOption[] {
   const current = quests.find(q => q.id === source.starId);
-  if (!current || scope === 'rest') return [{ ...STOP_OPTION }];
+  if (!current) return [{ ...STOP_OPTION }];
   const meta = catalogQuest(current.id);
   const options: NextOption[] = [];
   const sameSky = (q: AvailableQuest) => q.constellationId === current.constellationId ? 1 : 0;
   // 공통 조건: 방금 별·딴 별 제외, 오늘 범위 안, 이유별 거르기(돈·사람). 단계는 maxStage까지
-  const fits = (q: AvailableQuest, maxStage: number) => {
-    if (q.id === current.id || q.status === 'bright' || q.stage > maxStage || !inActivityScope(q, scope)) return false;
+  const fits = (q: AvailableQuest, maxStage: number, within: ActivityScope = scope) => {
+    if (q.id === current.id || q.status === 'bright' || q.stage > maxStage || !inActivityScope(q, within)) return false;
     const other = catalogQuest(q.id);
     if (!other || other.title !== q.title) return false;
     if (source.stopReason === 'cost' && !NO_PURCHASE_IDS.has(q.id)) return false;
@@ -84,6 +86,16 @@ export function nextOptions(source: NextSource, quests: AvailableQuest[], scope:
     };
     return sameSky(b) - sameSky(a) || untried(b) - untried(a) || score(b) - score(a) || a.id - b.id;
   };
+  // 오늘 '쉬어 가기'를 고른 날: 쉬어 가기를 먼저 권하고, 원할 때만 볼 수 있게 집 안의 가벼운 별 1~2개 (가장 쉬운 단계부터)
+  if (scope === 'rest') {
+    const light = quests.filter(q => fits(q, current.stage, 'home'))
+      .sort((a, b) => a.stage - b.stage || order(a, b)).slice(0, 2);
+    return [...light.map(q => ({
+      key: `swap:${q.id}`, action: 'swap' as const, starId: q.id, subQuestId: null, title: q.title,
+      constellationName: catalogConstellations.find(c => c.id === q.constellationId)?.name,
+      reason: '집 안에서 가볍게 해 볼 수 있는 별이에요.', onRequest: true,
+    })), { ...STOP_OPTION }];
+  }
   const alternatives = quests.filter(q => fits(q, current.stage)).sort(order);
   for (const q of alternatives.slice(0, 3)) options.push({
     key: `swap:${q.id}`, action: 'swap', starId: q.id, subQuestId: null, title: q.title,
@@ -114,7 +126,8 @@ export function nextOptions(source: NextSource, quests: AvailableQuest[], scope:
 
 /** 우선 제안의 기본값 (AI가 없거나 틀렸을 때): 맨 앞 별(같은 별자리 먼저), 별이 없으면 쉬어 가기 */
 export function defaultNextKey(options: NextOption[]) {
-  return (options.find(o => o.action !== 'stop') ?? options[0]).key;
+  // 원할 때만 보여 주는 가벼운 별(onRequest)은 먼저 권하지 않음 → 쉬어 가기
+  return (options.find(o => o.action !== 'stop' && !o.onRequest) ?? options.find(o => o.action === 'stop') ?? options[0]).key;
 }
 
 export function planMatches(plan: NextPlan, starId: number, subQuestId: number | null) {
