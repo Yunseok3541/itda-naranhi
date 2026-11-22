@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { client, type Help, type Mode } from '@/lib/mobile-data';
 import type { NextPlan, NextRecommendation } from '@/lib/next-step';
+import SkyControlIcon from './sky-control-icon';
 import './next-step.css';
 
 export function NextStepCard({ mode, attemptId, busy, run, onHelp }: {
@@ -12,6 +13,10 @@ export function NextStepCard({ mode, attemptId, busy, run, onHelp }: {
 }) {
   const [result, setResult] = useState<NextRecommendation | null>(null);
   const [selection, setSelection] = useState<{ plan: NextPlan | null } | null>(null);
+  const stop = result?.options.find(option => option.action === 'stop');
+  const choose = (key: string) => run(async () => {
+    const chosen = await client(mode).chooseNext(attemptId, key); setSelection(chosen);
+  });
   return <section className="card next-step-card" aria-labelledby="next-step-heading">
     {/* 설명 문장은 뺌: 고를 수 있는 것(더 쉽게·다른 날·다른 별·쉬어 가기)은 제안 목록에서 바로 보임 */}
     <h2 id="next-step-heading">다음으로 이어볼 별</h2>
@@ -22,16 +27,24 @@ export function NextStepCard({ mode, attemptId, busy, run, onHelp }: {
     {result && !selection && <>
       <p className="small">{mode === 'example' ? '예시 모드 · 목록과 선택한 이유를 바탕으로 고른 기본 제안이에요.'
         : result.usedFallback ? '기본 규칙으로 고른 제안이에요.' : 'AI의 제안이에요. 다른 선택을 해도 괜찮아요.'}</p>
-      <ul className="next-step-options">{result.options.map(option => <li key={option.key}>
-        {/* 종류 대신 그 별의 별자리 이름 (같은 별자리가 먼저인 게 보이게). 쉬어 가기는 칩 없음 */}
+      {/* 별 제안은 카드, "오늘은 여기서 마치기"는 다른 종류의 선택이라 목록에서 떼어 "또는" 아래 조용한 한 줄로 */}
+      <ul className="next-step-options">{result.options.filter(option => option.action !== 'stop').map(option => <li key={option.key}>
+        {/* 종류 대신 그 별의 별자리 이름 (같은 별자리가 먼저인 게 보이게) */}
         {(option.constellationName || option.key === result.recommendedKey) && <div className="card-tags">
           {option.constellationName && <span>{option.constellationName}</span>}
           {option.key === result.recommendedKey && <span className="gold">우선 제안</span>}</div>}
         <h3>{option.title}</h3><p>{option.reason}</p>
-        <button type="button" className="secondary" disabled={busy} onClick={() => run(async () => {
-          const chosen = await client(mode).chooseNext(attemptId, option.key); setSelection(chosen);
-        })}>{option.action === 'stop' ? '오늘은 여기서 마칠래요' : '이 별로 골라 둘래요'}</button>
+        <button type="button" className="secondary" disabled={busy} onClick={() => choose(option.key)}>이 별로 골라 둘래요</button>
       </li>)}</ul>
+      {stop && <>
+        <p className="next-step-or" aria-hidden="true"><span>또는</span></p>
+        <button type="button" className="text-button next-step-rest" disabled={busy} onClick={() => choose(stop.key)}>
+          <span className="next-step-rest-icon" aria-hidden="true"><SkyControlIcon name="moon" /></span>
+          <span className="next-step-rest-text"><b>오늘은 여기서 마칠래요</b>
+            <small>{stop.key === result.recommendedKey ? '오늘은 쉬어 가는 걸 먼저 권해요. ' : ''}다음 별은 정하지 않아도 괜찮아요</small></span>
+          <span className="next-step-rest-go" aria-hidden="true">›</span>
+        </button>
+      </>}
     </>}
     {selection && <div role="status">
       {selection.plan ? <>
