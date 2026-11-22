@@ -1,12 +1,14 @@
 "use client";
 // 시작 질문 · 정책 신청 정보 입력 (기획: docs/기획/프로필.md). 모든 답은 선택, 기본값은 "답하지 않음"
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import {
   BURDEN, EMPTY_POLICY_INFO, EMPTY_START, INCOME, JOB, LIVING, MARRIED, NEEDS, RANGE, SCHOOL, SPECIAL, SUPPORT, WITH,
   type PolicyInfo, type StartAnswers,
 } from '@/lib/profile';
 import { client, markPoliciesStale, type Mode } from '@/lib/mobile-data';
 import GlassSelect from './glass-select';
+import './profile-form.css';
 
 const SKIP = '답하지 않을래요';
 
@@ -108,7 +110,6 @@ export function StartQuestions({ value, onChange, disabled, step, policy = false
   value: StartAnswers; onChange: (v: StartAnswers) => void; disabled?: boolean; step?: number; policy?: boolean;
 }) {
   const set = <F extends keyof StartAnswers>(f: F) => (v: StartAnswers[F]) => onChange({ ...value, [f]: v });
-  const accordion = useId();
   const rangeHint = policy ? '평소 활동 범위를 정책 추천에 참고해요.'
     : '평소 기준이에요. 오늘의 범위는 오늘의 별에서 따로 골라요.';
   const questions = [
@@ -120,12 +121,11 @@ export function StartQuestions({ value, onChange, disabled, step, policy = false
     <Choices key="needs" legend="요즘 가장 도움이 필요한 건?" hint="여러 개 골라도 돼요" options={NEEDS} multiple value={value.needs} onChange={set('needs')} disabled={disabled} />,
   ];
   if (step !== undefined) return questions[step] ?? null;
-  return policy ? <div className="criteria-questions">
-    {questions.map((question, index) => <details name={accordion} key={question.key} open={index === 0}>
-      <summary>{answerFields[index][1]}<small>{startStepAnswered(value, index) ? '선택함' : '선택 안 함'}</small></summary>
-      {question}
-    </details>)}
-  </div> : <>{questions}</>;
+  // 추천 기준 화면: 접기 대신 설정 앱처럼 한 줄 목록 → 누르면 그 질문 창
+  return policy ? <ul className="criteria-rows">
+    {questions.map((question, index) => <CriteriaRow key={question.key} label={answerFields[index][1]}
+      summary={answerSummary(value, index)} disabled={disabled}>{question}</CriteriaRow>)}
+  </ul> : <>{questions}</>;
 }
 
 export function PolicyInfoQuestions({ value, birthYear, onChange, onBirthYear, disabled }: {
@@ -210,19 +210,67 @@ export function ProfileScreen({ mode, onSaved }: { mode: Mode; onSaved?: () => v
         </button>
       </div>
     </section>}
-    <details className="card">
-      <summary>정책 신청 정보 (선택)</summary>
-      <p className="small">알려 주시면 신청 조건이 맞지 않는 정책을 추천에서 미리 빼 드려요. 이 정보는 AI에 보내지 않고, 자격은 원문에서 꼭 다시 확인해 주세요.</p>
-      <PolicyInfoQuestions value={info} birthYear={birth} onChange={setInfo} onBirthYear={setBirth} disabled={busy} />
-      {!onSaved && <button disabled={busy || (birth !== '' && birth.length !== 4)} onClick={() => save({ policyInfo: info, birthYear }, '정책 신청 정보를 저장했어요.')}>{state === 'saving' ? '저장 중…' : '정책 신청 정보 저장'}</button>}
-      <button className="secondary" disabled={busy} onClick={() => {
-        if (onSaved) { setInfo(EMPTY_POLICY_INFO); setBirth(''); }
-        else void save({ policyInfo: null, birthYear: null }, '정책 신청 정보를 모두 지웠어요.');
-      }}>{onSaved ? '입력값 비우기' : '정책 신청 정보 모두 지우기'}</button>
-    </details>
+    {/* 접기 대신 위 질문들과 같은 한 줄 목록 → 누르면 입력 창 */}
+    <section className="card criteria-policy-info">
+      <ul className="criteria-rows">
+        <CriteriaRow label="정책 신청 정보 (선택)" summary={policyInfoFilled(info, birth) ? '입력함' : '입력 안 함'} disabled={busy} done={onSaved ? '다 입력했어요' : '닫기'}>
+          <p className="small">알려 주시면 신청 조건이 맞지 않는 정책을 추천에서 미리 빼 드려요. 이 정보는 AI에 보내지 않고, 자격은 원문에서 꼭 다시 확인해 주세요.</p>
+          <PolicyInfoQuestions value={info} birthYear={birth} onChange={setInfo} onBirthYear={setBirth} disabled={busy} />
+          {!onSaved && <button disabled={busy || (birth !== '' && birth.length !== 4)} onClick={() => save({ policyInfo: info, birthYear }, '정책 신청 정보를 저장했어요.')}>{state === 'saving' ? '저장 중…' : '정책 신청 정보 저장'}</button>}
+          <button className="secondary" disabled={busy} onClick={() => {
+            if (onSaved) { setInfo(EMPTY_POLICY_INFO); setBirth(''); }
+            else void save({ policyInfo: null, birthYear: null }, '정책 신청 정보를 모두 지웠어요.');
+          }}>{onSaved ? '입력값 비우기' : '정책 신청 정보 모두 지우기'}</button>
+        </CriteriaRow>
+      </ul>
+    </section>
     {onSaved && <button disabled={busy || (birth !== '' && birth.length !== 4)} onClick={() => save({ startAnswers: start, policyInfo: info, birthYear }, '')}>
       {state === 'saving' ? '저장 중…' : '저장하고 추천 보기'}
     </button>}
     {message && <p role="status">{message}</p>}
   </>;
+}
+
+/** 고른 답을 한 줄로 (목록 오른쪽에 보이는 값) */
+function answerSummary(value: StartAnswers, index: number) {
+  const [key, , options] = answerFields[index];
+  const answer = value[key];
+  const labels = (options as readonly (readonly [string, string])[]).filter(([code]) => Array.isArray(answer) ? (answer as string[]).includes(code) : answer === code).map(([, l]) => l);
+  if (Array.isArray(answer) && answer.length === 0) return '해당 없어요';
+  return labels.length ? labels.join(', ') : '선택 안 함';
+}
+
+const noSubscribe = () => () => {};
+
+/** 설정 목록 한 줄: [이름 · 지금 값 ›] → 누르면 아래에서 올라오는 창 */
+export function CriteriaRow({ label, summary, disabled, children, done = '다 골랐어요' }: {
+  label: string; summary: string; disabled?: boolean; children: ReactNode; done?: string;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  // 창은 페이지 맨 바깥(body)에 그림: 사파리는 흐림 효과(backdrop-filter)가 걸린 카드 안의 창을 카드 안쪽에 잘못 그릴 수 있음
+  // 서버에서 그릴 때는 body가 없으니 브라우저에서만 (useSyncExternalStore: 서버 false / 브라우저 true)
+  const inBrowser = useSyncExternalStore(noSubscribe, () => true, () => false);
+  const host = inBrowser ? document.body : null;
+  const close = () => dialog.current?.close();
+  const sheet = <dialog ref={dialog} className="criteria-sheet night-ui" aria-labelledby={titleId}
+      onClick={event => { if (event.target === event.currentTarget) close(); }}>
+      <header><h2 id={titleId}>{label}</h2>
+        <button type="button" className="text-button criteria-sheet-close" aria-label={`${label} 닫기`} onClick={close}>✕</button></header>
+      <div className="criteria-sheet-body">{children}</div>
+      <button type="button" className="criteria-sheet-done" onClick={close}>{done}</button>
+    </dialog>;
+  return <li>
+    <button type="button" className="text-button criteria-row" aria-haspopup="dialog" disabled={disabled} onClick={() => dialog.current?.showModal()}>
+      <span className="criteria-row-label">{label}</span>
+      <span className={`criteria-row-value${summary === '선택 안 함' || summary === '입력 안 함' ? ' empty' : ''}`}>{summary}</span>
+      <span className="criteria-row-go" aria-hidden="true">›</span>
+    </button>
+    {host && createPortal(sheet, host)}
+  </li>;
+}
+
+/** 정책 신청 정보를 하나라도 입력했는지 (목록 오른쪽 "입력함 / 입력 안 함") */
+function policyInfoFilled(info: PolicyInfo, birth: string) {
+  return birth !== '' || Object.values(info).some(v => Array.isArray(v) ? v.length > 0 : v !== null);
 }

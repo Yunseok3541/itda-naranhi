@@ -191,7 +191,7 @@ function Bubble({ message, onPick, disabled }: { message: Message; onPick: (inte
     {message.text && message.text.split('\n').map((line, i) => <p key={i} className={i > 0 ? 'small' : undefined}>{line}</p>)}
     {/* 자유 대화에 붙는 원문 목록은 접어 둔다 (답 문장이 먼저 보이게). 버튼으로 요청한 목록은 바로 펼침 */}
     {r?.sections.map(s => r.intent === 'chat' && r.source === 'ai'
-      ? <details key={s.title} className="apply-helper-more"><summary>{s.title} 보기</summary><ol>{s.items.map((item, i) => <li key={i}>{item}</li>)}</ol></details>
+      ? <details key={s.title} className="apply-helper-more"><summary><span>원문 {s.title} {s.items.length}개 보기</span><span className="apply-helper-more-go" aria-hidden="true">›</span></summary><ol>{s.items.map((item, i) => <li key={i}>{item}</li>)}</ol></details>
       : <div key={s.title}><h3>{s.title}</h3><ol>{s.items.map((item, i) => <li key={i}>{item}</li>)}</ol></div>)}
     {r?.script && <div className="script">
       <h3>{r.script.label}</h3>

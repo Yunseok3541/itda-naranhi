@@ -245,12 +245,13 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
             <span className="badge-icon" aria-hidden="true">{b.id === 'dim' ? <StatusStar status="dim" /> : b.icon}</span><strong>{b.name}</strong><small>{b.done}</small>
           </div>)}</div>
         : <p className="small">아직 받은 배지가 없어요. 작은 별 하나부터 천천히 시작해도 괜찮아요.</p>}
-      {waiting.length > 0 && <details className="badge-waiting">
-        <summary>아직 만나지 않은 배지 {waiting.length}개</summary>
-        <div className="badge-grid">{waiting.map(b => <div key={b.id} className="badge">
+      {/* 접지 않고 옆으로 넘겨 보는 흐린 카드 줄: 앞으로 만날 배지와 받는 방법이 바로 보이게 */}
+      {waiting.length > 0 && <div className="badge-waiting">
+        <h3 id="profile-badges-waiting">앞으로 만날 배지 <span>{waiting.length}</span></h3>
+        <ul className="badge-strip" aria-labelledby="profile-badges-waiting">{waiting.map(b => <li key={b.id} className="badge">
           <span className="badge-icon" aria-hidden="true">{b.id === 'dim' ? <StatusStar status="dim" /> : b.icon}</span><strong>{b.name}</strong><small>{b.hint}</small>
-        </div>)}</div>
-      </details>}
+        </li>)}</ul>
+      </div>}
     </Section>
 
     <Section id="profile-log" title="나의 활동 기록">

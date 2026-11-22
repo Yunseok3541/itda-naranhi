@@ -19,6 +19,8 @@ import { StatusStar } from './star-list';
 import type { NextPlan } from '@/lib/next-step';
 import './star-screen.css';
 
+/** 위치로 도착 확인 화면 표시 (목표 장소 연동 전이라 꺼 둠) */
+const SHOW_LOCATION_CHECK = false;
 const STATUS = { untried: '아직 만나기 전', dim: '손을 뻗은 별', bright: '딴 별' } as const;
 const REASONS = [['crowded', '사람이 많았어요'], ['weather', '날씨·상황이 안 맞았어요'], ['tired', '몸·마음이 힘들었어요'], ['no_time', '시간이 없었어요'], ['not_for_me', '나랑 안 맞았어요'], ['cost', '돈이 들어서요'], ['other', '기타']] as const;
 const koreanDate = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: 'long', day: 'numeric' });
@@ -88,6 +90,8 @@ export default function StarScreen({ mode, star, fromToday, dailyLimitReached, b
 
   // GPS(도착 확인) 별: 실제 API는 verifyType, 예시 모드만 예시 목록의 16·17 (별 ID는 시드마다 바뀜)
   const outside = isGpsStar(star);
+  // 위치로 도착 확인: 지금은 위치를 확인만 하고 기록에 쓰지 않아 화면에서 숨김. 목표 장소 연동이 생기면 true로 다시 켬
+  const showLocationCheck = SHOW_LOCATION_CHECK && outside;
   const weatherStar = star.starId === WEATHER_STAR_ID;
   const weatherText = weatherStar && weather ? `마음 날씨 · ${weatherNames[weather]}` : '';
   // 합쳐서 300자(회고 최대)를 넘지 않게 한 줄 칸을 줄임
@@ -167,7 +171,7 @@ export default function StarScreen({ mode, star, fromToday, dailyLimitReached, b
               : <label>카메라로 찍기<input type="file" accept="image/*" capture="environment" onChange={choosePhoto} /></label>}
           </fieldset>
           {photoError && <p role="alert">{photoError}</p>}
-          {outside && <details>
+          {showLocationCheck && <details>
             <summary>위치로 도착 확인 (선택)</summary>
             <p className="small">기기 좌표는 저장하지 않아요. 목표 장소 연동 전이라 지금은 직접 도착 기록으로 저장해요.</p>
             <button type="button" className="secondary" onClick={() => {
