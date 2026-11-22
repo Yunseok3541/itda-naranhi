@@ -38,10 +38,12 @@ const navigation = [
 
 /** 시작 질문 3개 (별 순서 표시의 화면 읽기용 이름, profile-form.tsx answerFields와 같은 말) */
 const START_STEPS = ['활동 범위', '부담되는 상황', '활동 방식'];
-export default function MobileFlow({screen='sky',starId,centerId,completionAttemptId,memoryStarId,guide=false,tour=false,checkin=false,mindCheckFrom='profile'}:{
+export default function MobileFlow({screen='sky',starId,centerId,completionAttemptId,memoryStarId,guide=false,tour=false,checkin=false,mindCheckFrom='profile',centersFrom='sky'}:{
   screen?:string;
   /** 마음 짚기에 어디서 들어왔는지 (뒤로 가기 목적지) */
-  mindCheckFrom?:'sky'|'profile';starId?:number;centerId?:number;completionAttemptId?:number;memoryStarId?:number;
+  mindCheckFrom?:'sky'|'profile';
+  /** 청년센터에 어디서 들어왔는지 (뒤로 가기 목적지) */
+  centersFrom?:'sky'|'policies';starId?:number;centerId?:number;completionAttemptId?:number;memoryStarId?:number;
   /** 설정의 "사용 안내 다시 보기"(/sky?guide=1)로 들어왔으면 시작 안내부터 */
   guide?:boolean;
   /** /sky?tour=1: 메뉴 안내만 다시 띄움 (확인·시연용) */
@@ -340,6 +342,6 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
    <ProfileScreen mode={mode} onSaved={() => router.replace('/policies')} />
  </>}
  {screen==='policies'&&<PoliciesScreen mode={mode} onError={reportError} onClearError={()=>E('')}/>}
- {screen==='centers'&&<CentersScreen mode={mode} centerId={centerId} onError={reportError} onHelp={H} onClearError={()=>E('')}/>}
+ {screen==='centers'&&<CentersScreen mode={mode} centerId={centerId} from={centersFrom} onError={reportError} onHelp={H} onClearError={()=>E('')}/>}
  </>}{notice&&<p role="status">{notice}</p>}{!locked&&footer}</main></HelpContext.Provider>;
 }

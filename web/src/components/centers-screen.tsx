@@ -15,8 +15,9 @@ type CenterInfo = Omit<Center, 'id'> & { centerId: number };
 type CenterSummary = Pick<CenterInfo, 'centerId' | 'name' | 'address' | 'isSample'>;
 type Draft = { draftId: number; draft: string; help?: Help; usedFallback?: boolean };
 
-export default function CentersScreen({ mode, centerId, onError, onHelp, onClearError }: {
-  mode: Mode; centerId?: number; onError: (error: unknown) => void; onHelp: (help: Help) => void; onClearError: () => void;
+/** from: 어디서 들어왔는지. policies = 정책 화면 → 목록의 뒤로 가기는 정책 화면으로, sky(기본) → 내 밤하늘로 */
+export default function CentersScreen({ mode, centerId, from = 'sky', onError, onHelp, onClearError }: {
+  mode: Mode; centerId?: number; from?: 'sky' | 'policies'; onError: (error: unknown) => void; onHelp: (help: Help) => void; onClearError: () => void;
 }) {
   const [centers, setCenters] = useState<CenterSummary[]>([]);
   const [center, setCenter] = useState<CenterInfo | null>(null);
@@ -101,7 +102,7 @@ export default function CentersScreen({ mode, centerId, onError, onHelp, onClear
 
   // 목록
   if (centerId === undefined) return <>
-    <ScreenBar title="청년센터" />
+    <ScreenBar title="청년센터" {...(from === 'policies' ? { back: '/policies', backLabel: '정책 추천으로 돌아가기' } : {})} />
     <Hero visual={<HeroIcon tone="lavender">⌖</HeroIcon>} title="사람 곁으로, 천천히" message="들어가지 않아도 괜찮아요. 어떤 곳인지 먼저 살펴봐요." chip="서울 마포구 기준" />
     {loadingNote}{failed}
     {!loading && !loadError && <Section id="center-list" title="우리 동네 청년센터">
@@ -110,7 +111,7 @@ export default function CentersScreen({ mode, centerId, onError, onHelp, onClear
         {item.isSample && <div className="card-tags"><span>가상 센터 · 실제 운영 정보 아님</span></div>}
         <h3>{item.name}</h3>
         <p>{item.address}</p>
-        <Link className="secondary" href={`/centers/${item.centerId}`}>센터 자세히 보기</Link>
+        <Link className="secondary" href={`/centers/${item.centerId}${from === 'policies' ? '?from=policies' : ''}`}>센터 자세히 보기</Link>
       </section>)}
     </Section>}
     <MoreLinks><Link href="/policies">나에게 맞는 정책 보기</Link></MoreLinks>
@@ -118,7 +119,7 @@ export default function CentersScreen({ mode, centerId, onError, onHelp, onClear
 
   // 상세
   return <>
-    <ScreenBar title={center?.name ?? '청년센터'} back="/centers" backLabel="청년센터 목록으로" />
+    <ScreenBar title={center?.name ?? '청년센터'} back={from === 'policies' ? '/centers?from=policies' : '/centers'} backLabel="청년센터 목록으로" />
     {loadingNote}{failed}
     {center && <>
       <Hero visual={<HeroIcon tone="lavender">⌖</HeroIcon>} title={center.name} message={center.address}

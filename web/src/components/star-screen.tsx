@@ -7,7 +7,8 @@ import { preparePhoto } from './memory-album';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { client, isGpsStar, type Help, type Mode, type Star } from '@/lib/mobile-data';
+import { client, isGpsStar, weatherNames, type Help, type Mode, type Star } from '@/lib/mobile-data';
+import { WEATHER_STAR_ID } from '@/lib/quest-catalog';
 import { getActivityConstellation, getStarConstellationId } from '@/lib/constellations';
 import { DAILY_STAR_LIMIT_MESSAGE } from '@/lib/star-limit';
 import { starDisplayDescription, starDisplayTitle } from '@/lib/star-display';
@@ -35,7 +36,8 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
   onSaved: (result?: { attemptId: number; status: string }) => Promise<string | undefined>;
 }) {
   const router = useRouter();
-  const [status, setStatus] = useState<'dim' | 'bright'>('bright');
+  // 처음엔 둘 다 고르지 않은 상태: 고르지 않고 저장해서 "딴 별"로 남는 일이 없게 직접 고름 (원칙 "사용자가 고른다", 기능발견성 다시 점검 #9)
+  const [status, setStatus] = useState<'dim' | 'bright' | null>(null);
   const [reason, setReason] = useState('');
   const [reflection, setReflection] = useState('');
   const [photo,setPhoto]=useState<string>();
@@ -49,7 +51,8 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
   const [place, setPlace] = useState('');
   const [savedAttemptId, setSavedAttemptId] = useState<number | null>(null);
   const [pending, setPending] = useState<NextPlan | null>(null);
-  const [usingPlan, setUsingPlan] = useState(true);
+  // 날씨 별(양자리 "지금 마음에 가까운 날씨 고르기")은 시작 안내처럼 날씨를 고를 수 있음. 고르면 기록 한 줄 앞에 "마음 날씨 · 맑음"
+  const [weather, setWeather] = useState<string | null>(null);
   const [planError, setPlanError] = useState('');
   const [planLoaded, setPlanLoaded] = useState(false);
   const [planRetry, setPlanRetry] = useState(0);
@@ -57,7 +60,7 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
     let active = true;
     client(mode).pendingNext().then(r => {
       if (active) { setPending(r.plan?.starId === star?.starId ? r.plan : null); setPlanError(''); }
-    }).catch(() => { if (active) setPlanError('지난번에 고른 행동을 확인하지 못했어요. 다시 확인하거나 원래 별로 기록할 수 있어요.'); })
+    }).catch(() => { if (active) setPlanError('지난번에 골라 둔 별을 확인하지 못했어요. 다시 확인하거나 그냥 기록해도 괜찮아요.'); })
       .finally(() => { if (active) setPlanLoaded(true); });
     return () => { active = false; };
   }, [mode, star?.starId, planRetry]);
@@ -70,7 +73,8 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
     catch(err){setPhotoError(err instanceof Error?err.message:'사진을 읽지 못했어요.');}
     finally{setPhotoBusy(false);}
   }
-  const activePlan = usingPlan ? pending : null;
+  // 골라 둔 별을 기록하면 늘 지난 시도와 이어서 저장 → 밤하늘 "✧ 이어볼 별"이 사라짐 ("이어서 기록하지 않기" 버튼은 뺌, 고민기록 #60)
+  const activePlan = pending;
 
   if (!star) return <>
     <ScreenBar title="별 기록" />
@@ -80,6 +84,10 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
 
   // GPS(도착 확인) 별: 실제 API는 verifyType, 예시 모드만 예시 목록의 16·17 (별 ID는 시드마다 바뀜)
   const outside = isGpsStar(star);
+  const weatherStar = star.starId === WEATHER_STAR_ID;
+  const weatherText = weatherStar && weather ? `마음 날씨 · ${weatherNames[weather]}` : '';
+  // 합쳐서 300자(회고 최대)를 넘지 않게 한 줄 칸을 줄임
+  const lineMax = 300 - (weatherText ? weatherText.length + 3 : 0);
   const questBlocked = dailyLimitReached && star.status !== 'bright';
   return <>
     <ScreenBar title="별 기록" />
@@ -91,12 +99,10 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
     />
 
     {!saved && !questBlocked && planError && <section className="card"><p role="alert">{planError}</p>
-      <button type="button" onClick={() => setPlanRetry(n => n + 1)}>이어갈 행동 다시 확인</button></section>}
+      <button type="button" onClick={() => setPlanRetry(n => n + 1)}>이어볼 별 다시 확인</button></section>}
     {!saved && !questBlocked && pending && <section className="card next-step-active">
-      <h2>지난번에 골라 둔 한 걸음</h2><p>{pending.title}</p>
-      <p className="small">{usingPlan ? '이 활동의 결과를 지난 시도와 이어서 기록해요.' : '지금은 원래 별의 활동을 기록해요.'}</p>
+      <p><span aria-hidden="true">✧</span> 지난번 기록에서 골라 둔 별이에요.</p>
       {pending.preparationHref && <Link className="secondary" href={pending.preparationHref}>문의 문장 준비하기</Link>}
-      <button type="button" className="text-button" disabled={busy} onClick={() => setUsingPlan(v => !v)}>{usingPlan ? '이번에는 원래 별로 기록하기' : '골라 둔 활동으로 이어가기'}</button>
     </section>}
     {saved
       ? <section className={`record-done ${savedStatus}`} aria-live="polite">
@@ -133,8 +139,14 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
             <p className="record-reasons-hint">다음 걸음을 고를 때 참고해요.</p>
           </div>}
 
+          {weatherStar && <fieldset className="star-weather" disabled={busy}>
+            <legend>지금 마음에 가까운 날씨</legend>
+            <p className="small">골라도, 안 골라도 괜찮아요. 같은 날씨를 한 번 더 누르면 풀려요.</p>
+            <div className="star-weather-options">{Object.entries(weatherNames).map(([code, name]) => <button key={code} type="button" className="secondary"
+              aria-pressed={weather === code} onClick={() => setWeather(w => w === code ? null : code)}>{name}</button>)}</div>
+          </fieldset>}
           <h3 className="record-sub">남기고 싶다면 <span className="record-optional">선택</span></h3>
-          <label className="record-field"><span className="sr-only">오늘을 기억할 한 줄</span><textarea disabled={busy} maxLength={300} rows={2} value={reflection} onChange={e => setReflection(e.target.value)} placeholder="오늘을 기억할 한 줄 (비워 두어도 괜찮아요)" /></label>
+          <label className="record-field"><span className="sr-only">오늘을 기억할 한 줄</span><textarea disabled={busy} maxLength={lineMax} rows={2} value={reflection} onChange={e => setReflection(e.target.value.slice(0, lineMax))} placeholder="오늘을 기억할 한 줄 (비워 두어도 괜찮아요)" /></label>
           {photo
             ? <div className="record-photo"><img className="photo-preview" src={photo} alt="선택한 사진"/><button type="button" className="text-button" disabled={busy||photoBusy} onClick={()=>setPhoto(undefined)}>사진 빼기</button></div>
             : <fieldset className="photo-picker record-photo-picker" disabled={busy || photoBusy}>
@@ -153,8 +165,11 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
             {place && <p role="status" className="small">{place}</p>}
           </details>}
           {!planLoaded && <p className="small" role="status">지난 기록을 확인하고 있어요. 확인이 끝나면 저장할 수 있어요.</p>}
-          <button className="record-save" disabled={busy || photoBusy || !planLoaded} onClick={() => run(async () => {
-            const r = await client(mode).attempt({ photo, requestId, starId: star.starId, status, reflection, verifyMethod: 'self',
+          {status === null && <p className="small" role="status">해냈는지, 시도해 봤는지 먼저 골라 주세요.</p>}
+          <button className="record-save" disabled={busy || photoBusy || !planLoaded || status === null} onClick={() => run(async () => {
+            if (status === null) return;
+            const text = [weatherText, reflection.trim()].filter(Boolean).join(' · ').slice(0, 300);
+            const r = await client(mode).attempt({ photo, requestId, starId: star.starId, status, reflection: text, verifyMethod: 'self',
               ...(activePlan ? { parentAttemptId: activePlan.attemptId, subQuestId: activePlan.subQuestId } : {}),
               ...(status === 'dim' && reason ? { stopReason: reason } : {}) });
             onHelp(r.help);
@@ -167,7 +182,7 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
             } else {
               setSavedAttemptId(r.attemptId);
             }
-          })}>{busy ? '기록을 담는 중…' : status === 'bright' ? '별 따서 담기' : '손 뻗은 별로 담기'}</button>
+          })}>{busy ? '기록을 담는 중…' : status === 'bright' ? '별 따서 담기' : status === 'dim' ? '손 뻗은 별로 담기' : '이 순간 담기'}</button>
         </section>}
 
     {savedAttemptId !== null && <NextStepCard key={savedAttemptId} mode={mode} attemptId={savedAttemptId} busy={busy} run={run} onHelp={onHelp} />}

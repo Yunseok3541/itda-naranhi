@@ -18,6 +18,7 @@ import ApplyHelper from './apply-helper';
 import GlassSelect from './glass-select';
 import { ScreenBar } from './screen-kit';
 import HelpLines from './help-lines';
+import SkyControlIcon from './sky-control-icon';
 
 type Policy = {
   policyId: number; title: string; summary: string; reason: string; burdenLabel: string;
@@ -225,16 +226,17 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
       <ScreenBar title={favorites ? '찜한 정책' : all ? '모든 정책' : '정책 추천'}
         {...(view !== 'recommended' ? { onBack: () => selectView('recommended'), backLabel: '맞춤 추천으로' } : {})} />
     </div>
+    {/* 보기 전환은 탭 모양(하나로 붙은 칸, 고른 칸만 채움), 화면 이동은 아래 글자 링크 → 둘이 다른 일인 게 보이게 (기능발견성 B·②, 다시 점검 #8) */}
     <div className="policy-view-switch" role="group" aria-label="정책 보기">
-        {VIEWS.map(v => <button key={v.value} type="button" className="secondary" aria-pressed={view === v.value}
+        {VIEWS.map(v => <button key={v.value} type="button" className="secondary policy-view-tab" aria-pressed={view === v.value}
           onClick={() => selectView(v.value)}>
           {v.label}
           {count[v.value] !== null && <span className="policy-view-count">{count[v.value]}</span>}
         </button>)}
     </div>
     <nav className="policy-quick-links" aria-label="정책과 센터 바로가기">
-      <Link className="secondary" href="/policies/criteria">추천 기준 바꾸기</Link>
-      <Link className="secondary" href="/centers">청년센터 살펴보기</Link>
+      <Link className="policy-quick-link" href="/policies/criteria"><SkyControlIcon name="policy" />추천 기준 바꾸기<span aria-hidden="true">›</span></Link>
+      <Link className="policy-quick-link" href="/centers?from=policies"><SkyControlIcon name="center" />청년센터 살펴보기<span aria-hidden="true">›</span></Link>
     </nav>
     {favorites && saved.ids.length === 0 && <p className="card">찜한 정책이 없어요. 정책 카드의 별(☆)을 누르면 여기에 담겨요.</p>}
     {unavailable.map(id => <section className="card" key={id}>
@@ -305,7 +307,7 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
         onClick={() => { if (mode === 'api') void request(`policies/${policy.policyId}/click`, 'POST', {}).catch(() => {}); }}>정책 원문 확인</a>}
       <div className="policy-support-actions">
         <button type="button" className="secondary" onClick={() => setHelping(policy)}>신청 도와줘</button>
-        {policy.needsInquiry && <Link className="secondary" href="/centers">청년센터에서 문의 준비하기</Link>}
+        {policy.needsInquiry && <Link className="secondary" href="/centers?from=policies">청년센터에서 문의 준비하기</Link>}
       </div>
       {sent[policy.policyId]
         ? <SentNote result={sent[policy.policyId]} />

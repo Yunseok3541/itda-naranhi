@@ -54,15 +54,15 @@ export async function suggestNext(userId: number, body: unknown, db: Db = pool, 
       return fail(503, 'LOAD_FAILED', '퀘스트 목록과 서버 콘텐츠가 달라요. 콘텐츠 동기화 후 다시 확인해 주세요.');
     }
     const options = ctx.options.map(o => ({ ...o }));
-    const fallbackKey = defaultNextKey(source, options);
+    const fallbackKey = defaultNextKey(options);
     // Send no IDs identifying the user, no profile, and no free-text reflection.
     // The selected stop reason is explicit, not a diagnosis inferred by the model.
     let ai;
     try {
       ai = options.length > 1 ? await generate<AiChoice>({
-        system: '사용자가 직접 고른 활동 결과와 멈춘 이유를 참고해 주어진 다음 행동 중 하나만 제안한다. key는 후보에서만 고른다. reason은 해요체 80자 이내. 새로운 활동, 장소, 운영정보, 진단, 재촉, 과장, 자동 난이도 상승은 금지한다. 선택은 사용자가 하며 쉬어 가기도 동등한 선택이다. JSON만 출력한다.',
+        system: '사용자가 직접 고른 활동 결과와 멈춘 이유를 참고해 주어진 다음 별 후보 중 하나만 제안한다. 같은 별자리의 별을 먼저 고려한다. key는 후보에서만 고른다. reason은 해요체 80자 이내. 새로운 활동, 장소, 운영정보, 진단, 재촉, 과장, 자동 난이도 상승은 금지한다. 선택은 사용자가 하며 쉬어 가기도 동등한 선택이다. JSON만 출력한다.',
         prompt: JSON.stringify({ 결과: source.status, 멈춘_이유: source.stopReason,
-          후보: options.map(o => ({ key: o.key, 행동: o.action, 제목: o.title, 설명: o.reason })) }),
+          후보: options.map(o => ({ key: o.key, 행동: o.action, 제목: o.title, 별자리: o.constellationName ?? null, 설명: o.reason })) }),
         schema: { type: 'object', properties: { key: { type: 'string', enum: options.map(o => o.key) }, reason: { type: 'string' } }, required: ['key', 'reason'] },
         validate: isChoice, fallback: { key: fallbackKey, reason: '' },
       }) : null;
@@ -76,7 +76,7 @@ export async function suggestNext(userId: number, body: unknown, db: Db = pool, 
     [attemptId, userId, options.find(o => o.key === recommendedKey)!.action]);
     return ok({ attemptId, options, recommendedKey, usedFallback: !valid, help: null });
   } catch {
-    return fail(500, 'LOAD_FAILED', '기록은 그대로 있어요. 다음 행동을 불러오지 못했어요.');
+    return fail(500, 'LOAD_FAILED', '기록은 그대로 있어요. 이어볼 별을 불러오지 못했어요.');
   }
 }
 
@@ -84,22 +84,22 @@ export async function suggestNext(userId: number, body: unknown, db: Db = pool, 
 export async function chooseNext(userId: number, body: unknown, db: Db = pool): Promise<ApiResult> {
   const b = body as { attemptId?: unknown; key?: unknown } | null;
   const attemptId = toId(b?.attemptId);
-  if (attemptId === null || typeof b?.key !== 'string') return fail(400, 'INVALID', '다음 행동을 골라 주세요.');
+  if (attemptId === null || typeof b?.key !== 'string') return fail(400, 'INVALID', '이어볼 별을 골라 주세요.');
   try {
     const ctx = await context(userId, attemptId, db);
     if (!ctx) return fail(404, 'NOT_FOUND', '시도 기록을 찾을 수 없어요.');
     const option = ctx.options.find(o => o.key === b.key);
-    if (!option || (ctx.help && option.action !== 'stop')) return fail(400, 'INVALID', '지금 선택할 수 있는 행동이 아니에요.', { help: ctx.help });
+    if (!option || (ctx.help && option.action !== 'stop')) return fail(400, 'INVALID', '지금 고를 수 있는 별이 아니에요.', { help: ctx.help });
     const updated = await db.query(`UPDATE star_attempts a SET next_action = $3,
       next_sub_quest_id = $4, next_star_id = $5
       WHERE a.id = $1 AND a.user_id = $2
       AND NOT EXISTS (SELECT 1 FROM star_attempts child WHERE child.parent_attempt_id = a.id AND child.user_id = $2)
       RETURNING a.id`, [attemptId, userId, option.action,
       option.action === 'smaller' ? option.subQuestId : null, option.action === 'swap' ? option.starId : null]);
-    if (!updated.rowCount) return fail(400, 'INVALID', '이미 이어서 기록한 행동이에요. 새 기록에서 골라 주세요.');
+    if (!updated.rowCount) return fail(400, 'INVALID', '이미 이어서 기록한 별이에요. 새 기록에서 골라 주세요.');
     return ok({ plan: option.action === 'stop' ? null : { ...option, attemptId }, stopped: option.action === 'stop' });
   } catch {
-    return fail(500, 'SAVE_FAILED', '다음 행동을 저장하지 못했어요. 다시 골라 주세요.');
+    return fail(500, 'SAVE_FAILED', '이어볼 별을 저장하지 못했어요. 다시 골라 주세요.');
   }
 }
 
@@ -121,11 +121,11 @@ export async function pendingNext(userId: number, db: Db = pool): Promise<ApiRes
     if (!row || row.done || row.action === 'stop') return ok({ plan: null });
     const plan: NextPlan = { attemptId: row.attemptId, action: row.action as NextPlan['action'],
       key: row.action === 'smaller' ? `smaller:${row.subQuestId}` : row.action === 'swap' ? `swap:${row.starId}` : 'retry',
-      starId: row.starId, subQuestId: row.subQuestId, title: row.title, reason: '지난번에 직접 골라 둔 한 걸음이에요. 오늘 바꿔도 괜찮아요.',
+      starId: row.starId, subQuestId: row.subQuestId, title: row.title, reason: '지난번에 직접 골라 둔 이어볼 별이에요. 오늘 바꿔도 괜찮아요.',
       ...(catalogQuest(row.starId)?.category === 'center' && /문의 문장/.test(row.title) ? { preparationHref: '/centers' } : {}),
     };
     return ok({ plan });
   } catch {
-    return fail(500, 'LOAD_FAILED', '이어갈 행동을 불러오지 못했어요.');
+    return fail(500, 'LOAD_FAILED', '이어볼 별을 불러오지 못했어요.');
   }
 }

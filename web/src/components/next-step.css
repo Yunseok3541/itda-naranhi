@@ -4,3 +4,8 @@
 .next-step-options p { line-height: 1.6; }
 .next-step-card .primary, .next-step-card .secondary { margin-block: 6px; }
 .next-step-active { border: 1px solid var(--star-gold, #f6cf7d); }
+
+/* 골라 둔 별 화면의 한 줄 카드 (star-screen.tsx) */
+.next-step-active p { margin: 0; font-weight: 650; }
+.next-step-active p span { color: var(--star-gold, #f6cf7d); }
+.next-step-active .secondary { margin-top: 10px; }
