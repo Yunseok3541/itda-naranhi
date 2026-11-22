@@ -438,6 +438,23 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
   @keyframes screen-rise { from { opacity: 0; translate: 0 10px; } }
   .night-title h1 { animation: fade-in .5s ease-out; }
   @keyframes fade-in { from { opacity: 0; transform: translateY(4px); } }
+
+  /* 시작 안내 직후 밤하늘이 반짝이며 생기는 연출 (mobile-flow.tsx가 main에 .sky-reveal, 3.6초 뒤 메뉴 안내. 배경 별은 sky-panorama.tsx)
+     0~2.2초 배경 별이 하나씩 반짝 → 1초부터 퀘스트 별(지금 별자리부터) → 1.7초 별자리 선 → 2초 별자리 친구 → 2.1~2.5초 글자·버튼·캐릭터
+     .sky-locked의 등장 효과(screen-rise·fade-in·sky-companion-appear)와 같은 이름을 써서, 연출이 끝나 표시를 떼도 다시 재생되지 않음 */
+  /* 지금 별자리 별은 톡 튀어나오고, 다른 별자리 별은 버튼째 서서히 (애니메이션 수를 줄여 저사양 기기 부담을 덜기) */
+  .sky-reveal .sky-anchors .nstar.current .core { animation: sky-reveal-pop .7s cubic-bezier(.2, 1.5, .4, 1) var(--reveal-delay, 1s) both; }
+  .sky-reveal .sky-anchors .nstar.current .glow { animation: sky-reveal-fade .7s ease-out var(--reveal-delay, 1s) both; }
+  .sky-reveal .sky-anchors .nstar:not(.current) { animation: sky-reveal-fade .6s ease-out var(--reveal-delay, 1.3s) both; }
+  .sky-reveal .sky-edge-layer { animation: sky-reveal-fade .9s ease-out 1.7s both; }
+  .sky-reveal .sky-constellation-character { animation-name: sky-companion-appear; animation-duration: 1s; animation-delay: 2s; animation-fill-mode: both; }
+  .sky-reveal .night-title :is(h1, p) { animation-name: fade-in; animation-duration: .7s; animation-delay: 2.1s; animation-fill-mode: both; }
+  .sky-reveal :is(.sky-top, .night-actions, .sky-actions) { animation-name: screen-rise; animation-duration: .6s; animation-delay: 2.3s; animation-fill-mode: both; }
+  .sky-reveal :is(.night-space, .sky-points) { animation: sky-reveal-fade .6s ease-out 2.3s both; }
+  .sky-reveal .sky-quest-character { animation: sky-reveal-rise .7s cubic-bezier(.2, .8, .2, 1) 2.5s both; }
+  @keyframes sky-reveal-pop { 0% { opacity: 0; transform: scale(.2); } 55% { opacity: 1; transform: scale(1.5); } 100% { transform: scale(1); } }
+  @keyframes sky-reveal-fade { from { opacity: 0; } }
+  @keyframes sky-reveal-rise { from { opacity: 0; translate: 0 16px; } }
 }
 
 /* 안내 문구(데모 다시 시작 등)는 메뉴에 가리지 않게 위쪽 알림으로 */

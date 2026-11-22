@@ -18,6 +18,8 @@ let frame: Frame | null = null;
 let version = 0;
 let anim = 0;
 let flying = false;
+/** 지금 날아가는 중인 목적지 (finishFlight로 바로 도착시킬 때) */
+let flight: { target: SkyView; onArrival?: () => void } | null = null;
 let panned = false;
 let panVisible = false;
 let panTimer = 0;
@@ -57,6 +59,16 @@ export const skyView = {
   stopFlight() {
     cancelAnimationFrame(anim);
     flying = false;
+    flight = null;
+  },
+  /** 날아가는 중이면 남은 이동 없이 목적지에 바로 도착 (밤하늘 연출이 버벅일 때) */
+  finishFlight() {
+    if (!flying || !flight) return;
+    const { target, onArrival } = flight;
+    skyView.stopFlight();
+    view = target;
+    emit();
+    onArrival?.();
   },
   zoom(factor: number) {
     skyView.set({ fov: view.fov * factor });
@@ -110,6 +122,7 @@ export const skyView = {
     const ease = (t: number) => t * t * (3 - 2 * t);
     const start = performance.now();
     flying = true;
+    flight = { target, onArrival };
     const tick = (now: number) => {
       const t = Math.min(1, (now - start) / duration);
       const e = ease(t);
@@ -124,7 +137,7 @@ export const skyView = {
       });
       emit();
       if (t < 1) anim = requestAnimationFrame(tick);
-      else { flying = false; onArrival?.(); }
+      else { flying = false; flight = null; onArrival?.(); }
     };
     anim = requestAnimationFrame(tick);
   },
