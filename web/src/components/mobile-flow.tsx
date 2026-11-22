@@ -225,6 +225,25 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
    catch (error) { reportError(error); E('기록은 저장됐지만 밤하늘을 다시 읽지 못했어요. 밤하늘에서 다시 불러와 주세요.'); }
  }
  const helpToggle = { open: help?.title===HELP.title, toggle: () => H(h=>h?.title===HELP.title?null:HELP) };
+ // 도움받을 곳 창이 열린 채 다른 곳을 누르거나 Esc를 누르면 닫힘 (열어 둔 채 다른 걸 하면 창이 계속 맨 앞에 떠 있던 문제)
+ // 여는 단추(.sky-help-button, .help-icon, .help-toggle)는 빼야 그 단추의 열고 닫기와 겹치지 않음
+ const helpPanel = useRef<HTMLElement>(null);
+ useEffect(() => {
+   if (!help) return;
+   function onPointerDown(event: PointerEvent) {
+     const target = event.target as Element | null;
+     if (!target || helpPanel.current?.contains(target) || target.closest('.sky-help-button, .help-icon, .help-toggle')) return;
+     H(null);
+   }
+   // 전화 확인 창이 떠 있으면 Esc는 그 창만 닫음 (브라우저가 처리)
+   function onKeyDown(event: KeyboardEvent) { if (event.key === 'Escape' && !helpPanel.current?.querySelector('dialog[open]')) H(null); }
+   document.addEventListener('pointerdown', onPointerDown, true);
+   document.addEventListener('keydown', onKeyDown);
+   return () => {
+     document.removeEventListener('pointerdown', onPointerDown, true);
+     document.removeEventListener('keydown', onKeyDown);
+   };
+ }, [help]);
  // 메인(밤하늘)과 첫 화면은 어두운 밤하늘 테마, 나머지 화면은 아직 기존 테마
  const night = screen==='sky'||!ready||guiding;
  // 메인 "내 밤하늘"은 스크롤 없이 한 화면에 고정 (night-sky.css의 .sky-locked). 아래 안내는 "모든 별 목록" 창 안으로
@@ -259,7 +278,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  }, [locked]);
  const footer = <footer>시연용 서비스 · 실제 개인정보를 입력하지 마세요.{ready&&!guiding&&<button className="text-button" disabled={busy} onClick={()=>{localStorage.removeItem('naranhi-mode');R(false);H(null);SS(null);E('');setNeedsSession(false);setStartStep(null);setStartAnswers(EMPTY_START);}}>체험 방식 다시 선택</button>}</footer>;
  const feedback = <>
-   {help && <aside className="help help-panel support-surface" aria-labelledby={helpTitle}
+   {help && <aside ref={helpPanel} className="help help-panel support-surface" aria-labelledby={helpTitle}
      role={help.title === HELP.title ? undefined : 'alert'}>
      <HelpPanelContent titleId={helpTitle} title={help.title} lines={help.lines} onClose={() => {
        shell.current?.querySelector<HTMLButtonElement>(':is(.sky-help-button, .help-icon)[aria-expanded="true"]')
