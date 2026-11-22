@@ -321,19 +321,15 @@ button.policy-save:focus-visible { outline: 2px solid #ffe1a0; outline-offset: 2
   background: #f4d695; color: #271b34; box-shadow: none; font-weight: 750;
 }
 .night-ui button.quest-action:focus-visible { outline: 2px solid var(--star-gold); outline-offset: 2px; }
-.night-ui .quest-weather-card .quest-weather-options > summary {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  min-height: 44px; padding: 8px 12px; list-style: none; cursor: pointer;
-  background: #302548; border: 1px solid #806ba8; border-radius: 12px; color: #f3ebff;
+/* 날씨 고르기: 접지 않고 5개를 한눈에 (quest-screen.tsx) */
+.quest-weather-options .small { margin: 0 0 8px; }
+.quest-weather-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.night-ui .quest-weather-row .secondary {
+  width: auto; min-height: 40px; margin: 0; padding: 6px 14px; border-radius: 999px; font-size: .875rem;
+  border-color: #5e5080; background: #251d39; color: #e8defa;
 }
-.quest-weather-options > summary::-webkit-details-marker { display: none; }
-.quest-weather-options > summary::after {
-  content: ""; width: 8px; height: 8px; margin: 0 3px 4px;
-  border: solid #d9c8ff; border-width: 0 2px 2px 0; transform: rotate(45deg);
-}
-.quest-weather-options[open] > summary::after { margin: 4px 3px 0; transform: rotate(225deg); }
-.quest-weather-options > summary:focus-visible { outline: 2px solid var(--star-gold); outline-offset: 2px; }
-.quest-weather-options .glass-select-list { position: static; margin-top: 8px; box-shadow: none; }
+.night-ui .quest-weather-row .secondary[aria-checked="true"] { border-color: var(--star-gold); background: rgba(246, 207, 125, .16); color: #ffe4a0; }
+.night-ui .quest-weather-row .secondary:focus-visible { outline: 2px solid var(--star-gold); outline-offset: 2px; }
 .quest-weather-options + button { margin-top: 12px; }
 
 /* 별 순서 표시 (StarProgress): 처음 시작 안내의 점(.guide-progress)과 같은 크기·간격, 켜진 단계만 별 */
