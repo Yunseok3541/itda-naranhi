@@ -13,6 +13,7 @@ import { DAILY_STAR_LIMIT_MESSAGE } from '@/lib/star-limit';
 import { starDisplayDescription, starDisplayTitle } from '@/lib/star-display';
 import { Hero, HeroIcon, ScreenBar, Section } from './screen-kit';
 import { NextStepCard } from './next-step-card';
+import GlassSelect from './glass-select';
 import { StatusStar } from './star-list';
 import type { NextPlan } from '@/lib/next-step';
 import './star-screen.css';
@@ -124,10 +125,13 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
                 <b>{l}</b><small>{sub}</small>
               </button>)}
           </div>
-          {status === 'dim' && <label className="record-field">어떤 점이 어려웠나요? <span className="record-optional">선택</span><select value={reason} onChange={e => setReason(e.target.value)}>
-            <option value="">말하지 않아도 괜찮아요</option>
-            {REASONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select></label>}
+          {status === 'dim' && <div className="record-reasons">
+            {/* 기본 드롭다운 대신 앱 공통 반투명 드롭다운. 안 골라도 되고, 고른 뒤에도 "말하지 않을래요"로 되돌릴 수 있음 */}
+            <GlassSelect<string | null> label="어떤 점이 어려웠나요? (선택)" value={reason || null} disabled={busy}
+              onChange={v => setReason(v ?? '')}
+              options={[{ value: null, label: '말하지 않아도 괜찮아요' }, ...REASONS.map(([v, l]) => ({ value: v, label: l }))]} />
+            <p className="record-reasons-hint">다음 걸음을 고를 때 참고해요.</p>
+          </div>}
 
           <h3 className="record-sub">남기고 싶다면 <span className="record-optional">선택</span></h3>
           <label className="record-field"><span className="sr-only">오늘을 기억할 한 줄</span><textarea disabled={busy} maxLength={300} rows={2} value={reflection} onChange={e => setReflection(e.target.value)} placeholder="오늘을 기억할 한 줄 (비워 두어도 괜찮아요)" /></label>
