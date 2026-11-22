@@ -48,32 +48,40 @@ const monthLabel = (month: string) => `${month.slice(0, 4)}년 ${Number(month.sl
 export default function StarJournal({ mode }: { mode: Mode }) {
   const [entries, setEntries] = useState<Entry[] | null>(null);
   const [error, setError] = useState('');
+  const [photosFailed, setPhotosFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
   const today = dayKey(new Date());
   const [month, setMonth] = useState(monthOf(today));
   const [filter, setFilter] = useState<Filter>('all');
   const [focusDay, setFocusDay] = useState<string | null>(null);
   const calendar = useRef<HTMLDivElement>(null);
+  const initializedMonth = useRef(false);
 
   useEffect(() => {
     let active = true;
     const api = client(mode);
-    Promise.all([api.sky(), api.memoryPhotos().catch(() => [])])
+    Promise.all([api.sky(), api.memoryPhotos().catch(() => null)])
       .then(([sky, photos]) => {
         if (!active) return;
-        const photoOf = new Map(photos.map(p => [p.id, p.src]));
+        setPhotosFailed(photos === null);
+        const photoOf = new Map((photos ?? []).map(p => [p.id, p.src]));
         const list = (sky.stars as Star[]).flatMap(star => star.memories.map(m => ({
           attemptId: m.attemptId, starId: star.starId, title: m.customTitle || star.title,
           status: m.status === 'dim' ? 'dim' as const : 'bright' as const,
           reflection: m.reflection?.trim() || null, photo: m.photo ?? photoOf.get(m.attemptId) ?? null,
           constellation: star.constellationName ?? null, day: dayKey(m.date),
         }))).filter(e => e.day).sort((a, b) => b.day.localeCompare(a.day) || b.attemptId - a.attemptId);
+        setError('');
         setEntries(list);
         // 이번 달에 기록이 없으면 가장 최근 기록이 있는 달부터
-        if (list.length && !list.some(e => monthOf(e.day) === monthOf(today))) setMonth(monthOf(list[0].day));
+        if (!initializedMonth.current && list.length && !list.some(e => monthOf(e.day) === monthOf(today))) {
+          setMonth(monthOf(list[0].day));
+        }
+        initializedMonth.current = true;
       })
       .catch(e => { if (active) setError(e instanceof Error ? e.message : '기록을 불러오지 못했어요.'); });
     return () => { active = false; };
-  }, [mode, today]);
+  }, [mode, today, retry]);
 
   const byDay = useMemo(() => {
     const map = new Map<string, Entry[]>();
@@ -83,8 +91,10 @@ export default function StarJournal({ mode }: { mode: Mode }) {
   const firstMonth = entries?.length ? monthOf(entries[entries.length - 1].day) : monthOf(today);
   const lastMonth = monthOf(today);
 
+  const [filteredDay, setFilteredDay] = useState<string | null>(null);
+  const matchesFilter = (entry: Entry) => filter === 'all' || (filter === 'photo' ? !!entry.photo : entry.status === filter);
   const monthEntries = (entries ?? []).filter(e => monthOf(e.day) === month);
-  const shown = monthEntries.filter(e => filter === 'all' ? true : filter === 'photo' ? !!e.photo : e.status === filter);
+  const shown = monthEntries.filter(matchesFilter);
   const shownDays = [...new Set(shown.map(e => e.day))];
   const recordDays = new Set(monthEntries.map(e => e.day));
 
@@ -97,14 +107,22 @@ export default function StarJournal({ mode }: { mode: Mode }) {
     return first && first.day !== today ? { kind: '처음 딴 별', entry: first } : null;
   }, [byDay, entries, today]);
 
-  function openDay(day: string) {
-    if (filter !== 'all' && !shownDays.includes(day)) setFilter('all');
+  function openDay(day: string, showAll = false) {
+    setMonth(monthOf(day));
+    const matching = showAll || byDay.get(day)?.some(matchesFilter);
+    if (showAll) setFilter('all');
+    setFilteredDay(matching ? null : day);
     setFocusDay(day);
-    requestAnimationFrame(() => document.getElementById(`journal-${day}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    requestAnimationFrame(() => {
+      const target = document.getElementById(matching ? `journal-${day}` : 'journal-filtered-day');
+      target?.focus({ preventScroll: true });
+      target?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    });
     window.setTimeout(() => setFocusDay(current => current === day ? null : current), 1800);
   }
   function goMonth(next: string) {
     setMonth(next);
+    setFilteredDay(null);
     setFocusDay(null);
   }
   // 달력 안 화살표로 기록한 날 사이를 옮겨 다님
@@ -132,6 +150,11 @@ export default function StarJournal({ mode }: { mode: Mode }) {
     {error && <p className="error" role="alert">{error}</p>}
     {!entries && !error && <p className="small" role="status">기록을 불러오고 있어요.</p>}
 
+    {photosFailed && <section className="card">
+      <p role="status">사진을 불러오지 못했어요. 날짜별 별 기록은 볼 수 있어요.</p>
+      <button type="button" className="secondary" onClick={() => setRetry(value => value + 1)}>사진 다시 불러오기</button>
+    </section>}
+
     {entries && entries.length === 0 && <section className="card journal-empty">
       <StatusStar status="untried" />
       <h2>아직 남긴 기록이 없어요</h2>
@@ -144,7 +167,7 @@ export default function StarJournal({ mode }: { mode: Mode }) {
         <p className="journal-recall-kind"><StatusStar status={recall.entry.status} />{recall.kind} · {dayLabel(recall.entry.day)}</p>
         <p className="journal-recall-title">{recall.entry.title}</p>
         {recall.entry.reflection && <p className="journal-recall-note">“{recall.entry.reflection}”</p>}
-        <button type="button" className="text-button" onClick={() => { goMonth(monthOf(recall.entry.day)); window.setTimeout(() => openDay(recall.entry.day), 50); }}>그날 기록 보기</button>
+        <button type="button" className="text-button" onClick={() => openDay(recall.entry.day)}>그날 기록 보기</button>
       </section>}
 
       <section className="journal-calendar" aria-label="별 일기 달력">
@@ -191,15 +214,21 @@ export default function StarJournal({ mode }: { mode: Mode }) {
       ]} />
 
       <div className="journal-filters" role="group" aria-label="골라 보기">
-        {FILTERS.map(f => <button key={f.value} type="button" className="secondary" aria-pressed={filter === f.value} onClick={() => setFilter(f.value)}>{f.label}</button>)}
+        {FILTERS.map(f => <button key={f.value} type="button" className="secondary" aria-pressed={filter === f.value} onClick={() => { setFilter(f.value); setFilteredDay(null); }}>{f.label}</button>)}
       </div>
 
-      {shownDays.length === 0 && <p className="card journal-none">
-        {monthEntries.length ? '이 달에는 고른 기록이 없어요.' : '이 달에는 남긴 기록이 없어요. 쉬어 간 달도 괜찮아요.'}
+      {filteredDay && <section className="card journal-none" id="journal-filtered-day" tabIndex={-1}>
+        <p>{dayLabel(filteredDay)} · {filter === 'photo'
+          ? photosFailed ? '사진을 아직 불러오지 못했어요.' : '이날은 남긴 사진이 없어요.'
+          : '이날은 고른 종류의 기록이 없어요.'}</p>
+        <button type="button" className="secondary" onClick={() => openDay(filteredDay, true)}>이날 전체 기록 보기</button>
+      </section>}
+      {shownDays.length === 0 && !filteredDay && <p className="card journal-none">
+        {filter === 'photo' && photosFailed ? '사진을 불러오면 이달의 사진을 확인할 수 있어요.' : monthEntries.length ? '이 달에는 고른 기록이 없어요.' : '이 달에는 남긴 기록이 없어요. 쉬어 간 달도 괜찮아요.'}
       </p>}
 
       <ol className="journal-list">
-        {shownDays.map(day => <li key={day} id={`journal-${day}`} className={`journal-entry-day${focusDay === day ? ' focused' : ''}`}>
+        {shownDays.map(day => <li key={day} id={`journal-${day}`} tabIndex={-1} className={`journal-entry-day${focusDay === day ? ' focused' : ''}`}>
           <h3><time dateTime={day}>{dayLabel(day)}</time> <span>({WEEK[weekday(day)]})</span></h3>
           <ul className="card journal-entries">
             {shown.filter(e => e.day === day).map(e => <li key={e.attemptId}>

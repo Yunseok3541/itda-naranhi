@@ -47,7 +47,7 @@ export function Album({photos,mode,group,onClose,onRemove}:{photos:MemoryPhoto[]
   if(!item)return null;
   return <dialog ref={modal} className="photo-album" aria-label={item.name+' 기억 앨범'} onCancel={e=>{e.preventDefault();if(detail)setDetail(null);else onClose();}}
     onKeyDown={e=>{if(!detail && ['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();step(e.key==='ArrowLeft'?-1:1);}}}>
-    <header><h2>{detail==='record'?'원래 기록':item.name+'의 기억'}</h2><button onClick={()=>detail?setDetail(null):onClose()}>닫기</button></header>
+    <header><h2>{detail==='record'?'기록 상세':item.name+'의 기억'}</h2><button onClick={()=>detail?setDetail(null):onClose()}>닫기</button></header>
     <div className="photo-window" onTouchStart={e=>{touch.current=e.touches[0].clientX;}} onTouchEnd={e=>{
       if(touch.current!==null && !detail){const delta=e.changedTouches[0].clientX-touch.current;if(Math.abs(delta)>35)step(delta<0?1:-1);}touch.current=null;}}>
       <div className="photo-strip" style={{transform:'translateX(-'+current*100+'%)'}}>
@@ -55,7 +55,7 @@ export function Album({photos,mode,group,onClose,onRemove}:{photos:MemoryPhoto[]
       </div></div>
     <small>{formatRecordDate(item.date)} · {current+1} / {items.length}</small><h3>{item.title}</h3>{item.note && <p>{item.note}</p>}
     {!detail && items.length>1 && <nav><button disabled={!current} onClick={()=>step(-1)}>이전</button><button disabled={current===items.length-1} onClick={()=>setPlaying(!playing)}>{playing && current<items.length-1?'일시정지':'재생'}</button><button disabled={current===items.length-1} onClick={()=>step(1)}>다음</button></nav>}
-    {!detail && <button onClick={()=>{setPlaying(false);setDetail('record');}}>원래 기록 보기</button>}
+    {!detail && <button onClick={()=>{setPlaying(false);setDetail('record');}}>기록 자세히 보기</button>}
     {detail==='record' && <p>별 기록 · {item.status==='bright'?'하늘의 별 따기':'손 뻗어 보기'}</p>}
     {detail && <button disabled={busy} onClick={async()=>{if(!confirm('사진을 지울까요? 별 기록과 한 줄은 보관돼요.'))return;
       setBusy(true);try{await client(mode).removePhoto(item.id);onRemove(item.id);setDetail(null);if(items.length===1)onClose();}
@@ -110,7 +110,7 @@ export function MemoryLibrary({mode}:{mode:Mode}) {
       <span className="photo-library-icon"><SkyControlIcon name="photos" /></span>
       <span className="photo-library-copy">
         <strong>나의 기억들</strong>
-        <small>{albums.size ? `앨범 ${albums.size}개 · 사진 ${photos.length}장` : '별에 남긴 사진 모아보기'}</small>
+        <small>{albums.size ? `앨범 ${albums.size}개 · 사진 ${photos.length}장` : '별자리별 사진 앨범'}</small>
       </span>
       <span className="photo-library-chevron" aria-hidden="true"><SkyControlIcon name="back" /></span>
     </button>

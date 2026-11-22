@@ -25,7 +25,8 @@ const koreanDate = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', mo
 const memoryDate = (v: string) => { const d = new Date(v); return Number.isNaN(d.getTime()) ? v : koreanDate.format(d); };
 const constellationName = (s: Star) => s.constellationName ?? getActivityConstellation(getStarConstellationId(s))?.name;
 
-export default function StarScreen({ mode, star, dailyLimitReached, busy, run, onHelp, onSaved }: {
+export default function StarScreen({ mode, star, fromToday, dailyLimitReached, busy, run, onHelp, onSaved }: {
+  fromToday?: boolean;
   mode: Mode;
   star: Star | undefined;
   dailyLimitReached: boolean;
@@ -36,6 +37,8 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
   onSaved: (result?: { attemptId: number; status: string }) => Promise<string | undefined>;
 }) {
   const router = useRouter();
+  const back = fromToday ? '/sky?resume=today' : '/sky';
+  const backLabel = fromToday ? '추천 별 목록으로 돌아가기' : '내 밤하늘로';
   // 처음엔 둘 다 고르지 않은 상태: 고르지 않고 저장해서 "딴 별"로 남는 일이 없게 직접 고름 (원칙 "사용자가 고른다", 기능발견성 다시 점검 #9)
   const [status, setStatus] = useState<'dim' | 'bright' | null>(null);
   const [reason, setReason] = useState('');
@@ -77,9 +80,9 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
   const activePlan = pending;
 
   if (!star) return <>
-    <ScreenBar title="별 기록" />
+    <ScreenBar title="별 기록" back={back} backLabel={backLabel} />
     <Hero visual={<HeroIcon tone="dim"><StatusStar status="untried" /></HeroIcon>} title="별을 찾고 있어요" message="별을 불러오지 못했거나 없는 주소예요." />
-    <section className="card"><Link className="secondary" href="/sky">밤하늘로 돌아가기</Link><button disabled={busy} onClick={() => run(async () => { await onSaved(); })}>다시 불러오기</button></section>
+    <section className="card"><Link className="secondary" href={back}>{backLabel}</Link><button disabled={busy} onClick={() => run(async () => { await onSaved(); })}>다시 불러오기</button></section>
   </>;
 
   // GPS(도착 확인) 별: 실제 API는 verifyType, 예시 모드만 예시 목록의 16·17 (별 ID는 시드마다 바뀜)
@@ -90,7 +93,7 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
   const lineMax = 300 - (weatherText ? weatherText.length + 3 : 0);
   const questBlocked = dailyLimitReached && star.status !== 'bright';
   return <>
-    <ScreenBar title="별 기록" />
+    <ScreenBar title="별 기록" back={back} backLabel={backLabel} />
     <Hero
       visual={<HeroIcon tone={star.status === 'untried' ? 'dim' : 'gold'}><StatusStar status={star.status} /></HeroIcon>}
       title={starDisplayTitle(activePlan?.title ?? star.title)}

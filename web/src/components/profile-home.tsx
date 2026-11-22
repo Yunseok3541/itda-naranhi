@@ -262,7 +262,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
           </li>)}</ul>
         : <p className="small">별을 기록하면 여기에 그날의 기억이 쌓여요.</p>}
       {/* 지난 기록 전체는 별 일기(달력 + 하루 카드)에서 */}
-      {records.length > 0 && <Link className="secondary journal-more" href="/journal"><span>별 일기 전체 보기</span><span aria-hidden="true">›</span></Link>}
+      {records.length > 0 && <Link className="secondary journal-more" href="/journal"><span>별 일기 · 날짜별 기록</span><span aria-hidden="true">›</span></Link>}
     </Section>
   </div>;
 }
