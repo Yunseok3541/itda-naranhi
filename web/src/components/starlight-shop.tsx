@@ -15,6 +15,7 @@ export default function StarlightShop({ mode }: { mode: Mode }) {
   const [choice, choose] = useState<AccessoryId | undefined>();
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
+  const tipDialog = useRef<HTMLDialogElement>(null);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [arrival, setArrival] = useState(0);
@@ -70,15 +71,21 @@ export default function StarlightShop({ mode }: { mode: Mode }) {
           animate={arrival > 0 && !!notice && !choice} /></div>
         <p className="shop-preview-name" aria-live="polite">{item?.name ?? '장식을 눌러 미리 써 볼 수 있어요'}</p>
       </div>
-      {/* 짧고 자주 궁금한 정보라 접지 않고 늘 보이게 */}
-      <section className="shop-earn" aria-labelledby="shop-earn-title">
-        <h2 id="shop-earn-title">포인트 모으는 방법</h2>
+      {/* 포인트 모으는 방법은 작은 Tip 버튼 → 작은 창 (쇼핑 흐름을 가리지 않게) */}
+      <button type="button" className="text-button shop-tip-open" aria-haspopup="dialog" onClick={() => tipDialog.current?.showModal()}>
+        <span aria-hidden="true">✦</span> 포인트 모으는 Tip
+      </button>
+      <dialog ref={tipDialog} className="shop-tip" aria-labelledby="shop-tip-title"
+        onClick={event => { if (event.target === event.currentTarget) event.currentTarget.close(); }}>
+        <h2 id="shop-tip-title">포인트 모으는 Tip</h2>
         <ul>
           <li><span>하루 첫 한 줄 기록</span><b>+{CHECKIN_POINTS}P</b></li>
           <li><span>별을 처음 따면</span><b>+10~40P</b></li>
           <li><span>별똥별 잡기</span><b>+{METEOR_POINTS}P</b></li>
         </ul>
-      </section>
+        <p>천천히 모아도 괜찮아요.</p>
+        <button type="button" className="secondary" onClick={() => tipDialog.current?.close()}>알겠어요</button>
+      </dialog>
       <h2 className="shop-heading" id="shop-accessories">머리 장식</h2>
       <div className="shop-stock" role="group" aria-labelledby="shop-accessories">
         {accessories.map(product => {
@@ -96,7 +103,7 @@ export default function StarlightShop({ mode }: { mode: Mode }) {
             <small className="shop-product-status" data-state={productState}>
               {productState === 'wearing' ? '착용 중' : productState === 'owned' ? '보유 중' : product.price + 'P'}
             </small>
-            {productState === 'unavailable' && <small className="shop-product-shortfall">{shortfall}P 부족</small>}
+            {productState === 'unavailable' && <small className="shop-product-shortfall">{shortfall}P 더 모으면</small>}
           </button>;
         })}
       </div>

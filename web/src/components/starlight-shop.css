@@ -118,12 +118,19 @@
 .night-ui .shop-product .shop-product-status[data-state="unavailable"] { color: #ddd2e7; }
 .night-ui .shop-product .shop-product-shortfall { color: #dfc0d3; font-size: .7rem; white-space: nowrap; }
 .shop-product:has([data-state="unavailable"]) .shop-product-art { filter: saturate(.68); }
-/* 포인트 모으는 방법: 접지 않고 칩 3개로 늘 보이게 */
-.shop-earn { margin-block: 14px 6px; }
-.shop-earn h2 { margin: 0 0 8px; font-size: .875rem; font-weight: 650; color: #ffe7b8; }
-.shop-earn ul { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
-.shop-earn li { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: .8125rem; color: rgba(238, 233, 255, .86); background: rgba(255, 255, 255, .06); border: 1px solid #c6acd94d; }
-.shop-earn li b { color: #ffe4a0; font-weight: 700; }
+/* 포인트 모으는 Tip: 작은 글자 버튼 → 작은 창 */
+.night-ui .shop-tip-open { display: flex; align-items: center; gap: 5px; width: fit-content; min-height: 40px; margin: 8px 0 4px auto; padding: 0 4px; font-size: .8125rem; font-weight: 650; color: #ffe7b8; text-decoration: none; }
+.shop-tip-open + .shop-tip + .shop-heading { margin-top: 4px; }
+.shop-tip {
+  position: fixed; inset: 0; width: min(340px, calc(100% - 40px)); margin: auto; padding: 20px 18px 16px;
+  border-radius: 20px; border: 1px solid #c6acd94d; background: #1b1535; color: var(--starlight, #eee9ff);
+}
+.shop-tip::backdrop { background: rgba(8, 5, 22, .6); }
+.shop-tip h2 { margin: 0 0 10px; font-size: 1.05rem; color: #ffe7b8; }
+.shop-tip ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.shop-tip li { display: flex; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, .05); font-size: .9rem; }
+.shop-tip li b { color: #ffe4a0; }
+.shop-tip p { margin: 10px 2px 12px; font-size: .8125rem; color: rgba(238, 233, 255, .7); }
 .shop-selection-mark {
   position: absolute;
   top: 4px;
