@@ -717,7 +717,7 @@ const { cheer, help } = await processReflection({
 
 | 화면 단계 | 질문 | 요청 키 | 값 | 저장 |
 | --------- | ---- | ------- | -- | ---- |
-| 1/3 | 내가 편안하게 활동할 수 있는 범위는 어디까지인가요? | `startAnswers.range` | `home` · `near` · `out` · `people` 하나 | `start_answers.range` + **`current_stage`** (home 1 · near 2 · out 3 · people 4) |
+| 1/3 | 편안하게 활동할 수 있는 범위는 어디까지인가요? | `startAnswers.range` | `home` · `near` · `out` · `people` 하나 | `start_answers.range` + **`current_stage`** (home 1 · near 2 · out 3 · people 4) |
 | 2/3 | 부담되는 상황은? (여러 개) | `startAnswers.burden` | `people` · `unfamiliar` · `phone` · `morning` 배열 | `start_answers.burden` (목록 순서로 정리·중복 제거) |
 | 3/3 | 활동은 어떻게 해 보고 싶어요? | `startAnswers.with` | `alone` · `together` 하나 | `start_answers.with` |
 
