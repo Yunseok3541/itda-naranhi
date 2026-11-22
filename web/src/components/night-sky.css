@@ -1133,3 +1133,13 @@ html.sky-locked-page { --sky-dock-height: 96px; --person-height: clamp(77px, 16d
 .level-glow i[data-on] { background: var(--star-gold); box-shadow: 0 0 6px rgba(246, 207, 125, .55); }
 .star-level .star-group-text small { white-space: normal; }
 .star-row-where { color: var(--starlight-dim); font-weight: 500; }
+
+.quest-dialog-body .quest-pending-link {
+  display: grid;
+  gap: 3px;
+  padding: 9px 12px;
+  margin: 0 0 10px;
+  text-align: left;
+  font-size: .875rem;
+}
+.quest-pending-link small { color: var(--starlight-dim); }

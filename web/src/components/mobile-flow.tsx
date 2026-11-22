@@ -14,6 +14,7 @@ import StarJournal from './star-journal';
 import ProfileHome from './profile-home';
 import { PendingNextLink } from './next-step-card';
 import QuestScreen from './quest-screen';
+import { readReturnVisit } from '@/lib/today-recommendation-return';
 import MindCheckScreen from './mind-check-screen';
 import StarScreen from './star-screen';
 import { HelpContext, ScreenBar, StarProgress } from './screen-kit';
@@ -64,6 +65,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  const [totalPoints,setTotalPoints]=useState<number>();
  const [completedId,setCompletedId]=useState<number>();
  const [questOpen,setQuestOpen]=useState(false);
+ const [resumeCount, setResumeCount] = useState(0);
  const [needsSession,setNeedsSession]=useState(false);
  const [startAnswers,setStartAnswers]=useState<StartAnswers>(EMPTY_START);
  const [startStep,setStartStep]=useState<number | null>(null);
@@ -118,12 +120,15 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
    void Promise.resolve().then(() => { if (active) return load(); });
    return () => { active = false; };
  }, [screen, completionAttemptId, memoryStarId]);
- const openQuest = useCallback(() => {
+ const questOpened = useRef(false);
+ const openQuest = useCallback((restoreOnFirstOpen = false) => {
    if (!questDialog.current || questDialog.current.open) return;
+   if (!questOpened.current && restoreOnFirstOpen && readReturnVisit(mode)) setResumeCount(count => count + 1);
+   questOpened.current = true;
    questTrigger.current?.focus({ preventScroll: true });
    questDialog.current.showModal();
    setQuestOpen(true);
- }, []);
+ }, [mode]);
  function closeQuest() {
    questDialog.current?.close();
    setQuestOpen(false);
@@ -214,7 +219,6 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  // 메인 "내 밤하늘"은 스크롤 없이 한 화면에 고정 (night-sky.css의 .sky-locked). 아래 안내는 "모든 별 목록" 창 안으로
  const locked = ready&&screen==='sky'&&!guiding;
  const checkinOpened = useRef(false);
- const [resumeCount, setResumeCount] = useState(0);
  useEffect(() => {
    if (!loaded || !locked || !checkin || tourPending || checkinOpened.current) return;
    const frame = requestAnimationFrame(() => {
@@ -331,7 +335,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  </nav>}
  {locked&&tourPending&&stars.length>0&&<MenuTour/>}
  {screen==='sky'&&<NightSky stars={stars} selected={selected} onSelect={SS} busy={busy} onReload={()=>run(async()=>{const sky=await client(mode).sky();S(sky.stars);setTotalPoints(sky.totalPoints);})} footer={footer} nextLink={<PendingNextLink mode={mode} />} completedId={completedId} mode={mode} totalPoints={totalPoints}
-   onOpenQuest={openQuest} questTrigger={questTrigger} questOpen={questOpen} hintsPaused={tourPending || !!help}/>}
+   onOpenQuest={() => openQuest(true)} questTrigger={questTrigger} questOpen={questOpen} hintsPaused={tourPending || !!help}/>}
  {locked && <dialog className="quest-dialog night-ui" ref={questDialog} aria-labelledby={questTitle}
    onClick={event => { if (event.target === event.currentTarget) closeQuest(); }}
    onClose={event => {
@@ -339,7 +343,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
      setQuestOpen(false);
      if (document.activeElement === document.body) questTrigger.current?.focus({ preventScroll: true });
    }}>
-   <QuestScreen key={resumeCount} restoreRecommendations={resumeCount > 0} mode={mode} busy={busy} run={run} onHelp={H} onError={E} onTotalPoints={setTotalPoints}
+   <QuestScreen key={resumeCount} open={questOpen} restoreRecommendations={resumeCount > 0} mode={mode} busy={busy} run={run} onHelp={H} onError={E} onTotalPoints={setTotalPoints}
      dialog={{ titleId: questTitle, onClose: closeQuest, feedback: questOpen && feedback }} />
  </dialog>}
  {screen==='star'&&<StarScreen key={starId} fromToday={fromToday} mode={mode} star={star} dailyLimitReached={!isTutorialStar(starId) && hasReachedDailyStarLimit(stars)} busy={busy} run={run} onHelp={H} onSaved={reloadSky}/>}
