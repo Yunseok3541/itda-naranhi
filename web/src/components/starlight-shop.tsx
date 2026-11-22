@@ -68,7 +68,7 @@ export default function StarlightShop({ mode }: { mode: Mode }) {
         </div>
         <div className="shop-stage"><SkyPerson key={arrival} sculpted character={character} item={selected}
           animate={arrival > 0 && !!notice && !choice} /></div>
-        <p className="shop-preview-name" aria-live="polite">{item?.name ?? '장식을 골라 미리 써 보세요'}</p>
+        <p className="shop-preview-name" aria-live="polite">{item?.name ?? '장식을 눌러 미리 써 볼 수 있어요'}</p>
       </div>
       <details className="shop-earn">
         <summary>포인트 모으는 방법</summary>

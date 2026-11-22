@@ -116,7 +116,7 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
             <option value="">말하지 않아도 괜찮아요</option>
             {REASONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select></label>}
-          <label>오늘을 기억할 한 줄<textarea disabled={busy} maxLength={300} value={reflection} onChange={e => setReflection(e.target.value)} placeholder="짧게 적어도, 비워 두어도 괜찮아요" /></label>
+          <label>오늘을 기억할 한 줄 (선택)<textarea disabled={busy} maxLength={300} value={reflection} onChange={e => setReflection(e.target.value)} placeholder="짧게 적어도, 비워 두어도 괜찮아요" /></label>
           <fieldset className="photo-picker" disabled={busy || photoBusy}>
             <legend>사진 남기기 (선택)</legend>
             <label>{photo?'사진 바꾸기':'앨범에서 선택'}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={choosePhoto}/></label>

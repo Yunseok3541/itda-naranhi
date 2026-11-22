@@ -5,6 +5,7 @@
 // - 숫자는 해낸 것만 세지 않고 "손을 뻗은 별"도 함께
 // - 프로필 사진은 기본 캐릭터 또는 획득한 도감 캐릭터 중에서 고름
 // - 시작 질문·정책 신청 정보 입력은 설정(⚙) 안으로 (주소 끝 #settings로 바로 열 수 있음)
+import { formatRecordDate } from '@/lib/record-date';
 import { MemoryLibrary } from './memory-album';
 import SkyControlIcon from './sky-control-icon';
 import Link from 'next/link';
@@ -26,13 +27,6 @@ import './profile-home.css';
 // 'person' = 메인 캐릭터 그림 (screen-kit Avatar → SkyPerson sculpted, 상점 장식도 이 id 기준)
 const DEFAULT_AVATAR = 'person';
 const PROFILE_CATALOG_PREVIEW_SIZE = 4;
-
-const shortDate = (value: string) => {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
-  if (m) return `${Number(m[2])}.${Number(m[3])}`;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? '' : `${d.getMonth() + 1}.${d.getDate()}`;
-};
 
 export default function ProfileHome({ mode }: { mode: Mode }) {
   // 주소가 #settings로 끝나면 설정부터 열기. 이 화면은 브라우저에서만 그려짐
@@ -155,6 +149,12 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
         </div>
       </form>
     </dialog>
+    <Summary label="나의 기록" items={[
+      { value: counts.bright, label: '딴 별' },
+      { value: counts.dim, label: '손을 뻗은 별' },
+      { value: avatarChoices?.constellations ? acquiredCharacters.length : '–', label: '완성한 별자리' },
+    ]} note="딴 별은 해낸 일, 손을 뻗은 별은 시도해 본 일이에요. 둘 다 내 하늘에 남아요." />
+
     <Link className="secondary shop-entry starlight-entry" href="/shop">
       <span className="shop-entry-icon"><SkyControlIcon name="shop" /></span>
       <span className="starlight-entry-copy"><strong>별빛 상점</strong><small>캐릭터 꾸미기</small></span>
@@ -207,12 +207,6 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
 
     {error && <p className="error" role="alert">{error}</p>}
 
-    <Summary label="나의 기록" items={[
-      { value: counts.bright, label: '딴 별' },
-      { value: counts.dim, label: '손을 뻗은 별' },
-      { value: avatarChoices?.constellations ? acquiredCharacters.length : '–', label: '완성한 별자리' },
-    ]} note="딴 별은 해낸 일, 손을 뻗은 별은 시도해 본 일이에요. 둘 다 내 하늘에 남아요." />
-
     <section aria-labelledby="profile-catalog">
       <div className="profile-catalog-header">
         <h2 id="profile-catalog" className="screen-section">나의 별자리 도감</h2>
@@ -264,7 +258,7 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
         ? <ul className="profile-log">{records.map(r => <li key={r.attemptId}>
             <span className="log-icon" aria-hidden="true"><StatusStar status={r.status === 'dim' ? 'dim' : 'bright'} /></span>
             <span className="log-text">{r.title}{r.reflection ? <small>{r.reflection}</small> : null}</span>
-            <time dateTime={r.date}>{shortDate(r.date)}</time>
+            <time dateTime={r.date}>{formatRecordDate(r.date)}</time>
           </li>)}</ul>
         : <p className="small">별을 기록하면 여기에 그날의 기억이 쌓여요.</p>}
     </Section>

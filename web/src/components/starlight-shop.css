@@ -79,7 +79,7 @@
   box-shadow: 0 5px 25px #b387be36;
 }
 .shop-stage > .sky-person { position: relative; z-index: 1; height: 140px; width: auto; animation: none; }
-.night-ui .shop-preview-name { margin: 9px 0 0; text-align: center; color: #fff3dd; font-size: .9rem; font-weight: 750; }
+.night-ui .shop-preview-name { margin: 9px 0 0; text-align: center; color: #fff3dd; font-size: .9375rem; font-weight: 750; }
 
 .shop-heading { margin: 19px 0 9px; font-size: 1.05rem; }
 .shop-stock { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }

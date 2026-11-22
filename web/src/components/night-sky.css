@@ -522,15 +522,6 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
   padding-inline: 12px;
   color: #f6e2be;
 }
-.sky-quest-bubble-dots { display: grid; place-items: center; width: 20px; font-size: 0; }
-.sky-quest-bubble-dots::after {
-  content: "";
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: currentColor;
-  box-shadow: -7px 0 currentColor, 7px 0 currentColor;
-}
 .sky-quest-character:focus-visible .sky-quest-bubble { --bubble-border: var(--star-gold); }
 @media (prefers-reduced-motion: no-preference) {
   .sky-quest-bubble { animation: quest-bubble-in .24s ease-out both; }
@@ -657,6 +648,11 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .quest-dialog-body .quest-action { margin-block: auto 0; }
 .quest-dialog-body :is(h2, [tabindex="-1"]) { scroll-margin-top: 10px; }
 .quest-dialog-body [tabindex="-1"]:focus { outline: none; }
+@media (max-height: 630px) {
+  .quest-dialog-body .screen-steps { margin-bottom: 8px; }
+  .quest-dialog-body .quest-entry textarea { height: 62px; min-height: 60px; }
+  .quest-dialog-body .quest-entry :is(label, fieldset) { margin-bottom: 8px; }
+}
 @media (prefers-reduced-motion: no-preference) {
   .quest-dialog[open] { animation: quest-dialog-rise .22s ease-out; }
   .quest-dialog[open]::backdrop { animation: backdrop-in .22s ease-out; }
