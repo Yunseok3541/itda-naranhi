@@ -51,7 +51,9 @@ export default function CentersScreen({ mode, centerId, from = 'sky', onError, o
           const data = await request<{ centers: CenterSummary[] }>('centers?region=11440');
           if (active) setCenters(data.centers);
         }
-      } catch (error) { if (active) setLoadError(error instanceof Error ? error.message : '센터 정보를 불러오지 못했어요.'); }
+      } catch {
+        if (active) setLoadError('센터 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+      }
       finally { if (active) setLoading(false); }
     }
     void load();
