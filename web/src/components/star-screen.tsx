@@ -34,7 +34,8 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
   onSaved: (result?: { attemptId: number; status: string }) => Promise<string | undefined>;
 }) {
   const router = useRouter();
-  const [status, setStatus] = useState<'dim' | 'bright'>('bright');
+  // 처음엔 둘 다 고르지 않은 상태: 고르지 않고 저장해서 "딴 별"로 남는 일이 없게 직접 고름 (원칙 "사용자가 고른다", 기능발견성 다시 점검 #9)
+  const [status, setStatus] = useState<'dim' | 'bright' | null>(null);
   const [reason, setReason] = useState('');
   const [reflection, setReflection] = useState('');
   const [photo,setPhoto]=useState<string>();
@@ -145,7 +146,9 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
             {place && <p role="status" className="small">{place}</p>}
           </details>}
           {!planLoaded && <p className="small" role="status">지난 기록을 확인하고 있어요. 확인이 끝나면 저장할 수 있어요.</p>}
-          <button disabled={busy || photoBusy || !planLoaded} onClick={() => run(async () => {
+          {status === null && <p className="small" role="status">해냈는지, 시도해 봤는지 먼저 골라 주세요.</p>}
+          <button disabled={busy || photoBusy || !planLoaded || status === null} onClick={() => run(async () => {
+            if (status === null) return;
             const text = [weatherText, reflection.trim()].filter(Boolean).join(' · ').slice(0, 300);
             const r = await client(mode).attempt({ photo, requestId, starId: star.starId, status, reflection: text, verifyMethod: 'self',
               ...(activePlan ? { parentAttemptId: activePlan.attemptId, subQuestId: activePlan.subQuestId } : {}),
