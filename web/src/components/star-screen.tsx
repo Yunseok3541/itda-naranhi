@@ -118,7 +118,7 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
           <h2 id="record-question">오늘 이 별, 어땠나요?</h2>
           <p className="record-hint">어느 쪽이든 내 하늘에 남아요.</p>
           <div className="record-choices" role="radiogroup" aria-labelledby="record-question">
-            {([['bright', '해냈어요', '하늘의 별 따기'], ['dim', '시도해 봤어요', '손 뻗어 보기']] as const).map(([v, l, sub]) =>
+            {([['bright', '하늘의 별 따기', '해냈어요'], ['dim', '손 뻗어 보기', '시도해 봤어요']] as const).map(([v, l, sub]) =>
               <button key={v} type="button" role="radio" aria-checked={status === v} className={`secondary record-choice ${v}`} disabled={busy} onClick={() => setStatus(v)}>
                 <span className="record-choice-star" aria-hidden="true"><StatusStar status={v} /></span>
                 <b>{l}</b><small>{sub}</small>
