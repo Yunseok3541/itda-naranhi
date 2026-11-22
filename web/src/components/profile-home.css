@@ -21,6 +21,20 @@
 .shop-entry-arrow { color: #ffdc91; font-size: 1.15rem; }
 .night-ui .profile-home .shop-entry { grid-template-columns: 32px minmax(0, 1fr) auto auto; }
 .shop-entry-balance { color: #ffdc91; font-size: .85rem; font-variant-numeric: tabular-nums; }
+.night-ui .profile-home .starlight-entry {
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  min-height: 70px;
+  border-color: #b18c65;
+  background: linear-gradient(105deg, #513746, #2d2442 80%);
+}
+.starlight-entry .shop-entry-icon { width: 42px; height: 42px; border-radius: 13px; color: #372232; background: #efce99; }
+.starlight-entry .shop-entry-icon svg { width: 24px; height: 24px; }
+.starlight-entry-copy strong, .starlight-entry-copy small { display: block; }
+.starlight-entry-copy small { margin-top: 2px; font-size: .78rem; font-weight: 500; color: #ead5cf; }
+.starlight-entry .shop-entry-balance { grid-column: 3; grid-row: 1; padding: 4px 8px; border: 1px solid #826553; border-radius: 999px; background: #21192a; white-space: nowrap; }
+.starlight-entry .shop-entry-arrow { grid-column: 4; grid-row: 1; }
+.night-ui .profile-home .starlight-entry:has(.shop-entry-balance) { grid-template-columns: 42px minmax(0, 1fr) auto auto; }
+.starlight-entry:not(:has(.shop-entry-balance)) .shop-entry-arrow { grid-column: 3; }
 .night-ui .settings-guide-link { margin-block: 8px 12px; }
 .night-ui .profile-home .shop-entry:hover { border-color: #ffdc91; }
 .night-ui .profile-home .shop-entry:focus-visible { outline-color: #ffdc91; }

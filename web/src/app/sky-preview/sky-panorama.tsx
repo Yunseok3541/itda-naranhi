@@ -63,7 +63,7 @@ export default function SkyPanorama({ background = false, dome = false }: { back
     let dpr = 1;
     let raw: Celestial | null = null;
     // 미리 계산한 단위 벡터 (그릴 때마다 삼각함수를 다시 부르지 않게)
-    let stars: { v: Vec3; r: number; alpha: number; color: string; glow: boolean }[] = [];
+    let stars: { v: Vec3; alpha: number; sprite: HTMLCanvasElement; half: number }[] = [];
     let dust: { v: Vec3; alpha: number }[] = [];
     let lines: Vec3[][] = [];
 
@@ -79,11 +79,12 @@ export default function SkyPanorama({ background = false, dome = false }: { back
       g.fillRect(0, 0, 64, 64);
     }
 
+    let paintedView: ReturnType<typeof skyView.get> | undefined;
     function draw() {
-      requested = 0;
       if (!context || !stage || !host) return;
       const { width, height } = stage;
       const view = skyView.get();
+      paintedView = view;
       context.clearRect(0, 0, width, height);
       if (dome) drawSkyLight(context, view, width, height);
       const project = projector(view, width, height);
@@ -125,34 +126,55 @@ export default function SkyPanorama({ background = false, dome = false }: { back
         const s = stars[i];
         if (dome && s.v[2] < 0) continue;
         const p = project(s.v);
-        if (!visible(p, 20)) continue;
-        const a = s.alpha * fade(p!.y, s.v[2]) * BACKGROUND_DIM;
-        if (s.glow) {
-          context.globalAlpha = a * 0.35;
-          const size = s.r * 9;
-          context.drawImage(glow, p!.x - size / 2, p!.y - size / 2, size, size);
-        }
-        context.globalAlpha = a;
-        context.fillStyle = `rgb(${s.color})`;
-        context.beginPath();
-        context.arc(p!.x, p!.y, s.r, 0, Math.PI * 2);
-        context.fill();
+        if (!p || !visible(p, s.half)) continue;
+        context.globalAlpha = s.alpha * fade(p.y, s.v[2]) * BACKGROUND_DIM;
+        context.drawImage(s.sprite, p.x - s.half, p.y - s.half);
       }
       context.globalAlpha = 1;
       if (dome) drawGround(context, view, width, height);
     }
     function schedule() {
-      if (!requested) requested = requestAnimationFrame(draw);
+      if (!requested) requested = requestAnimationFrame(() => {
+        requested = 0;
+        draw();
+      });
+    }
+    function drawCameraFrame() {
+      if (paintedView === skyView.get()) return;
+      // Camera motion already runs in an animation frame. Paint this view
+      // alongside the quest anchors instead of drawing it on the next frame.
+      cancelAnimationFrame(requested);
+      requested = 0;
+      draw();
     }
     function prepareSizes() {
       if (!raw) return;
-      stars = raw.stars.map(([ra, dec, mag, bv]) => ({
-        v: unit(ra, dec),
-        r: Math.max(0.55, 2.7 - 0.42 * mag) * dpr,
-        alpha: mag < 3.5 ? 1 : Math.max(0.3, 1 - (mag - 3.5) * 0.33),
-        color: starColor(bv),
-        glow: mag < 1.6,
-      }));
+      const sprites = new Map<string, HTMLCanvasElement>();
+      stars = raw.stars.map(([ra, dec, mag, bv]) => {
+        const radius = Math.round(Math.max(0.55, 2.7 - 0.42 * mag) * dpr * 8) / 8;
+        const color = starColor(bv);
+        const lit = mag < 1.6;
+        const key = `${radius}/${color}/${lit}`;
+        const half = Math.ceil(lit ? radius * 4.5 : radius + 1);
+        let sprite = sprites.get(key);
+        if (!sprite) {
+          sprite = document.createElement('canvas');
+          sprite.width = sprite.height = half * 2;
+          const brush = sprite.getContext('2d')!;
+          if (lit) {
+            const size = radius * 9;
+            brush.globalAlpha = 0.35;
+            brush.drawImage(glow, half - size / 2, half - size / 2, size, size);
+            brush.globalAlpha = 1;
+          }
+          brush.fillStyle = `rgb(${color})`;
+          brush.beginPath();
+          brush.arc(half, half, radius, 0, Math.PI * 2);
+          brush.fill();
+          sprites.set(key, sprite);
+        }
+        return { v: unit(ra, dec), sprite, half, alpha: mag < 3.5 ? 1 : Math.max(0.3, 1 - (mag - 3.5) * 0.33) };
+      });
       dust = raw.milkyway.map(([ra, dec, level]) => ({ v: unit(ra, dec), alpha: 0.03 + level * 0.025 }));
       lines = (raw.lines ?? []).map(flat => Array.from({ length: flat.length / 2 }, (_, i) => unit(flat[2 * i], flat[2 * i + 1])));
     }
@@ -168,7 +190,7 @@ export default function SkyPanorama({ background = false, dome = false }: { back
       schedule();
     }
 
-    const unsubscribe = skyView.subscribe(schedule);
+    const unsubscribe = skyView.subscribe(drawCameraFrame);
     loadCelestial().then(data => {
       if (!alive) return;
       raw = data;

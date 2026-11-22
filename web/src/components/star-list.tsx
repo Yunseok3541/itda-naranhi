@@ -19,13 +19,13 @@ type Status = Star['status'];
 const STAGE_RANGE = Object.fromEntries(RANGE.map(([, label], index) => [index + 1, label]));
 const STATUS_TEXT: Record<Status, string> = { bright: '해냈어요', dim: '시도해 봤어요', untried: '아직' };
 const STAR_PATH = 'M12 2.8l2.6 6 6.4.6-4.9 4.2 1.5 6.3L12 16.6l-5.6 3.3 1.5-6.3L3 9.4l6.4-.6z';
-const shortDate = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric' });
+const recordDate = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: 'long', day: 'numeric' });
 
 function lastDate(star: Star) {
   const date = star.memories.at(-1)?.date;
   if (!date) return null;
   const parsed = new Date(/^\d{4}-\d{2}-\d{2}$/.test(date) ? `${date}T00:00:00+09:00` : date);
-  return Number.isNaN(parsed.getTime()) ? null : shortDate.format(parsed).replace(/\.\s*$/, '').replace('. ', '/');
+  return Number.isNaN(parsed.getTime()) ? null : recordDate.format(parsed);
 }
 
 /** 밤하늘과 같은 별 모양: 딴 별(금빛 채움) · 손 뻗은 별(희미한 금빛) · 아직(테두리만) */
@@ -112,7 +112,10 @@ export default function StarList({ groups, current, completed, onGroup, onStar, 
                   <button type="button" className="night-row" onClick={() => onStar(index, star)}>
                     <StatusStar status={star.status} />
                     <span className="night-row-text">{star.title}
-                      {star.status !== 'untried' && <small>{STATUS_TEXT[star.status]}{date ? ` · ${date}` : ''}</small>}
+                      {star.status !== 'untried' && <small className="star-row-meta">
+                        <span className={`star-row-status ${star.status}`}>{STATUS_TEXT[star.status]}</span>
+                        {date && <span className="star-row-date">{date}</span>}
+                      </small>}
                       {star.status === 'untried' && <span className="sr-only">, 아직 만나기 전</span>}
                     </span>
                     <span className="night-row-go" aria-hidden="true">›</span>

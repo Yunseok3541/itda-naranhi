@@ -376,15 +376,17 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
 .sky-anchors .edge.lit { stroke: rgba(246, 207, 125, .5); stroke-dasharray: none; }
 .sky-anchors .edge.lit.current { stroke: rgba(246, 218, 158, .57); stroke-width: 1.5; stroke-dasharray: none; }
 .sky-anchors .nstar {
+  left: 0;
+  top: 0;
   pointer-events: auto;
   opacity: var(--star-light, 1);
-  transform: translate(-50%, -50%) scale(var(--star-scale, 1));
+  transform: translate(var(--star-x), var(--star-y)) translate(-50%, -50%) scale(var(--star-scale, 1));
 }
 .sky-anchors .sky-constellation-edge { opacity: var(--edge-light, 1); }
 .sky-anchors .nstar .glow { width: 30px; height: 30px; border: 1.5px solid rgba(238, 233, 255, .6); }
 .sky-anchors .nstar.dim .glow { width: 34px; height: 34px; border: 1.5px solid rgba(246, 207, 125, .55); background: radial-gradient(circle, rgba(246, 207, 125, .22), transparent 70%); }
 @media (prefers-reduced-motion: no-preference) {
-  .sky-anchors .nstar { transition: opacity 160ms ease-out, transform 160ms ease-out; }
+  .sky-anchors .nstar { transition: opacity 160ms ease-out; }
   .sky-anchors .sky-constellation-edge { transition: opacity 200ms ease-out; }
   .sky-anchors .edge { transition: stroke 180ms ease-out; }
   @starting-style {
@@ -1046,9 +1048,11 @@ html.sky-locked-page { --sky-dock-height: 96px; --person-height: clamp(77px, 16d
   width: 100%; min-height: 52px; margin: 0; padding: 8px 2px; gap: 12px; border: 0; border-radius: 0;
   border-bottom: 1px solid rgba(255, 255, 255, .06); background: transparent;
 }
-.night-row-text { flex: 1; min-width: 0; display: grid; gap: 1px; line-height: 1.35; }
-.night-row-text small { font-size: .75rem; color: var(--starlight-dim); }
-.night-row:has(.status-star.bright) .night-row-text small { color: #ffe4a0; }
+.night-row-text { flex: 1; min-width: 0; display: grid; gap: 5px; line-height: 1.35; }
+.star-row-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 9px; font-size: .8125rem; }
+.star-row-status { font-weight: 700; color: #e1d3f5; }
+.star-row-status.bright { color: #ffe4a0; }
+.star-row-date { color: #c6b6e2; font-weight: 500; white-space: nowrap; }
 .night-row-go { flex: none; color: var(--starlight-dim); font-size: 1.1rem; }
 .sky-mode .star-group-sky { display: inline-flex; align-items: center; gap: 6px; width: auto; min-height: 40px; margin-top: 6px; padding: 0 4px; font-size: .8125rem; color: var(--star-gold); }
 .star-group-sky svg { width: 16px; height: 16px; }

@@ -5,6 +5,8 @@
 // - 숫자는 해낸 것만 세지 않고 "손을 뻗은 별"도 함께
 // - 프로필 사진은 기본 캐릭터 또는 획득한 도감 캐릭터 중에서 고름
 // - 시작 질문·정책 신청 정보 입력은 설정(⚙) 안으로 (주소 끝 #settings로 바로 열 수 있음)
+import { MemoryLibrary } from './memory-album';
+import SkyControlIcon from './sky-control-icon';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import CatalogStardust from '@/app/catalog/catalog-stardust';
@@ -153,13 +155,14 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
         </div>
       </form>
     </dialog>
-    <Link className="secondary shop-entry" href="/shop">
-      <span className="shop-entry-icon" aria-hidden="true">✦</span>
-      <span>별빛 상점</span>
+    <Link className="secondary shop-entry starlight-entry" href="/shop">
+      <span className="shop-entry-icon"><SkyControlIcon name="shop" /></span>
+      <span className="starlight-entry-copy"><strong>별빛 상점</strong><small>캐릭터 꾸미기</small></span>
       {wardrobe && <span className="shop-entry-balance" aria-label={`사용 가능 포인트 ${wardrobe.balance}P`}>{wardrobe.balance.toLocaleString('ko-KR')}P</span>}
       <span className="shop-entry-arrow" aria-hidden="true">→</span>
     </Link>
     {/* 마음 짚기 (선택, 4주마다. 고민기록 #57): 지난번·다음 날짜를 함께 보여 줌 (기능발견성 F-③ 의미 한 줄) */}
+    <MemoryLibrary mode={mode}/>
     <Link className="secondary shop-entry mind-entry" href="/mind-check" data-due={(mind && isMindCheckDue(mind)) || undefined}>
       <span className="mind-entry-art" aria-hidden="true"><MindScopeArt size={42} /></span>
       <span>마음 짚기<small>{!mind ? '4주마다 내 마음을 짚어 보는 14문항'

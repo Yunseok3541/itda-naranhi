@@ -556,7 +556,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
         const emphasis = isCurrent && detailed ? ' current' : isCurrent ? ' current far' : ' other';
         return <button key={s.starId} type="button"
           className={`nstar ${s.status}${emphasis}${selected?.starId === s.starId ? ' active' : ''}`}
-          style={{ left: p.x, top: p.y, animationDelay: `${(i * 0.7) % 3}s`,
+          style={{ '--star-x': `${p.x}px`, '--star-y': `${p.y}px`, animationDelay: `${(i * 0.7) % 3}s`,
             '--star-hit-size': `${hitSize}px`, '--star-core-size': `${Math.min(29, Math.max(12, spacing - 2))}px`,
             '--star-light': (isCurrent ? .55 + .45 * starDetail : .42) * viewportLight(p.x, p.y, frame.width, frame.height),
             '--star-scale': isCurrent ? .72 + .28 * starDetail : .75,

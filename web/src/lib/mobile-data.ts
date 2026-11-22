@@ -10,6 +10,7 @@ import { defaultNextKey, inActivityScope, nextOptions, planMatches, type Activit
   type NextPlan, type NextRecommendation, type NextSource } from './next-step';
 import { ruleHelp } from './safety';
 import { buildMindResult, parseMindAnswers, scoreMind, type MindAnswers, type MindResult, type MindScores } from './mind-check';
+export type MemoryPhoto = { status?:string; id:number; group:number; name:string; star:number; title:string; note:string; date:string; src:string };
 export type Mode = 'example' | 'api';
 export type Profile = { nickname?: string; startAnswers: StartAnswers | null; policyInfo: PolicyInfo; birthYear: number | null };
 export type ProfileUpdate = { nickname?: string; startAnswers?: Partial<StartAnswers>; policyInfo?: PolicyInfo | null; birthYear?: number | null };
@@ -28,7 +29,7 @@ function exampleMind() {
 export type Help = { title: string; lines: string[] } | null;
 export type Status = 'untried' | 'dim' | 'bright';
 // 예전 예시 기록에는 별자리 메타데이터가 없을 수 있다.
-export type Star = { starId: number; title: string; status: Status; memories: { attemptId: number; date: string; reflection: string | null; status?: 'dim' | 'bright'; stopReason?: string | null; subQuestId?: number | null; parentAttemptId?: number | null; customTitle?: string | null }[]; description?: string | null; constellationId?: number; constellationName?: string; position?: number; verifyType?: string };
+export type Star = { starId: number; title: string; status: Status; memories: { attemptId: number; requestId?:string; photo?: string; date: string; reflection: string | null; status?: 'dim' | 'bright'; stopReason?: string | null; subQuestId?: number | null; parentAttemptId?: number | null; customTitle?: string | null }[]; description?: string | null; constellationId?: number; constellationName?: string; position?: number; verifyType?: string };
 // GPS(도착 확인) 별인지: 실제 API는 /api/sky의 verifyType으로 판단 (별 ID는 시드마다 바뀜)
 // 예시 모드 저장 데이터에는 verifyType이 없어 예시 목록의 GPS 별(16 편의점, 17 가상 청년센터)로 판단
 const exampleGpsIds = new Set([16, 17]);
@@ -291,11 +292,28 @@ export function client(mode: Mode) { return {
       inquiryDrafted: inquiry,
     };
   },
-  async attempt(body: { starId: number; status: 'dim' | 'bright'; reflection: string; verifyMethod: string; stopReason?: string; parentAttemptId?: number; subQuestId?: number | null }): Promise<{ attemptId: number; starId: number; status: string; cheer: string; help: Help; pointsEarned?: number; totalPoints?: number }> {
+  async memoryPhotos(): Promise<MemoryPhoto[]> {
+    if (mode === 'api') return request('memories');
+    return read().stars.flatMap(star => star.memories.filter(m => m.photo).map(m => ({
+      id: m.attemptId, status:m.status, group: star.constellationId!, name: star.constellationName!, star: star.starId,
+      title: m.customTitle || star.title, note: m.reflection || '', date: m.date, src: m.photo!
+    }))).sort((a,b) => a.date.localeCompare(b.date) || a.id-b.id);
+  },
+  async removePhoto(id: number) {
+    if (mode === 'api') return request('memories?id='+id, 'DELETE');
+    return withExampleStoreLock(() => {
+      const s = read();
+      for (const star of s.stars) for (const m of star.memories) if (m.attemptId === id) delete m.photo;
+      write(s);
+    });
+  },
+  async attempt(body: { photo?: string; requestId?: string; starId: number; status: 'dim' | 'bright'; reflection: string; verifyMethod: string; stopReason?: string; parentAttemptId?: number; subQuestId?: number | null }): Promise<{ attemptId: number; starId: number; status: string; cheer: string; help: Help; pointsEarned?: number; totalPoints?: number }> {
     if (mode === 'api') return request('attempts', 'POST', body);
     return withExampleStoreLock(() => {
       const s = read(); const star = s.stars.find(x => x.starId === body.starId);
       if (!star) throw new Error('별을 찾을 수 없어요.');
+      const existing = body.requestId && star.memories.find(m=>m.requestId===body.requestId);
+      if(existing) return {attemptId:existing.attemptId,starId:star.starId,status:existing.status??body.status,cheer:'당신의 하늘에 기록을 남겼어요.',help:ruleHelp(existing.reflection),pointsEarned:0,totalPoints:exampleTotal(s)};
       if (body.parentAttemptId && (!s.nextPlan || s.nextPlan.attemptId !== body.parentAttemptId || !planMatches(s.nextPlan, body.starId, body.subQuestId ?? null))) throw new Error('이어갈 행동을 다시 확인해 주세요.');
       const now = new Date();
       const newlyBright = star.status !== 'bright' && body.status === 'bright';
@@ -306,7 +324,7 @@ export function client(mode: Mode) { return {
       const id = Math.max(now.getTime(), ...s.stars.flatMap(st => st.memories.map(m => m.attemptId + 1)));
       const pointsEarned = newlyBright ? catalogQuest(star.starId)!.stage * 10 : 0;
       star.status = star.status === 'bright' ? 'bright' : body.status;
-      star.memories.push({ attemptId: id, date: now.toISOString(), reflection: body.reflection, status: body.status,
+      star.memories.push({ attemptId: id, photo: body.photo, requestId:body.requestId, date: now.toISOString(), reflection: body.reflection, status: body.status,
         stopReason: body.stopReason, parentAttemptId: body.parentAttemptId, subQuestId: body.subQuestId, customTitle });
       if (body.parentAttemptId) s.nextPlan = null;
       write(s);
