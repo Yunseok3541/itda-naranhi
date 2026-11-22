@@ -164,9 +164,13 @@ const FLIGHT_MS = 1600;
 /** 확대 정도에 따른 별 그림 크기 (누르는 영역은 그대로): 하늘 전체 0.55배 → 별자리 하나 볼 때 약 1배 → 끝까지 확대 1.3배.
  *  별똥별(meteorScale)과 같은 로그 비율이라 당기고 밀 때 하늘이 다가오고 멀어지는 느낌 */
 const STAR_VISUAL_MIN = 0.55, STAR_VISUAL_MAX = 1.3;
+/** 별자리 하나를 가까이 볼 때(별을 눌러 다가간 기본 화면)의 확대 정도. 여기서 지금 크기(1배)가 되게 맞춤 */
+const STAR_VISUAL_BASE_ZOOM = 0.32;
 function starVisualScale(fov: number) {
   const zoom = Math.log(FOV_MAX / Math.min(FOV_MAX, Math.max(FOV_MIN, fov))) / Math.log(FOV_MAX / FOV_MIN);
-  return STAR_VISUAL_MIN + (STAR_VISUAL_MAX - STAR_VISUAL_MIN) * zoom;
+  return zoom <= STAR_VISUAL_BASE_ZOOM
+    ? STAR_VISUAL_MIN + (1 - STAR_VISUAL_MIN) * (zoom / STAR_VISUAL_BASE_ZOOM)
+    : 1 + (STAR_VISUAL_MAX - 1) * ((zoom - STAR_VISUAL_BASE_ZOOM) / (1 - STAR_VISUAL_BASE_ZOOM));
 }
 /** 크게 본 별자리에서 이웃 별이 이만큼(px)보다 가까우면 바로 열지 않고 그 별 쪽으로 한 번 더 다가감 */
 const CROWDED_SPACING = 40;
@@ -583,7 +587,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
             '--star-hit-size': `${hitSize}px`, '--star-core-size': `${Math.min(29, Math.max(12, spacing - 2))}px`,
             '--star-light': (isCurrent ? .55 + .45 * starDetail : .42) * viewportLight(p.x, p.y, frame.width, frame.height),
             // 버튼(누르는 영역)은 그대로, 별 그림·빛만 확대 정도에 따라. 지금 별자리는 다른 별자리보다 조금 크게
-            '--star-visual': starVisual * (isCurrent ? .88 + .12 * starDetail : .82),
+            '--star-visual': starVisual * (isCurrent ? .9 + .1 * starDetail : .82),
           } as CSSProperties}
           aria-label={`${s.title}, ${labels[s.status]}${namedStar === s.starId ? (s.status === 'untried' ? ', 해 볼 일 열기' : ', 이 별의 기억 열기') : ''}`}
           onClick={() => {
