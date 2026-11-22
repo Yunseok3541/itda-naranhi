@@ -2,6 +2,7 @@
 import Image from 'next/image';
 import {useEffect,useId,useRef,useState} from 'react';
 import {client,type MemoryPhoto,type Mode} from '@/lib/mobile-data';
+import { formatRecordDate } from '@/lib/record-date';
 import SkyControlIcon from './sky-control-icon';
 import './memory-album.css';
 
@@ -52,7 +53,7 @@ export function Album({photos,mode,group,onClose,onRemove}:{photos:MemoryPhoto[]
       <div className="photo-strip" style={{transform:'translateX(-'+current*100+'%)'}}>
         {items.map(p=><button key={p.id} tabIndex={p.id===item.id?0:-1} aria-label="사진 크게 보기" onClick={()=>{setPlaying(false);setDetail('photo');}}><img src={p.src} alt={p.title} style={{height:detail==='photo'?'58dvh':undefined}}/></button>)}
       </div></div>
-    <small>{new Date(item.date).toLocaleDateString('ko-KR')} · {current+1} / {items.length}</small><h3>{item.title}</h3>{item.note && <p>{item.note}</p>}
+    <small>{formatRecordDate(item.date)} · {current+1} / {items.length}</small><h3>{item.title}</h3>{item.note && <p>{item.note}</p>}
     {!detail && items.length>1 && <nav><button disabled={!current} onClick={()=>step(-1)}>이전</button><button disabled={current===items.length-1} onClick={()=>setPlaying(!playing)}>{playing && current<items.length-1?'일시정지':'재생'}</button><button disabled={current===items.length-1} onClick={()=>step(1)}>다음</button></nav>}
     {!detail && <button onClick={()=>{setPlaying(false);setDetail('record');}}>원래 기록 보기</button>}
     {detail==='record' && <p>별 기록 · {item.status==='bright'?'하늘의 별 따기':'손 뻗어 보기'}</p>}
@@ -132,7 +133,7 @@ export function MemoryLibrary({mode}:{mode:Mode}) {
               </span>}
               <span>사진 {count}장</span>
             </span>
-            <time dateTime={cover.date}>{new Date(cover.date).toLocaleDateString('ko-KR')}</time>
+            <time dateTime={cover.date}>{formatRecordDate(cover.date)}</time>
           </span>
           <span className="photo-cover-arrow" aria-hidden="true">›</span>
         </button>))}

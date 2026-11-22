@@ -3,10 +3,48 @@
 import Image from 'next/image';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { client } from '@/lib/mobile-data';
+import { catalogConstellations } from '@/lib/quest-catalog';
+import { getStarConstellationId } from '@/lib/constellations';
+import { skyConstellation } from '@/lib/sky-constellations';
+import { projector, toLonLat, type Vec3 } from '@/lib/sky-view';
 import { characters, type Character } from './characters';
 import CatalogStardust from './catalog-stardust';
 import { useCloseDialogOnHide } from '@/components/use-close-dialog-on-hide';
 import FirstStarBow from '@/components/first-star-bow';
+
+const catalogShapes = new Map(catalogConstellations.map(group => {
+  const { points, edges } = skyConstellation(group.id, group.quests.length);
+  const center: Vec3 = [0, 0, 0];
+  for (const [x, y, z] of points) {
+    center[0] += x;
+    center[1] += y;
+    center[2] += z;
+  }
+  const project = projector({ ...toLonLat(center), fov: 1 }, 100, 100);
+  const positions = points.map(point => project(point)!);
+  const xs = positions.map(point => point.x), ys = positions.map(point => point.y);
+  const left = Math.min(...xs), right = Math.max(...xs), top = Math.min(...ys), bottom = Math.max(...ys);
+  const scale = 72 / Math.max(right - left, bottom - top, 1);
+  return [group.id, {
+    edges,
+    points: positions.map(({ x, y }) => [
+      (50 + (x - (left + right) / 2) * scale).toFixed(2),
+      (50 + (y - (top + bottom) / 2) * scale).toFixed(2),
+    ]),
+  }] as const;
+}));
+
+function CatalogConstellation({ character }: { character: Character }) {
+  const shape = catalogShapes.get(character.constellationId);
+  return <>
+    <CatalogStardust id={character.id} />
+    {shape && <svg className="catalog-shape" viewBox="0 0 100 100" aria-hidden="true">
+      {shape.edges.map(([a, b]) => <line key={`${a}-${b}`} x1={shape.points[a][0]} y1={shape.points[a][1]}
+        x2={shape.points[b][0]} y2={shape.points[b][1]} />)}
+      {shape.points.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="2.3" />)}
+    </svg>}
+  </>;
+}
 
 function CharacterArt({ character, acquired, play, large = false }: {
   character: Character;
@@ -26,7 +64,7 @@ function CharacterArt({ character, acquired, play, large = false }: {
       data-acquired={acquired}
       data-greeting={acquired && !bow && play && imageReady && waveReady ? 'wave' : undefined}
     >
-      {!acquired ? <CatalogStardust id={character.id} />
+      {!acquired ? <CatalogConstellation character={character} />
       : bow ? <FirstStarBow characterId={character.id} alt="" play={play} eager={large} />
       : <span className="catalog-portrait">
         <Image
@@ -58,6 +96,7 @@ export default function CatalogGallery() {
   const [selected, setSelected] = useState<Character | null>(null);
   const [seen, setSeen] = useState<ReadonlySet<string>>(() => new Set());
   const [acquired, setAcquired] = useState<ReadonlySet<number> | null>(null);
+  const [progress, setProgress] = useState(new Map<number, { bright: number; total: number }>());
   const [loadFailed, setLoadFailed] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
   useCloseDialogOnHide(dialog);
@@ -68,7 +107,20 @@ export default function CatalogGallery() {
     async function load() {
       try {
         const mode = localStorage.getItem('naranhi-mode') === 'api' ? 'api' : 'example';
-        const { constellations } = await client(mode).avatar();
+        const api = client(mode);
+        void api.sky().then(({ stars }) => {
+          if (!active) return;
+          const byGroup = new Map<number, { bright: number; total: number }>();
+          for (const star of stars) {
+            const id = getStarConstellationId(star);
+            const count = byGroup.get(id) ?? { bright: 0, total: 0 };
+            count.total++;
+            if (star.status === 'bright') count.bright++;
+            byGroup.set(id, count);
+          }
+          setProgress(byGroup);
+        }).catch(() => { /* The catalog and acquisition labels remain available. */ });
+        const { constellations } = await api.avatar();
         if (active && constellations) setAcquired(new Set(constellations.filter(item => item.acquired).map(item => item.constellationId)));
       } catch {
         if (active) setLoadFailed(true);
@@ -84,6 +136,8 @@ export default function CatalogGallery() {
 
   function statusLabel(character: Character) {
     if (isAcquired(character)) return '만났어요';
+    const count = progress.get(character.constellationId);
+    if (count) return `별 ${count.bright}/${count.total}`;
     if (acquired) return '별자리 완성 후 만나요';
     return loadFailed ? '만났는지 확인 못 함' : '확인 중';
   }

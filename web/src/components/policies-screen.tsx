@@ -16,7 +16,7 @@ import type { StartAnswers } from '@/lib/profile';
 import type { HelperPolicy } from '@/lib/apply-helper';
 import ApplyHelper from './apply-helper';
 import GlassSelect from './glass-select';
-import { Hero, HeroIcon, ScreenBar } from './screen-kit';
+import { ScreenBar } from './screen-kit';
 import HelpLines from './help-lines';
 
 type Policy = {
@@ -236,12 +236,6 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
       <Link className="secondary" href="/policies/criteria">추천 기준 바꾸기</Link>
       <Link className="secondary" href="/centers">청년센터 살펴보기</Link>
     </nav>
-    {!favorites && <Hero
-      visual={<HeroIcon>✦</HeroIcon>}
-      title={all ? '지금 신청할 수 있는 정책' : '내 속도에 맞는 지원'}
-      message={all ? '단계와 관계없이 모두 살펴볼 수 있어요.' : '부담 없이 확인해 볼 만한 지원을 골랐어요. 천천히 살펴보세요.'}
-      chip={result ? [result.basis.region, result.basis.updatedAt && `${result.basis.updatedAt} 기준`, result.usedFallback && '기본 추천'].filter(Boolean).join(' · ') : undefined}
-    />}
     {favorites && saved.ids.length === 0 && <p className="card">찜한 정책이 없어요. 정책 카드의 하트를 누르면 여기에 담겨요.</p>}
     {unavailable.map(id => <section className="card" key={id}>
       <p>지금 상세 정보를 불러올 수 없는 찜한 정책이에요.</p>
@@ -251,9 +245,9 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
       <p><span aria-hidden="true">✦</span> 오늘 체크인을 참고했어요 · {result!.checkinNeeds!.map(n => n.label).join(' · ')}</p>
       <button type="button" onClick={() => void stopCheckinHint()} disabled={checkinOffBusy}>{checkinOffBusy ? '바꾸는 중…' : '오늘은 참고하지 않기'}</button>
     </section>}
-    {mode === 'example' && <p className="small">가상 정책으로 화면을 체험하고 있어요.</p>}
-    {items.some(p => p.evidence?.length) && <p className="small policy-legend">
-      <span className="yes">원문에 있음</span> 공고에 적혀 있음 · <span className="unknown">확인 필요</span> 공고에서 못 찾음
+    {!favorites && (result || mode === 'example') && <p className="policy-feed-context">
+      {[result?.basis.region, result?.basis.updatedAt && `${result.basis.updatedAt} 기준`,
+        mode === 'example' ? '가상 정책' : result?.usedFallback && '기본 추천'].filter(Boolean).join(' · ')}
     </p>}
     {loading && <p role="status">정책을 불러오고 있어요…</p>}
     {error && <section className="card"><p>잠시 후 다시 불러와 주세요.</p><button onClick={retryView}>다시 불러오기</button></section>}
@@ -298,6 +292,8 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
         {policy.evidence.map(e => <span key={e.item} className={e.status === 'yes' ? 'yes' : 'unknown'}>
           {e.item} · {e.status === 'yes' ? '원문에 있음' : '확인 필요'}
         </span>)}
+        {policy.evidence.some(item => item.status !== 'yes') &&
+          <small className="policy-evidence-note">‘확인 필요’는 공고에서 찾지 못한 항목이에요.</small>}
       </div>}
       {(policy.mayNotFit.length > 0 || policy.conditionsToCheck.length > 0) && <details>
         <summary>신청 조건 확인{policy.mayNotFit.length > 0 && ' · 맞지 않을 수 있어요'}</summary>

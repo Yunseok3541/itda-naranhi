@@ -108,6 +108,10 @@
 }
 
 .catalog-art[data-acquired="false"]::before { opacity: .25; }
+.catalog-art[data-acquired="false"] .catalog-stardust { opacity: .42; }
+.catalog-shape { position: absolute; inset: 8%; width: 84%; height: 84%; }
+.catalog-shape line { stroke: #e4d5fb; stroke-width: 1.1; opacity: .74; }
+.catalog-shape circle { fill: #fff1db; }
 
 .catalog-detail .catalog-stardust {
   right: auto;

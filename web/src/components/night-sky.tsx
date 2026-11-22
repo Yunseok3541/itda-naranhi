@@ -641,7 +641,7 @@ export default function NightSky({ stars, selected, onSelect, busy, onReload, fo
       }}>
       <span className="sky-quest-character-art"><DressedSkyPerson mode={mode} /></span>
       {showQuestBubble && <span className="sky-quest-bubble" data-intro={firstQuest || undefined} aria-hidden="true">
-        {firstQuest ? '오늘의 별' : <span className="sky-quest-bubble-dots">…</span>}
+        오늘의 별
       </span>}
     </button>
 
