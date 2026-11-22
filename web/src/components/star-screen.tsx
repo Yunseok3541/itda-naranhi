@@ -7,7 +7,8 @@ import { preparePhoto } from './memory-album';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { client, isGpsStar, type Help, type Mode, type Star } from '@/lib/mobile-data';
+import { client, isGpsStar, weatherNames, type Help, type Mode, type Star } from '@/lib/mobile-data';
+import { WEATHER_STAR_ID } from '@/lib/quest-catalog';
 import { getActivityConstellation, getStarConstellationId } from '@/lib/constellations';
 import { DAILY_STAR_LIMIT_MESSAGE } from '@/lib/star-limit';
 import { starDisplayDescription, starDisplayTitle } from '@/lib/star-display';
@@ -45,6 +46,8 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
   const [place, setPlace] = useState('');
   const [savedAttemptId, setSavedAttemptId] = useState<number | null>(null);
   const [pending, setPending] = useState<NextPlan | null>(null);
+  // 날씨 별(양자리 "지금 마음에 가까운 날씨 고르기")은 시작 안내처럼 날씨를 고를 수 있음. 고르면 기록 한 줄 앞에 "마음 날씨 · 맑음"
+  const [weather, setWeather] = useState<string | null>(null);
   const [planError, setPlanError] = useState('');
   const [planLoaded, setPlanLoaded] = useState(false);
   const [planRetry, setPlanRetry] = useState(0);
@@ -76,6 +79,10 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
 
   // GPS(도착 확인) 별: 실제 API는 verifyType, 예시 모드만 예시 목록의 16·17 (별 ID는 시드마다 바뀜)
   const outside = isGpsStar(star);
+  const weatherStar = star.starId === WEATHER_STAR_ID;
+  const weatherText = weatherStar && weather ? `마음 날씨 · ${weatherNames[weather]}` : '';
+  // 합쳐서 300자(회고 최대)를 넘지 않게 한 줄 칸을 줄임
+  const lineMax = 300 - (weatherText ? weatherText.length + 3 : 0);
   const questBlocked = dailyLimitReached && star.status !== 'bright';
   return <>
     <ScreenBar title="별 기록" />
@@ -114,7 +121,13 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
             <option value="">말하지 않아도 괜찮아요</option>
             {REASONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select></label>}
-          <label>오늘을 기억할 한 줄 (선택)<textarea disabled={busy} maxLength={300} value={reflection} onChange={e => setReflection(e.target.value)} placeholder="짧게 적어도, 비워 두어도 괜찮아요" /></label>
+          {weatherStar && <fieldset className="star-weather" disabled={busy}>
+            <legend>지금 마음에 가까운 날씨</legend>
+            <p className="small">골라도, 안 골라도 괜찮아요. 같은 날씨를 한 번 더 누르면 풀려요.</p>
+            <div className="star-weather-options">{Object.entries(weatherNames).map(([code, name]) => <button key={code} type="button" className="secondary"
+              aria-pressed={weather === code} onClick={() => setWeather(w => w === code ? null : code)}>{name}</button>)}</div>
+          </fieldset>}
+          <label>오늘을 기억할 한 줄 (선택)<textarea disabled={busy} maxLength={lineMax} value={reflection} onChange={e => setReflection(e.target.value.slice(0, lineMax))} placeholder="짧게 적어도, 비워 두어도 괜찮아요" /></label>
           <fieldset className="photo-picker" disabled={busy || photoBusy}>
             <legend>사진 남기기 (선택)</legend>
             <label>{photo?'사진 바꾸기':'앨범에서 선택'}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={choosePhoto}/></label>
@@ -133,7 +146,8 @@ export default function StarScreen({ mode, star, dailyLimitReached, busy, run, o
           </details>}
           {!planLoaded && <p className="small" role="status">지난 기록을 확인하고 있어요. 확인이 끝나면 저장할 수 있어요.</p>}
           <button disabled={busy || photoBusy || !planLoaded} onClick={() => run(async () => {
-            const r = await client(mode).attempt({ photo, requestId, starId: star.starId, status, reflection, verifyMethod: 'self',
+            const text = [weatherText, reflection.trim()].filter(Boolean).join(' · ').slice(0, 300);
+            const r = await client(mode).attempt({ photo, requestId, starId: star.starId, status, reflection: text, verifyMethod: 'self',
               ...(activePlan ? { parentAttemptId: activePlan.attemptId, subQuestId: activePlan.subQuestId } : {}),
               ...(status === 'dim' && reason ? { stopReason: reason } : {}) });
             onHelp(r.help);
