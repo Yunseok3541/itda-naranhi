@@ -28,9 +28,9 @@
 .record-field { display: block; margin: 0 0 8px; }
 .record-form textarea { min-height: 64px; }
 .record-photo-picker { margin: 4px 0 0; }
-.record-photo { display: grid; gap: 4px; margin-top: 4px; }
-.record-photo .photo-preview { width: 100%; max-height: 220px; object-fit: cover; border-radius: 12px; }
-.night-ui .record-photo .text-button { justify-self: start; width: auto; min-height: 40px; padding: 0 2px; text-decoration: underline; }
+.record-photo-picker label { display: inline-flex; align-items: center; min-height: 44px; }
+.photo-preview.record-photo-preview { max-height: 220px; object-fit: cover; border-radius: 12px; }
+.night-ui .record-photo-picker .text-button { width: auto; min-height: 44px; padding: 0 8px; text-decoration: underline; }
 
 /* ③ 저장 */
 .night-ui .record-save { margin-top: 18px; }

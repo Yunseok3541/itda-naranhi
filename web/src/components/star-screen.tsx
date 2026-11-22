@@ -158,20 +158,14 @@ export default function StarScreen({ mode, star, fromToday, dailyLimitReached, b
           </fieldset>}
           <h3 className="record-sub">남기고 싶다면 <span className="record-optional">선택</span></h3>
           <label className="record-field"><span className="sr-only">오늘을 기억할 한 줄</span><textarea disabled={busy} maxLength={lineMax} rows={2} value={reflection} onChange={e => setReflection(e.target.value.slice(0, lineMax))} placeholder="오늘을 기억할 한 줄 (비워 두어도 괜찮아요)" /></label>
-          {photo
-            ? <div className="record-photo">
-                <img className="photo-preview" src={photo} alt="선택한 사진"/>
-                <fieldset className="photo-picker record-photo-picker" disabled={busy || photoBusy}>
-                  <legend className="sr-only">첨부한 사진</legend>
-                  <label>사진 바꾸기<input type="file" accept="image/jpeg,image/png,image/webp" onChange={choosePhoto}/></label>
-                  <button type="button" className="text-button" onClick={() => { setPhoto(undefined); setPhotoError(''); }}>사진 빼기</button>
-                </fieldset>
-              </div>
-            : <fieldset className="photo-picker record-photo-picker" disabled={busy || photoBusy}>
-                <legend className="sr-only">사진 남기기</legend>
-                <label>앨범에서 사진<input type="file" accept="image/jpeg,image/png,image/webp" onChange={choosePhoto}/></label>
-                <label>카메라로 찍기<input type="file" accept="image/*" capture="environment" onChange={choosePhoto}/></label>
-              </fieldset>}
+          {photo && <img className="photo-preview record-photo-preview" src={photo} alt="선택한 사진" />}
+          <fieldset className="photo-picker record-photo-picker" disabled={busy || photoBusy}>
+            <legend className="sr-only">{photo ? '첨부한 사진' : '사진 남기기'}</legend>
+            <label>{photo ? '사진 바꾸기' : '앨범에서 사진'}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={choosePhoto} /></label>
+            {photo
+              ? <button type="button" className="text-button" onClick={() => { setPhoto(undefined); setPhotoError(''); }}>사진 빼기</button>
+              : <label>카메라로 찍기<input type="file" accept="image/*" capture="environment" onChange={choosePhoto} /></label>}
+          </fieldset>
           {photoError && <p role="alert">{photoError}</p>}
           {outside && <details>
             <summary>위치로 도착 확인 (선택)</summary>

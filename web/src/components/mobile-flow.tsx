@@ -66,6 +66,14 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  const [completedId,setCompletedId]=useState<number>();
  const [questOpen,setQuestOpen]=useState(false);
  const [resumeCount, setResumeCount] = useState(0);
+ const [checkedInToday,setCheckedInToday]=useState(false);
+ useEffect(() => {
+   if (!checkedInToday) return;
+   const day = 24 * 60 * 60 * 1000;
+   const koreaOffset = 9 * 60 * 60 * 1000;
+   const timer = window.setTimeout(() => setCheckedInToday(false), day - (Date.now() + koreaOffset) % day);
+   return () => window.clearTimeout(timer);
+ }, [checkedInToday]);
  const [needsSession,setNeedsSession]=useState(false);
  const [startAnswers,setStartAnswers]=useState<StartAnswers>(EMPTY_START);
  const [startStep,setStartStep]=useState<number | null>(null);
@@ -102,6 +110,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
          if (active) {
            S(sky.stars);
            setTotalPoints(sky.totalPoints);
+           setCheckedInToday(sky.checkedInToday ?? false);
            if (screen === 'sky') {
              SS(sky.stars.find(star => star.starId === memoryStarId && star.memories.length > 0) ?? null);
            }
@@ -165,6 +174,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
    const sky = await client('api').sky();
    S(sky.stars);
    setTotalPoints(sky.totalPoints);
+   setCheckedInToday(sky.checkedInToday ?? false);
    R(true);
    U('데모를 다시 시작했어요. 작성한 내용으로 다시 시도해 주세요.');
  }
@@ -194,6 +204,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
    const sky = await client(mode).sky();
    S(sky.stars);
    setTotalPoints(sky.totalPoints);
+   setCheckedInToday(sky.checkedInToday ?? false);
    R(true);
  }
  const star=stars.find(s=>s.starId===starId);
@@ -266,6 +277,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
        <button type="button" className="sky-pill sky-utility sky-help-button" aria-expanded={help?.title===HELP.title} onClick={()=>H(h=>h?.title===HELP.title?null:HELP)}>
          <span className="sky-utility-symbol"><SkyControlIcon name="help" /></span><span>도움받을 곳</span>
        </button>
+       <BgmToggle />
        <button type="button" className="sky-pill sky-utility sky-resource-button" aria-haspopup="dialog" onClick={() => resources.current?.showModal()}>
          <span className="sky-utility-symbol"><SkyControlIcon name="center" /></span><span>청년센터·정책</span>
        </button>
@@ -279,7 +291,6 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
          </Link>
          <form method="dialog"><button className="ghost sky-icon-action"><SkyControlIcon name="close" /> 닫기</button></form>
        </dialog>
-       <BgmToggle />
      </header>
    : ready&&!guiding
    // 다른 화면은 ScreenBar에 뒤로가기, 제목, 도움받을 곳을 표시한다.
@@ -289,10 +300,10 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
        <button type="button" className="sky-pill sky-utility sky-help-button" aria-expanded={help?.title===HELP.title} onClick={()=>H(h=>h?.title===HELP.title?null:HELP)}>
          <span className="sky-utility-symbol"><SkyControlIcon name="help" /></span><span>도움받을 곳</span>
        </button>
+       <BgmToggle />
        <Link className="sky-pill sky-utility sky-catalog-button" href="/catalog">
          <span className="sky-utility-symbol"><SkyControlIcon name="book" /></span><span>친구 도감</span>
        </Link>
-       <BgmToggle />
      </header>}
  {!questOpen && feedback}
  {guiding ? <ServiceGuide mode={mode} replay={ready} onDone={finishServiceGuide} onHelp={H} />
@@ -334,16 +345,21 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
      ))}
  </nav>}
  {locked&&tourPending&&stars.length>0&&<MenuTour/>}
- {screen==='sky'&&<NightSky stars={stars} selected={selected} onSelect={SS} busy={busy} onReload={()=>run(async()=>{const sky=await client(mode).sky();S(sky.stars);setTotalPoints(sky.totalPoints);})} footer={footer} nextLink={<PendingNextLink mode={mode} />} completedId={completedId} mode={mode} totalPoints={totalPoints}
-   onOpenQuest={() => openQuest(true)} questTrigger={questTrigger} questOpen={questOpen} hintsPaused={tourPending || !!help}/>}
+ {screen==='sky'&&<NightSky stars={stars} selected={selected} onSelect={SS} busy={busy} onReload={()=>run(async()=>{const sky=await client(mode).sky();S(sky.stars);setTotalPoints(sky.totalPoints);setCheckedInToday(sky.checkedInToday ?? false);})} footer={footer} nextLink={<PendingNextLink mode={mode} />} completedId={completedId} mode={mode} totalPoints={totalPoints}
+   onOpenQuest={() => openQuest(true)} questTrigger={questTrigger} questOpen={questOpen} checkedInToday={checkedInToday || (!loaded && ready)} hintsPaused={tourPending || !!help}/>}
  {locked && <dialog className="quest-dialog night-ui" ref={questDialog} aria-labelledby={questTitle}
    onClick={event => { if (event.target === event.currentTarget) closeQuest(); }}
    onClose={event => {
      if (event.currentTarget.open) return;
      setQuestOpen(false);
-     if (document.activeElement === document.body) questTrigger.current?.focus({ preventScroll: true });
+     requestAnimationFrame(() => {
+       if (questDialog.current?.open || document.activeElement !== document.body) return;
+       const trigger = questTrigger.current;
+       const target = trigger?.disabled ? shell.current?.querySelector<HTMLButtonElement>('.sky-minimap') : trigger;
+       target?.focus({ preventScroll: true });
+     });
    }}>
-   <QuestScreen key={resumeCount} open={questOpen} restoreRecommendations={resumeCount > 0} mode={mode} busy={busy} run={run} onHelp={H} onError={E} onTotalPoints={setTotalPoints}
+   <QuestScreen key={resumeCount} open={questOpen} restoreRecommendations={resumeCount > 0} mode={mode} busy={busy} run={run} onHelp={H} onError={E} onTotalPoints={setTotalPoints} onSaved={() => setCheckedInToday(true)}
      dialog={{ titleId: questTitle, onClose: closeQuest, feedback: questOpen && feedback }} />
  </dialog>}
  {screen==='star'&&<StarScreen key={starId} fromToday={fromToday} mode={mode} star={star} dailyLimitReached={!isTutorialStar(starId) && hasReachedDailyStarLimit(stars)} busy={busy} run={run} onHelp={H} onSaved={reloadSky}/>}

@@ -45,8 +45,13 @@ export async function getSky(userId: number, db: Db = pool): Promise<ApiResult> 
     ).rows;
 
     // 잔액 = 별 + 유성 + 체크인 − 구매액 (뷰 v_user_balance). 포인트가 없으면 행이 없어 0
-    const total = (
-      await db.query<{ total_points: number }>("SELECT total_points FROM v_user_balance WHERE user_id = $1", [userId])
+    const progress = (
+      await db.query<{ total_points: number | null; checked_in_today: boolean }>(
+        `SELECT (SELECT total_points FROM v_user_balance WHERE user_id = $1) AS total_points,
+                EXISTS (SELECT 1 FROM checkins WHERE user_id = $1
+                  AND ${KST_DATE("created_at")} = ${KST_DATE("now()")}) AS checked_in_today`,
+        [userId],
+      )
     ).rows[0];
 
     const memories = new Map<number, Memory[]>();
@@ -56,7 +61,8 @@ export async function getSky(userId: number, db: Db = pool): Promise<ApiResult> 
 
     return ok({
       // 총 포인트 = 별 + 유성 + 체크인 (별만의 합은 stars[].points를 더하면 됨)
-      totalPoints: Number(total?.total_points ?? 0),
+      totalPoints: Number(progress?.total_points ?? 0),
+      checkedInToday: progress?.checked_in_today ?? false,
       stars: stars.map((s) => ({
         starId: s.id,
         title: s.title,

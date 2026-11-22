@@ -16,7 +16,7 @@ import { PendingNextLink } from './next-step-card';
 const WEATHER_OPTIONS = Object.entries(weatherNames).map(([value, label]) => ({ value, label }));
 const GREETINGS = ['오늘 하루는 어땠어요?', '지금 마음은 어떤 날씨예요?', '오늘은 어떤 하루인가요?', '요즘 어떻게 지내요?'];
 
-export default function QuestScreen({ restoreRecommendations = false, open, mode, busy, run, onHelp, onError, dialog, onTotalPoints }: {
+export default function QuestScreen({ restoreRecommendations = false, open, mode, busy, run, onHelp, onError, dialog, onTotalPoints, onSaved }: {
   restoreRecommendations?: boolean;
   open: boolean;
   mode: Mode;
@@ -26,6 +26,7 @@ export default function QuestScreen({ restoreRecommendations = false, open, mode
   onError: (message: string) => void;
   dialog: { titleId: string; onClose: () => void; feedback: ReactNode };
   onTotalPoints?: (points: number) => void;
+  onSaved: () => void;
 }) {
   const [restored] = useState(() => restoreRecommendations ? readReturnVisit(mode) : null);
   const [text, setText] = useState(restored?.text ?? '');
@@ -71,6 +72,7 @@ export default function QuestScreen({ restoreRecommendations = false, open, mode
         return;
       }
       savedInput.current = { text: value, choice };
+      onSaved();
       setStep(1);
     });
   }

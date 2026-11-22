@@ -149,10 +149,11 @@ export function client(mode: Mode) { return {
     }
     if (rememberMode) localStorage.setItem('naranhi-mode', mode);
   },
-  async sky(): Promise<{ stars: Star[]; totalPoints?: number }> {
+  async sky(): Promise<{ stars: Star[]; totalPoints?: number; checkedInToday?: boolean }> {
     if (mode === 'api') return request('sky');
     const store = read();
-    return { stars: store.stars, totalPoints: exampleTotal(store) };
+    return { stars: store.stars, totalPoints: exampleTotal(store),
+      checkedInToday: store.rewards?.checkinDay === kstDay.format(new Date()) };
   },
   async shop(): Promise<ShopState> { return mode === 'api' ? request('shop') : exampleShop(); },
   async changeAccessory(action: ShopAction, id: AccessoryId): Promise<ShopState> {
@@ -336,7 +337,10 @@ export function client(mode: Mode) { return {
       if (body.parentAttemptId) s.nextPlan = null;
       write(s);
       const totalPoints = exampleTotal(s);
-      return { attemptId: id, starId: body.starId, status: body.status, cheer: '오늘 손을 뻗은 순간도 당신의 하늘에 남아요.', help: ruleHelp(body.reflection), pointsEarned, totalPoints };
+      const cheer = body.status === 'bright'
+        ? '오늘 해낸 일이 당신의 하늘에 별로 남았어요.'
+        : '오늘 손을 뻗은 순간도 당신의 하늘에 남아요.';
+      return { attemptId: id, starId: body.starId, status: body.status, cheer, help: ruleHelp(body.reflection), pointsEarned, totalPoints };
     });
   }
 }; }
