@@ -7,6 +7,15 @@
 - AI가 한 줄 체크인과 회고를 바탕으로 오늘의 별을 추천하고, 어려웠던 이유에 맞춰 다음 걸음을 다시 찾습니다.
 - 지향점: **언젠가 필요 없어지기를 바라는 앱**
 
+## 심사위원용 바로가기
+
+- **프로토타입:** https://itda-naranhi.vercel.app (로그인 없이 첫 화면의 '데모 시작' → 가상 사용자로 전체 흐름)
+- **결정 과정과 이유:** [docs/고민기록.md](docs/고민기록.md)
+- **API 명세:** [docs/API명세.md](docs/API명세.md) · **화면 설계:** [docs/화면설계.md](docs/화면설계.md)
+- **AI 호출 공통 함수(검증·실패 시 기본값):** [web/src/lib/gemini.ts](web/src/lib/gemini.ts)
+- **평가·검증 스크립트:** [web/scripts/](web/scripts/) (`verify-*` 자동 검사, `eval-*` AI 평가)
+- 시연용 서비스이며 모든 데이터는 가상 입력입니다.
+
 ## 폴더 구조
 
 ```
@@ -68,3 +77,17 @@ Next.js 16 + TypeScript + Tailwind CSS (화면과 API를 한 프로젝트에서)
 
 > 시연용 서비스입니다. 실제 개인정보를 입력하지 마세요.
 > API 키는 `web/.env.local`(로컬)과 Vercel 환경 변수(배포)에만 저장하고 커밋하지 않습니다.
+
+## Credits / Licenses
+
+| 구분 | 명칭 | 출처 · 라이선스 | 사용 위치 |
+| --- | --- | --- | --- |
+| 오픈소스 | Next.js 16 · React 19 · Tailwind CSS 4 · node-postgres · Motion · Google Gen AI SDK | 각 공식 GitHub · MIT / Apache-2.0 | 웹앱 전체 |
+| 외부 API | 온통청년 청년정책 API (한국고용정보원) | https://www.youthcenter.go.kr · 이용 조건에 따름 | 정책 수집·분류·추천 |
+| 외부 API | Google Gemini API (gemini-3.5-flash · gemini-3.5-flash-lite) | Google AI 이용약관 | 서비스 AI 기능 |
+| 외부 API | OpenAI API (GPT-4o-mini · GPT-4o · GPT-4.1, 교육과정 제공 계정) | OpenAI 이용약관 | 개발 중 평가만 (배포 미사용) |
+| 폰트 | Pretendard (jsDelivr) · 마루부리 (네이버) · Noto Sans KR (Google Fonts) | SIL OFL 1.1 | 웹앱 · 발표자료 |
+| 이미지 | 도감 캐릭터 그림 | 팀 자체 제작 | 도감 · 프로필 |
+| 음원 | Music: "Kiss the Sky" by Aakash Gandhi | YouTube 오디오 보관함 | 배경음악 |
+| 개발 도구 | Claude Code · OpenAI Codex | 각 서비스 이용약관 | 코드·문서 작성 보조 (팀이 검토·수정·실행 확인) |
+| 통계 | 국무조정실 「2024년 청년의 삶 실태조사」(2025.3) · 보사연·한경협 「청년 은둔화의 결정요인 및 사회경제적 비용 추정」(2026.2) | 각 기관 공개 자료 | 소개서 문제 정의 |
