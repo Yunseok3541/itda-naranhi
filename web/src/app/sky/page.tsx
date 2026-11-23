@@ -19,7 +19,9 @@ async function Sky({ searchParams }: { searchParams: SkyParams }) {
 }
 
 export default function Page({ searchParams }: { searchParams: SkyParams }) {
-  return <Suspense fallback={<main className="shell">밤하늘을 불러오고 있어요…</main>}>
+  // 대기 화면도 청년센터처럼 밤하늘 배경 (night-fallback: MobileFlow가 html에 밤하늘 표시를 붙이기 전, night-sky.css)
+  // 예전엔 새로고침할 때마다 흰 화면에 이 문구가 잠깐 보였음
+  return <Suspense fallback={<main className="shell sky-mode night-fallback"><p className="night-loading">밤하늘을 불러오고 있어요…</p></main>}>
     <Sky searchParams={searchParams} />
   </Suspense>;
 }

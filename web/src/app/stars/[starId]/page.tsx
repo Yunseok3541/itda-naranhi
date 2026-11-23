@@ -12,5 +12,6 @@ async function Detail({ params, searchParams }: DetailProps) {
 }
 
 export default function Page(props: DetailProps) {
-  return <Suspense fallback={<main className="shell">별을 불러오고 있어요…</main>}><Detail {...props} /></Suspense>;
+  // 대기 화면도 흰색 대신 밤하늘 배경 (청년센터·밤하늘과 같은 night-fallback)
+  return <Suspense fallback={<main className="shell sky-mode night-fallback"><p className="night-loading">별을 불러오고 있어요…</p></main>}><Detail {...props} /></Suspense>;
 }

@@ -303,7 +303,8 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
    {error && <p className={error === DAILY_STAR_LIMIT_MESSAGE ? 'error star-limit-error' : 'error'} role="alert">{error}</p>}
    {needsSession && <section className="card"><p>데모 세션을 다시 시작해 주세요. 작성한 글은 이 화면에 그대로 있어요.</p><button disabled={busy} onClick={() => run(restartSession)}>데모 다시 시작</button></section>}
  </>;
- if(!loaded)return <main className="shell sky-mode"><p className="night-loading">밤하늘을 준비하고 있어요…</p></main>;
+ // 밤하늘 데이터를 받기 전: night-fallback이라 html에 밤하늘 표시(sky-night-page)가 붙기 전에도 흰색이 아닌 밤하늘 배경 (night-sky.css)
+ if(!loaded)return <main className="shell sky-mode night-fallback"><p className="night-loading">밤하늘을 준비하고 있어요…</p></main>;
  return <HelpContext.Provider value={helpToggle}>{night&&<SkyPanorama background dome={locked}/>}<main ref={shell} className={night?`shell sky-mode panorama-content${locked?' sky-locked':''}${locked&&revealing?' sky-reveal':''}${!ready||guiding?' sky-intro':''}`:`shell night-ui${screen==='star'?' star-record':''}`} data-reveal-lite={revealLite || undefined} lang="ko">{locked
    // 메인: 왼쪽 위 도움받을 곳, 오른쪽 위 정책추천·청년센터 (머리글 대신 모서리 버튼)
    ? <header className="sky-top" inert={revealHidden || undefined}>
