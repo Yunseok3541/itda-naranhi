@@ -593,7 +593,16 @@ html.sky-locked-page, html.sky-locked-page body { height: 100%; overflow: hidden
   background: rgba(37, 32, 57, .82); box-shadow: 0 7px 18px rgba(17, 15, 36, .5);
 }
 .night-ui a.card { display: block; color: inherit; }
-.night-ui .recommendation strong { color: var(--star-gold); }
+/* 오늘의 별 추천 카드: 카드 전체가 링크, 아래 버튼 모양으로 눌러야 할 곳을 보여 줌 */
+.night-ui .recommendation { display: block; text-decoration: none; color: inherit; transition: border-color .15s ease, transform .15s ease; }
+.recommendation-go {
+  display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 46px; margin-top: 12px; border-radius: 12px;
+  border: 1px solid var(--star-gold-soft); background: rgba(246, 207, 125, .14); color: #ffe4a0; font-weight: 700;
+}
+.recommendation-go span { font-size: 1.2rem; line-height: 1; }
+.night-ui .recommendation:hover .recommendation-go, .night-ui .recommendation:focus-visible .recommendation-go { background: rgba(246, 207, 125, .24); border-color: var(--star-gold); }
+.night-ui .recommendation:active { transform: scale(.985); }
+.night-ui .recommendation:active .recommendation-go { background: rgba(246, 207, 125, .3); }
 .night-ui .memory { background: rgba(37, 32, 57, .82); border-color: rgba(255, 255, 255, .14); }
 .night-ui .memory article { border-color: rgba(255, 255, 255, .12); }
 .night-ui .memory time { color: var(--star-gold); }
