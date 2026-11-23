@@ -13,6 +13,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { client, policyCriteriaVersion, request, type Help, type Mode } from '@/lib/mobile-data';
+import { prefetchCenters } from '@/lib/centers-list';
 import { hasRecommendationCriteria, type StartAnswers } from '@/lib/profile';
 import type { HelperPolicy } from '@/lib/apply-helper';
 import ApplyHelper from './apply-helper';
@@ -136,6 +137,14 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
     }
   }
 
+  // "청년센터 살펴보기"를 누르면 대기 문구 없이 바로 보이게 센터 목록을 미리 받아 둠 (코드에 있는 고정 데이터라 가벼움, lib/centers-list.ts)
+  // 정책 목록을 먼저 불러오도록 화면이 준비되고 조금 뒤에
+  useEffect(() => {
+    if (checking) return;
+    const timer = window.setTimeout(prefetchCenters, 1000);
+    return () => window.clearTimeout(timer);
+  }, [checking]);
+
   const feed = view === 'saved' ? 'all' : view;
   useEffect(() => {
     if (checking) return; // 추천 기준 정하기로 넘어갈 수도 있어 확인이 끝난 뒤에 불러옴
@@ -244,7 +253,7 @@ export default function PoliciesScreen({ mode, onError, onClearError }: { mode: 
       {hasCriteria === false
         ? <Link className="policy-quick-link" href="/policies/setup"><SkyControlIcon name="policy" />추천 기준 정하기<span aria-hidden="true">›</span></Link>
         : <Link className="policy-quick-link" href="/policies/criteria"><SkyControlIcon name="policy" />추천 기준 바꾸기<span aria-hidden="true">›</span></Link>}
-      <Link className="policy-quick-link" href="/centers?from=policies"><SkyControlIcon name="center" />청년센터 살펴보기<span aria-hidden="true">›</span></Link>
+      <Link className="policy-quick-link" href="/centers?from=policies" onPointerDown={() => prefetchCenters()}><SkyControlIcon name="center" />청년센터 살펴보기<span aria-hidden="true">›</span></Link>
     </nav>
     {favorites && saved.ids.length === 0 && <p className="card">찜한 정책이 없어요. 정책 카드의 별(☆)을 누르면 여기에 담겨요.</p>}
     {unavailable.map(id => <section className="card" key={id}>
