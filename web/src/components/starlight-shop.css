@@ -7,7 +7,7 @@
 .starlight-shop .screen-bar h1 { font-size: 1.35rem; }
 
 .shop-display {
-  --showcase-light: #594773;
+  --showcase-light: #52427f;
   position: relative;
   isolation: isolate;
   overflow: hidden;
@@ -27,9 +27,6 @@
   box-shadow: 0 16px 32px #09061655, inset 0 1px #f1dfff14;
 }
 
-.shop-display[data-item="star-pin"] { --showcase-light: #604937; }
-.shop-display[data-item="moon-hat"] { --showcase-light: #52427f; }
-.shop-display[data-item="star-crown"] { --showcase-light: #664747; }
 
 .shop-display-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .shop-caption, .shop-wallet { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
@@ -78,7 +75,7 @@
   background: radial-gradient(ellipse, #eec49657, #b586ac22 48%, transparent 73%);
   box-shadow: 0 5px 25px #b387be36;
 }
-.shop-stage > .sky-person { position: relative; z-index: 1; height: 140px; width: auto; animation: none; }
+.shop-stage > .sky-person { position: relative; z-index: 1; height: 180px; width: auto; margin-top: -16px; animation: none; }
 .night-ui .shop-preview-name { margin: 9px 0 0; text-align: center; color: #fff3dd; font-size: .9375rem; font-weight: 750; }
 
 .shop-heading { margin: 19px 0 9px; font-size: 1.05rem; }

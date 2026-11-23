@@ -6,7 +6,7 @@ import { useRef, useState } from 'react';
 import { client, type Mode } from '@/lib/mobile-data';
 import { accessories, accessoryById, type AccessoryId } from '@/lib/shop';
 import { ScreenBar } from './screen-kit';
-import SkyPerson from './sky-person';
+import ShopCharacterPreview from './shop-character-preview';
 import { useShop } from './use-shop';
 import './starlight-shop.css';
 
@@ -18,7 +18,6 @@ export default function StarlightShop({ mode }: { mode: Mode }) {
   const tipDialog = useRef<HTMLDialogElement>(null);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
-  const [arrival, setArrival] = useState(0);
   const selected = choice ?? state?.equipped ?? null;
   const item = accessoryById(selected);
   const owned = !!item && state?.owned.includes(item.id);
@@ -37,7 +36,6 @@ export default function StarlightShop({ mode }: { mode: Mode }) {
       const result = await client(mode).changeAccessory(action, item.id);
       setState(result);
       choose(undefined);
-      setArrival(n => n + 1);
       setNotice(action === 'remove' ? '장식을 벗었어요.' : `${item.name}${item.id === 'moon-hat' ? '를' : '을'} 착용했어요.`);
       window.dispatchEvent(new Event('wardrobe-changed'));
       if (mode === 'api') {
@@ -67,8 +65,7 @@ export default function StarlightShop({ mode }: { mode: Mode }) {
             <span aria-hidden="true">✦</span><strong>{state.balance.toLocaleString('ko-KR')}P</strong>
           </div>
         </div>
-        <div className="shop-stage"><SkyPerson key={arrival} sculpted character={character} item={selected}
-          animate={arrival > 0 && !!notice && !choice} /></div>
+        <div className="shop-stage"><ShopCharacterPreview character={character} item={selected} /></div>
         <p className="shop-preview-name" aria-live="polite">{item?.name ?? '장식을 눌러 미리 써 볼 수 있어요'}</p>
       </div>
       {/* 포인트 모으는 방법은 작은 Tip 버튼 → 작은 창 (쇼핑 흐름을 가리지 않게) */}
@@ -93,7 +90,7 @@ export default function StarlightShop({ mode }: { mode: Mode }) {
           const productState = state.equipped === product.id ? 'wearing' : state.owned.includes(product.id) ? 'owned' : shortfall ? 'unavailable' : 'priced';
           return <button type="button" key={product.id} className="secondary shop-product" data-item={product.id}
             aria-pressed={selected === product.id} disabled={busy} onClick={() => {
-              choose(product.id); setNotice(''); setError(''); setArrival(0);
+              choose(product.id); setNotice(''); setError('');
             }}>
             <span className="shop-product-art">
               <Image unoptimized src={`/shop/${product.id}.svg`} width="76" height="60" alt="" />
