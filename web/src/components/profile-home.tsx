@@ -211,6 +211,8 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
       <div className="profile-catalog-header">
         <h2 id="profile-catalog" className="screen-section">나의 친구 도감</h2>
         {avatarChoices?.constellations && <span className="profile-catalog-count">완성 {acquiredCharacters.length}/{characters.length}</span>}
+        {/* 도감으로 가는 길은 제목 줄 오른쪽 (아래 "더 보기"는 이 자리에서 펼치기만 해서 둘이 헷갈리지 않게) */}
+        <Link className="profile-catalog-link" href="/catalog?from=profile" aria-label="친구 도감으로 이동">친구 도감<span aria-hidden="true">›</span></Link>
       </div>
       {avatarChoices?.constellations ? <>
         <div id="profile-catalog-items" className="profile-strip">
@@ -226,14 +228,12 @@ export default function ProfileHome({ mode }: { mode: Mode }) {
             </Link>;
           })}
         </div>
-        <div className="profile-catalog-actions">
-          {catalogCharacters.length > PROFILE_CATALOG_PREVIEW_SIZE && <button type="button" className="secondary"
-            aria-controls="profile-catalog-items" aria-expanded={catalogExpanded}
-            onClick={() => setCatalogExpanded(expanded => !expanded)}>
-            {catalogExpanded ? '미리보기 접기' : '친구 더 보기'}
-          </button>}
-          <Link href="/catalog?from=profile">친구 도감으로 이동</Link>
-        </div>
+        {catalogCharacters.length > PROFILE_CATALOG_PREVIEW_SIZE && <button type="button" className="secondary profile-catalog-more"
+          aria-controls="profile-catalog-items" aria-expanded={catalogExpanded}
+          onClick={() => setCatalogExpanded(expanded => !expanded)}>
+          {catalogExpanded ? '접기' : `친구 ${catalogCharacters.length - PROFILE_CATALOG_PREVIEW_SIZE}명 더 보기`}
+          <span className="profile-catalog-chevron" aria-hidden="true">›</span>
+        </button>}
       </> : avatarError || avatarChoices
         ? <p className="small" role="alert">획득한 별자리를 불러오지 못했어요.</p>
         : <p className="small" role="status">별자리를 불러오고 있어요.</p>}
