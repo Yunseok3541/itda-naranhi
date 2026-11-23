@@ -1,5 +1,4 @@
 import type { AccessoryId } from '@/lib/shop';
-import WornAccessory from './worn-accessory';
 import { useId } from "react";
 
 // 메인 배경 캐릭터 (사람, 성별이 드러나지 않게): 2등신 · 둥근 짧은 머리 · 후드티와 바지 · 웃는 눈
@@ -10,14 +9,17 @@ export default function SkyPerson({ portrait = false, sculpted = false, characte
   portrait?: boolean; sculpted?: boolean; character?: string; item?: AccessoryId | null; animate?: boolean;
 }) {
   const haloId = useId();
+  const wornArt = item ? `/shop/worn/${character}-${item}.webp` : null;
+  const wornClass = animate && item === 'star-pin' ? 'accessory-arrives' : undefined;
   if (sculpted && character !== 'person') return <svg className="sky-person" viewBox={portrait ? '-28 17 156 156' : '0 0 100 172'} aria-hidden="true">
     <svg y="54" x="-8" width="116" height="116" viewBox="0 0 100 100" overflow="visible">
-      <image href={`/catalog/${character}.webp`} width="100" height="100" />
-      {item && <WornAccessory item={item} character={character} animate={animate} />}
+      {wornArt
+        ? <image data-accessory={item} className={wornClass} href={wornArt} x="-9" y="-26" width="118" height="126" preserveAspectRatio="xMidYMax meet" />
+        : <image href={`/catalog/${character}.webp`} width="100" height="100" />}
     </svg>
   </svg>;
   if (sculpted) return (
-    <svg className="sky-person" viewBox={portrait ? '-34 -62 168 168' : '0 0 100 172'} aria-hidden="true">
+    <svg className="sky-person" viewBox={portrait ? (item === 'moon-hat' ? '-43 -87 186 186' : '-34 -62 168 168') : '0 0 100 172'} aria-hidden="true">
       <ellipse cx="50" cy="166" rx="24" ry="4.5" fill="#0b0818" opacity=".45" />
       <defs>
         <radialGradient id={haloId}>
@@ -27,8 +29,9 @@ export default function SkyPerson({ portrait = false, sculpted = false, characte
         </radialGradient>
       </defs>
       <ellipse cx="50" cy="86" rx="77" ry="75" fill={`url(#${haloId})`} />
-      <image href="/sky-preview/person.webp" x="-23.2" y="-42" width="146.4" height="207" preserveAspectRatio="xMidYMax meet" />
-      {item && <WornAccessory item={item} character="sculpted" animate={animate} />}
+      {wornArt
+        ? <image data-accessory={item} className={wornClass} href={wornArt} x="-23.2" y="-72" width="146.4" height="237" preserveAspectRatio="xMidYMax meet" />
+        : <image href="/sky-preview/person.webp" x="-23.2" y="-42" width="146.4" height="207" preserveAspectRatio="xMidYMax meet" />}
       <path d="M91 35 l1.4 3.6 3.6 1.4 -3.6 1.4 -1.4 3.6 -1.4 -3.6 -3.6 -1.4 3.6 -1.4z" fill="#f6cf7d" className="sky-person-spark" />
     </svg>
   );
