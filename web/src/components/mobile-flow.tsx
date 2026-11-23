@@ -5,6 +5,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import {ApiError, client, type Mode, type Star, type Help} from '@/lib/mobile-data';
 import NightSky from './night-sky';
 import PoliciesScreen from './policies-screen';
+import PolicySetup from './policy-setup';
 import CentersScreen from './centers-screen';
 import SkyPanorama from '@/app/sky-preview/sky-panorama';
 import { ProfileScreen, StartQuestions, startStepAnswered } from './profile-form';
@@ -110,7 +111,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
        if (mode === 'api' || mode === 'example') {
          M(mode);
          R(true);
-         if (screen === 'policy-criteria') return;
+         if (screen === 'policy-criteria' || screen === 'policy-setup') return;
          const sky = await client(mode).sky();
          if (active) {
            S(sky.stars);
@@ -399,6 +400,7 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
    <ScreenBar title="추천 기준" back="/policies" backLabel="정책 추천으로 돌아가기" />
    <ProfileScreen mode={mode} onSaved={() => router.replace('/policies')} />
  </>}
+ {screen==='policy-setup' && <PolicySetup mode={mode} onExit={() => router.push('/policies')} onSaved={() => router.replace('/policies')} />}
  {screen==='policies'&&<PoliciesScreen mode={mode} onError={reportError} onClearError={()=>E('')}/>}
  {screen==='centers'&&<CentersScreen mode={mode} centerId={centerId} from={centersFrom} onError={reportError} onHelp={H} onClearError={()=>E('')}/>}
  </>}{notice&&<p role="status">{notice}</p>}{!locked&&footer}</main></HelpContext.Provider>;

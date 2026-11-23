@@ -137,3 +137,12 @@ export function parseBirthYear(v: unknown, thisYear: number): number | null | un
 
 /** 모두 비었는지 (전부 답하지 않음 → DB에는 NULL로 저장) */
 export const isEmpty = (o: Record<string, unknown>) => Object.values(o).every((x) => x === null);
+
+/** 정책 추천 기준을 하나라도 알려 줬는지: 요즘의 나(시작 질문 ④~⑥) · 정책 신청 정보 · 출생연도.
+ *  시작 질문 ①~③은 데모를 시작할 때 이미 받으니 보지 않음. 배열은 비어 있어도("해당 없어요") 답한 것으로 봄 */
+export function hasRecommendationCriteria(p: { startAnswers: StartAnswers | null; policyInfo: PolicyInfo | null; birthYear: number | null }) {
+  const answered = (v: unknown) => v !== null && v !== undefined;
+  const s = p.startAnswers;
+  return answered(s?.support) || answered(s?.living) || answered(s?.needs)
+    || Object.values(p.policyInfo ?? {}).some(answered) || answered(p.birthYear);
+}
