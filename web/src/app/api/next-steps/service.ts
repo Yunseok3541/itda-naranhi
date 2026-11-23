@@ -59,7 +59,8 @@ export async function suggestNext(userId: number, body: unknown, db: Db = pool, 
     // The selected stop reason is explicit, not a diagnosis inferred by the model.
     let ai;
     try {
-      ai = options.length > 1 ? await generate<AiChoice>({
+      // 오늘 '쉬어 가기'를 고른 날(가벼운 별은 원할 때만)에는 AI를 부르지 않고 쉬어 가기를 먼저 권함
+      ai = options.length > 1 && !options.some(o => o.onRequest) ? await generate<AiChoice>({
         system: '사용자가 직접 고른 활동 결과와 멈춘 이유를 참고해 주어진 다음 별 후보 중 하나만 제안한다. 같은 별자리의 별을 먼저 고려한다. key는 후보에서만 고른다. reason은 해요체 80자 이내. 새로운 활동, 장소, 운영정보, 진단, 재촉, 과장, 자동 난이도 상승은 금지한다. 선택은 사용자가 하며 쉬어 가기도 동등한 선택이다. JSON만 출력한다.',
         prompt: JSON.stringify({ 결과: source.status, 멈춘_이유: source.stopReason,
           후보: options.map(o => ({ key: o.key, 행동: o.action, 제목: o.title, 별자리: o.constellationName ?? null, 설명: o.reason })) }),

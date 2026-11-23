@@ -117,7 +117,10 @@ function exampleContext(s: Store, attemptId: number) {
       constellationId: st.constellationId!, status: st.status,
       subQuests: q.easier_title ? [{ id: q.id, title: q.easier_title }] : [] };
   });
-  const latest = Object.values(s.checkins).at(-1)?.todayChoice;
+  // 실제 서버(next-steps/service.ts)와 같게 오늘(한국 시간) 체크인만. 체크인 번호 = 저장한 시각(ms)이라 날짜를 알 수 있음
+  // (예전에는 날짜와 상관없이 마지막 체크인을 써서, 며칠 전 '쉬어 가기'가 계속 남아 다음 별이 비었음)
+  const today = kstDay.format(new Date());
+  const latest = Object.entries(s.checkins).filter(([id]) => kstDay.format(Number(id)) === today).at(-1)?.[1].todayChoice;
   const scope: ActivityScope = latest && ['rest', 'home', 'near', 'out'].includes(latest) ? latest as ActivityScope : 'out';
   const help = ruleHelp(memory.reflection);
   const options = nextOptions(source, quests, scope).filter(o => !help || o.action === 'stop');

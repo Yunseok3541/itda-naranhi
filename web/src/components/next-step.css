@@ -9,3 +9,28 @@
 .next-step-active p { margin: 0; font-weight: 650; }
 .next-step-active p span { color: var(--star-gold, #f6cf7d); }
 .next-step-active .secondary { margin-top: 10px; }
+
+/* 다음 별 제안 아래 "또는" + 오늘은 여기서 마치기 (카드가 아닌 조용한 한 줄) */
+.next-step-or { display: flex; align-items: center; gap: 10px; margin: 18px 0 6px; font-size: .8125rem; color: var(--starlight-dim, #b9b0d6); }
+.next-step-or::before, .next-step-or::after { content: ''; flex: 1; height: 1px; background: rgba(255, 255, 255, .14); }
+.night-ui button.text-button.next-step-rest {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px;
+  width: 100%; min-height: 64px; margin: 0; padding: 10px 6px; border: 0; border-radius: 14px;
+  background: transparent; color: var(--starlight, #eee9ff); text-align: left; text-decoration: none;
+}
+.night-ui button.text-button.next-step-rest:hover { background: rgba(255, 255, 255, .04); }
+.night-ui button.text-button.next-step-rest:focus-visible { outline: 2px solid var(--star-gold, #f6cf7d); outline-offset: 2px; }
+.next-step-rest-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: rgba(190, 170, 255, .12); color: #d9c9ff; }
+.next-step-rest-icon svg { width: 20px; height: 20px; }
+.next-step-rest-text { display: grid; gap: 2px; }
+.next-step-rest-text b { font-size: .95rem; font-weight: 650; }
+.next-step-rest-text small { font-size: .8125rem; font-weight: 500; color: var(--starlight-dim, #b9b0d6); line-height: 1.4; }
+.next-step-rest-go { font-size: 1.2rem; color: var(--starlight-dim, #b9b0d6); }
+
+/* 오늘 '쉬어 가기'를 고른 날: 다음 별을 권하지 않은 이유 + 원할 때만 가벼운 별 보기 */
+.next-step-rest-day { margin: 12px 0 0; padding: 14px; border-radius: 14px; border: 1px solid rgba(190, 170, 255, .3); background: rgba(190, 170, 255, .07); }
+.next-step-rest-day p { margin: 0; line-height: 1.55; }
+.next-step-rest-day p b { color: #e6dcff; }
+.next-step-rest-day .small { margin-top: 4px; color: var(--starlight-dim, #b9b0d6); }
+.next-step-rest-day .secondary { margin-top: 10px; }
+.next-step-light-note { margin: 10px 0 0; color: var(--starlight-dim, #b9b0d6); }
