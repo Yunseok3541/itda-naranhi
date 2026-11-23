@@ -10,7 +10,8 @@ async function MindCheck({ searchParams }: { searchParams: MindCheckParams }) {
 }
 
 export default function MindCheckPage({ searchParams }: { searchParams: MindCheckParams }) {
-  return <Suspense fallback={<main className="shell">마음 짚기를 불러오고 있어요…</main>}>
+  // 대기 화면도 흰색 대신 밤하늘 배경 (청년센터·밤하늘과 같은 night-fallback)
+  return <Suspense fallback={<main className="shell sky-mode night-fallback"><p className="night-loading">마음 짚기를 불러오고 있어요…</p></main>}>
     <MindCheck searchParams={searchParams} />
   </Suspense>;
 }
