@@ -5,13 +5,31 @@ import { useId } from "react";
 // 사용자를 바라보며 한 손을 하늘로 흔듦. 메인에서는 오늘의 별을 여는 단추의 그림으로 쓴다.
 // 긴 머리·치마·속눈썹·화장처럼 성별을 떠올리게 하는 요소는 넣지 않는다
 // 예전 그림(public/sky-preview/foreground.webp)은 되돌리기용으로 남겨 둠
+// Size within the 100-unit profile circle, allowing room for each silhouette's
+// widest accessory. Keep this size stable when the wearer changes equipment.
+const portraitSize: Record<string, number> = {
+  baram: 83, dalkong: 86, doran: 73, moa: 79, mulggam: 80, noeul: 81,
+  person: 90, posil: 84, saebit: 76, sobok: 87, yeoul: 81, yunseul: 90,
+};
+
 export default function SkyPerson({ portrait = false, sculpted = false, character = 'person', item = null, animate = false }: {
   portrait?: boolean; sculpted?: boolean; character?: string; item?: AccessoryId | null; animate?: boolean;
 }) {
   const haloId = useId();
   const wornArt = item ? `/shop/worn/${character}-${item}.webp` : null;
   const wornClass = animate && item === 'star-pin' ? 'accessory-arrives' : undefined;
-  if (sculpted && character !== 'person') return <svg className="sky-person" viewBox={portrait ? '-28 17 156 156' : '0 0 100 172'} aria-hidden="true">
+  if (sculpted && portrait) {
+    const size = portraitSize[character] ?? 80;
+    const inset = (100 - size) / 2;
+    const baseArt = character === 'person' ? '/sky-preview/person.webp' : `/catalog/${character}.webp`;
+    return (
+      <svg className="sky-person" viewBox="0 0 100 100" aria-hidden="true">
+        <image href={wornArt ?? baseArt} data-accessory={item ?? undefined}
+          x={inset} y={inset} width={size} height={size} preserveAspectRatio="xMidYMid meet" />
+      </svg>
+    );
+  }
+  if (sculpted && character !== 'person') return <svg className="sky-person" viewBox="0 0 100 172" aria-hidden="true">
     <svg y="54" x="-8" width="116" height="116" viewBox="0 0 100 100" overflow="visible">
       {wornArt
         ? <image data-accessory={item} className={wornClass} href={wornArt} x="-9" y="-26" width="118" height="126" preserveAspectRatio="xMidYMax meet" />
@@ -19,7 +37,7 @@ export default function SkyPerson({ portrait = false, sculpted = false, characte
     </svg>
   </svg>;
   if (sculpted) return (
-    <svg className="sky-person" viewBox={portrait ? (item === 'moon-hat' ? '-43 -87 186 186' : '-34 -62 168 168') : '0 0 100 172'} aria-hidden="true">
+    <svg className="sky-person" viewBox="0 0 100 172" aria-hidden="true">
       <ellipse cx="50" cy="166" rx="24" ry="4.5" fill="#0b0818" opacity=".45" />
       <defs>
         <radialGradient id={haloId}>
