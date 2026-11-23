@@ -41,12 +41,11 @@ const navigation = [
 
 /** 시작 질문 3개 (별 순서 표시의 화면 읽기용 이름, profile-form.tsx answerFields와 같은 말) */
 const START_STEPS = ['활동 범위', '부담되는 상황', '활동 방식'];
-export default function MobileFlow({screen='sky',starId,centerId,completionAttemptId,memoryStarId,guide=false,tour=false,checkin=false,resumeToday=false,fromToday=false,mindCheckFrom='profile',centersFrom='sky'}:{
+export default function MobileFlow({screen='sky',starId,centerId,completionAttemptId,memoryStarId,guide=false,tour=false,checkin=false,resumeToday=false,fromToday=false,mindCheckFrom='profile'}:{
   screen?:string;
   /** 마음 짚기에 어디서 들어왔는지 (뒤로 가기 목적지) */
   mindCheckFrom?:'sky'|'profile';
-  /** 청년센터에 어디서 들어왔는지 (뒤로 가기 목적지) */
-  centersFrom?:'sky'|'policies';resumeToday?:boolean;fromToday?:boolean;starId?:number;centerId?:number;completionAttemptId?:number;memoryStarId?:number;
+  resumeToday?:boolean;fromToday?:boolean;starId?:number;centerId?:number;completionAttemptId?:number;memoryStarId?:number;
   /** 설정의 "사용 안내 다시 보기"(/sky?guide=1)로 들어왔으면 시작 안내부터 */
   guide?:boolean;
   /** /sky?tour=1: 메뉴 안내만 다시 띄움 (확인·시연용) */
@@ -111,7 +110,8 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
        if (mode === 'api' || mode === 'example') {
          M(mode);
          R(true);
-         if (screen === 'policy-criteria' || screen === 'policy-setup') return;
+         // 밤하늘 데이터(별·포인트)를 쓰지 않는 화면은 기다리지 않고 바로 그림 (청년센터: 예전엔 이걸 다 받을 때까지 대기 화면)
+         if (screen === 'policy-criteria' || screen === 'policy-setup' || screen === 'centers') return;
          const sky = await client(mode).sky();
          if (active) {
            S(sky.stars);
@@ -402,6 +402,6 @@ export default function MobileFlow({screen='sky',starId,centerId,completionAttem
  </>}
  {screen==='policy-setup' && <PolicySetup mode={mode} onExit={() => router.push('/policies')} onSaved={() => router.replace('/policies')} />}
  {screen==='policies'&&<PoliciesScreen mode={mode} onError={reportError} onClearError={()=>E('')}/>}
- {screen==='centers'&&<CentersScreen mode={mode} centerId={centerId} from={centersFrom} onError={reportError} onHelp={H} onClearError={()=>E('')}/>}
+ {screen==='centers'&&<CentersScreen mode={mode} centerId={centerId} onError={reportError} onHelp={H} onClearError={()=>E('')}/>}
  </>}{notice&&<p role="status">{notice}</p>}{!locked&&footer}</main></HelpContext.Provider>;
 }

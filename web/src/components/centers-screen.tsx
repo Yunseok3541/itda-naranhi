@@ -5,23 +5,27 @@
 // - 상세: 대표 영역(센터 이름·주소) → 센터 정보 · 프로그램 · 문의 문장 준비 · 앞까지 가 보기 카드
 // - 저장한 초안은 센터 소개 바로 아래에서 다시 불러올 수 있음
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useId, useRef, useState } from 'react';
 import { ApiError, request, type Help, type Mode } from '@/lib/mobile-data';
+import { cachedCenters, loadCenters, type CenterSummary } from '@/lib/centers-list';
 import { Hero, HeroIcon, MoreLinks, ScreenBar, Section } from './screen-kit';
 import SkyControlIcon from './sky-control-icon';
 import type { Center } from '@/app/api/_lib/centers-data';
 
 type CenterInfo = Omit<Center, 'id'> & { centerId: number };
-type CenterSummary = Pick<CenterInfo, 'centerId' | 'name' | 'address' | 'isSample'>;
 type Draft = { draftId: number; draft: string; help?: Help; usedFallback?: boolean };
 
-/** from: 어디서 들어왔는지. policies = 정책 화면 → 목록의 뒤로 가기는 정책 화면으로, sky(기본) → 내 밤하늘로 */
-export default function CentersScreen({ mode, centerId, from = 'sky', onError, onHelp, onClearError }: {
-  mode: Mode; centerId?: number; from?: 'sky' | 'policies'; onError: (error: unknown) => void; onHelp: (help: Help) => void; onClearError: () => void;
+export default function CentersScreen({ mode, centerId, onError, onHelp, onClearError }: {
+  mode: Mode; centerId?: number; onError: (error: unknown) => void; onHelp: (help: Help) => void; onClearError: () => void;
 }) {
-  const [centers, setCenters] = useState<CenterSummary[]>([]);
+  // 어디서 들어왔는지(?from=policies): 정책 화면 → 목록의 뒤로 가기는 정책 화면으로, 그 밖(기본) → 내 밤하늘로
+  // 페이지가 서버에서 읽지 않고 여기서 읽음 → 페이지를 미리 만들어 둘 수 있어 누르자마자 넘어감 (app/centers/page.tsx)
+  const from = useSearchParams().get('from') === 'policies' ? 'policies' : 'sky';
+  // 목록을 이미 받아 뒀으면(정책 화면에서 미리 불러 둠·다시 연 화면) 대기 문구 없이 바로 그림
+  const [centers, setCenters] = useState<CenterSummary[]>(() => cachedCenters() ?? []);
   const [center, setCenter] = useState<CenterInfo | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => centerId !== undefined || !cachedCenters());
   const [loadError, setLoadError] = useState('');
   const [retry, setRetry] = useState(0);
   const [question, setQuestion] = useState('');
@@ -42,14 +46,17 @@ export default function CentersScreen({ mode, centerId, from = 'sky', onError, o
   useEffect(() => {
     let active = true;
     async function load() {
-      setLoading(true); setLoadError(''); setCenter(null);
+      setLoadError('');
       try {
         if (centerId !== undefined) {
+          setLoading(true); setCenter(null);
           const data = await request<{ center: CenterInfo }>(`centers/${centerId}`);
           if (active) setCenter(data.center);
         } else {
-          const data = await request<{ centers: CenterSummary[] }>('centers?region=11440');
-          if (active) setCenters(data.centers);
+          const cached = cachedCenters();
+          if (!cached) setLoading(true);
+          const list = cached ?? await loadCenters();
+          if (active) setCenters(list);
         }
       } catch {
         if (active) setLoadError('센터 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
@@ -106,10 +113,12 @@ export default function CentersScreen({ mode, centerId, from = 'sky', onError, o
   if (centerId === undefined) return <>
     <ScreenBar title="청년센터" {...(from === 'policies' ? { back: '/policies', backLabel: '정책 추천으로 돌아가기' } : {})} />
     <Hero visual={<HeroIcon tone="lavender">⌖</HeroIcon>} title="사람 곁으로, 천천히" message="들어가지 않아도 괜찮아요. 어떤 곳인지 먼저 살펴봐요." chip="서울 마포구 기준" />
-    {loadingNote}{failed}
-    {!loading && !loadError && <Section id="center-list" title="우리 동네 청년센터">
-      {centers.length === 0 && <p>현재 표시할 센터가 없어요.</p>}
-      {centers.map(item => <section className="card" key={item.centerId}>
+    {failed}
+    {/* 불러오는 동안에도 제목은 그 자리에 두어 목록이 들어올 때 화면이 덜 밀리게 */}
+    {!loadError && <Section id="center-list" title="우리 동네 청년센터">
+      {loadingNote}
+      {!loading && centers.length === 0 && <p>현재 표시할 센터가 없어요.</p>}
+      {!loading && centers.map(item => <section className="card" key={item.centerId}>
         {item.isSample && <div className="card-tags"><span>가상 센터 · 실제 운영 정보 아님</span></div>}
         <h3>{item.name}</h3>
         <p>{item.address}</p>

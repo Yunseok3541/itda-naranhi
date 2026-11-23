@@ -29,8 +29,9 @@
   --person-height: 17dvh;
 }
 /* 고정 배경(background-attachment: fixed)을 지원하지 않는 브라우저(iOS Safari 등)에서도 흰 부분이 보이지 않게 기본색 */
-html.sky-night-page { background: #0d0820; color-scheme: dark; /* 체크박스·선택 목록 같은 브라우저 기본 입력칸도 어둡게 */ }
-html.sky-night-page body {
+/* main.night-fallback: 화면이 준비되기 전 대기 화면(페이지의 Suspense fallback)도 흰색이 아닌 밤하늘로 (MobileFlow가 html에 표시를 붙이기 전) */
+html.sky-night-page, html:has(main.night-fallback) { background: #0d0820; color-scheme: dark; /* 체크박스·선택 목록 같은 브라우저 기본 입력칸도 어둡게 */ }
+html.sky-night-page body, html:has(main.night-fallback) body {
   background:
     radial-gradient(120% 70% at 50% 110%, rgba(120, 82, 200, .35), transparent 60%),
     radial-gradient(90% 50% at 15% 10%, rgba(70, 90, 200, .22), transparent 70%),
