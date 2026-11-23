@@ -1,15 +1,20 @@
 import { Suspense } from 'react';
 import MobileFlow from '@/components/mobile-flow';
+import { CENTERS } from '@/app/api/_lib/centers-data';
 
-type DetailParams = Promise<{ from?: string | string[] }>;
-
-async function Detail({ params, searchParams }: { params: Promise<{ centerId: string }>; searchParams: DetailParams }) {
-  const { centerId } = await params;
-  const { from } = await searchParams;
-  // 정책 화면에서 목록을 거쳐 왔으면 목록으로 돌아갈 때도 그 표시를 이어 감
-  return <MobileFlow screen="centers" centerId={Number(centerId)} centersFrom={from === 'policies' ? 'policies' : 'sky'} />;
+// 센터 목록은 코드에 있는 고정 데이터라 상세 화면도 미리 만들어 둠 → 목록에서 누르면 서버를 기다리지 않고 바로 넘어감
+// (목록에 없는 번호는 지금처럼 요청 때 그림. 들어온 곳 ?from=policies는 화면이 주소에서 직접 읽음)
+export function generateStaticParams() {
+  return CENTERS.map(center => ({ centerId: String(center.id) }));
 }
 
-export default function Page({ params, searchParams }: { params: Promise<{ centerId: string }>; searchParams: DetailParams }) {
-  return <Suspense fallback={<main className="shell">센터를 불러오고 있어요…</main>}><Detail params={params} searchParams={searchParams} /></Suspense>;
+async function Detail({ params }: { params: Promise<{ centerId: string }> }) {
+  const { centerId } = await params;
+  return <MobileFlow screen="centers" centerId={Number(centerId)} />;
+}
+
+export default function Page({ params }: { params: Promise<{ centerId: string }> }) {
+  return <Suspense fallback={<main className="shell sky-mode night-fallback"><p className="night-loading">센터를 불러오고 있어요…</p></main>}>
+    <Detail params={params} />
+  </Suspense>;
 }
