@@ -1,10 +1,10 @@
 "use client";
 // 별 일기 (/journal): 내가 남긴 별 기록을 하루씩 모아 다시 보는 곳 (체크인과 별 시도를 날짜별로 모아 보기)
-// - 위: 밤하늘 달력. 기록한 날만 별이 켜짐 (해낸 별 = 금빛, 손 뻗은 별만 = 희미한 별, 사진 = 작은 점)
+// - 위: 밤하늘 달력. 기록한 날만 별이 켜짐 (딴 별 = 금빛, 손 뻗은 별만 = 희미한 별, 사진 = 작은 점)
 //   기록 없는 날은 숫자만. "N일 연속"·빈 날 표시·달성률은 넣지 않음 (매일 오지 않아도 된다는 원칙)
 // - 아래: 그 달의 하루 카드 (별·상태·한 줄·사진). 달력의 날을 누르면 그날 카드로
 // - 다시 꺼내 보는 카드: 일주일 전 오늘 / 처음 딴 별
-// - 골라 보기: 전체 · 해낸 별 · 손 뻗은 별 · 사진
+// - 골라 보기: 전체 · 딴 별 · 손 뻗은 별 · 사진
 // 날짜는 한국 시간 기준 (record-date.ts와 같은 기준)
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
@@ -21,7 +21,7 @@ type Entry = {
 };
 type Filter = 'all' | 'bright' | 'dim' | 'photo';
 const FILTERS: { value: Filter; label: string }[] = [
-  { value: 'all', label: '전체' }, { value: 'bright', label: '해낸 별' }, { value: 'dim', label: '손 뻗은 별' }, { value: 'photo', label: '사진' },
+  { value: 'all', label: '전체' }, { value: 'bright', label: '딴 별' }, { value: 'dim', label: '손 뻗은 별' }, { value: 'photo', label: '사진' },
 ];
 const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -203,7 +203,7 @@ export default function StarJournal({ mode }: { mode: Mode }) {
               <span className="journal-num">{number}</span>{isToday && <span className="sr-only">, 오늘</span>}
             </span>;
             const glow = Math.min(3, bright);
-            const label = [`${dayLabel(day)}${isToday ? ', 오늘' : ''}`, bright && `해낸 별 ${bright}개`, dim && `손 뻗은 별 ${dim}개`, photos && `사진 ${photos}장`, notes && `오늘의 한 줄 ${notes}개`].filter(Boolean).join(', ');
+            const label = [`${dayLabel(day)}${isToday ? ', 오늘' : ''}`, bright && `딴 별 ${bright}개`, dim && `손 뻗은 별 ${dim}개`, photos && `사진 ${photos}장`, notes && `오늘의 한 줄 ${notes}개`].filter(Boolean).join(', ');
             return <button key={day} type="button" aria-label={label}
               className={`text-button journal-cell journal-day${isToday ? ' today' : ''}${focusDay === day ? ' selected' : ''}`}
               data-glow={glow || undefined} onClick={() => openDay(day)}>
@@ -214,7 +214,7 @@ export default function StarJournal({ mode }: { mode: Mode }) {
           })}
         </div>
         <p className="journal-legend" aria-hidden="true">
-          <span><StatusStar status="bright" />해낸 별</span>
+          <span><StatusStar status="bright" />딴 별</span>
           <span><StatusStar status="dim" />손 뻗은 별</span>
           <span><i className="journal-photo-dot" />사진</span>
           <span><SkyControlIcon name="moon" />오늘의 한 줄</span>
@@ -223,7 +223,7 @@ export default function StarJournal({ mode }: { mode: Mode }) {
 
       <Summary label={`${monthLabel(month)} 기록`} items={[
         { value: recordDays.size, label: '기록한 날' },
-        { value: brightCount, label: '해낸 별' },
+        { value: brightCount, label: '딴 별' },
         { value: dimCount, label: '손 뻗은 별' },
       ]} />
 
